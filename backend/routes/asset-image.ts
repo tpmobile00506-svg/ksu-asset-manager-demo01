@@ -1,6 +1,7 @@
 import { checkOrigin, member } from '../auth/sessions';
 import { ApiError, allow } from '../services/asset-service';
 import { ASSET_IMAGE_MAX_BYTES, deleteAssetImage, getAssetImage, saveAssetImage } from '../services/asset-images';
+import { boundedFormData } from '../services/request-body';
 import { fail } from './data';
 
 const privateHeaders = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
@@ -34,15 +35,7 @@ export async function POST(request: Request) {
     const user = await member(request);
     allow(user, ['staff', 'admin']);
     if (!request.headers.get('content-type')?.includes('multipart/form-data')) throw new ApiError('กรุณาส่งรูปภาพในรูปแบบ multipart/form-data');
-    const maxBodyBytes = ASSET_IMAGE_MAX_BYTES + 256 * 1024;
-    if (Number(request.headers.get('content-length')) > maxBodyBytes) throw new ApiError('รูปภาพต้องไม่เกิน 4 MB', 413);
-    
-    let form: FormData;
-    try {
-      form = await request.formData();
-    } catch {
-      throw new ApiError('รูปแบบคำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
-    }
+    const form = await boundedFormData(request, ASSET_IMAGE_MAX_BYTES + 256 * 1024, 'รูปภาพต้องไม่เกิน 4 MB');
     return Response.json(await saveAssetImage(user, form), { headers: privateHeaders });
   } catch (error) { return failure(error); }
 }

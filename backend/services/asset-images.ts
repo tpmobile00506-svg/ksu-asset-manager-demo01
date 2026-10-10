@@ -5,6 +5,8 @@ import { assetImageKey, assetImageUrl } from '../storage/asset-image-metadata';
 
 export const ASSET_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
 export const ASSET_IMAGE_MAX_PIXELS = 25_000_000;
+// ตรวจเวอร์ชันรูปแล้วเขียนทับ ต้องอยู่ใน Serializable เหมือน mutate() ไม่เช่นนั้นสองคำขอพร้อมกันผ่านการตรวจทั้งคู่และเขียนทับกัน
+const serializable = { isolationLevel: 'Serializable' as const };
 
 let sharpModule: any = null;
 let sharpLoadAttempted = false;
@@ -122,7 +124,7 @@ export async function saveAssetImage(member: Member, form: FormData) {
       previous ? { imageVersion: previous.createdAt.toISOString() } : null,
       { imageVersion: version, contentType: 'image/webp', bytes: normalized.body.length, width: normalized.width, height: normalized.height });
     return version;
-  });
+  }, serializable);
   return { ok: true, imageVersion, imageUrl: assetImageUrl(assetId, imageVersion) };
 }
 
@@ -143,6 +145,6 @@ export async function deleteAssetImage(member: Member, input: unknown) {
     if (previous.createdAt.toISOString() !== expectedVersion) throw new ApiError('รูปภาพเปลี่ยนแล้ว กรุณาโหลดข้อมูลใหม่ก่อนลบ', 409);
     await tx.storedFile.delete({ where: { key } });
     await audit(tx, user, 'ลบรูปครุภัณฑ์', assetId, { imageVersion: previous.createdAt.toISOString() }, null);
-  });
+  }, serializable);
   return { ok: true, imageVersion: null, imageUrl: null };
 }

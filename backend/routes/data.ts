@@ -1,6 +1,7 @@
 import { member, checkOrigin } from '../auth/sessions';
 import { getData, upload, ApiError } from '../services/asset-service';
 import { mutate } from '../services/asset-mutations';
+import { boundedFormData, boundedJson } from '../services/request-body';
 import { json } from '../db/client';
 export function fail(error: unknown) {
   if (error instanceof ApiError) return Response.json({ error: error.message }, { status: error.status });
@@ -20,8 +21,8 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await member(request);
-    if (Number(request.headers.get('content-length')) > 4.25 * 1024 * 1024) throw new ApiError('ไฟล์ต้องไม่เกิน 4 MB', 413);
-    const value = request.headers.get('content-type')?.includes('multipart/form-data') ? await upload(user, await request.formData()) : await mutate(user, await request.json());
+    const limit = 4.25 * 1024 * 1024, tooLarge = 'ไฟล์ต้องไม่เกิน 4 MB';
+    const value = request.headers.get('content-type')?.includes('multipart/form-data') ? await upload(user, await boundedFormData(request, limit, tooLarge)) : await mutate(user, await boundedJson(request, limit, tooLarge) as Parameters<typeof mutate>[1]);
     return response(value);
   } catch (error) { return fail(error); }
 }
