@@ -1,0 +1,6 @@
+# บันทึกไฟล์ข้อความเป็น UTF-8 (ไม่มี BOM) เสมอ เพื่อไม่ให้ภาษาไทยเพี้ยน
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
