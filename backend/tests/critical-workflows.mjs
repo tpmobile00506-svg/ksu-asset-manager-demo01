@@ -211,6 +211,62 @@ asset = good(await call('staff')).assets.find(x => x.id === asset.id);
 assert.equal(asset.lifecycle, 'disposed', 'Disposal must preserve the record');
 console.log('PASS assets: BIGINT JSON, exact split, parallel replay, competing split, stale updates, independent units, transfer/repair/disposal approvals');
 
+// กฎ: คำขอที่ระบุจำนวนบางส่วนจะแบ่งล็อตเมื่อ "อนุมัติขั้นสุดท้าย" เท่านั้น (ไม่แบ่งตอนยื่น ไม่แบ่งเมื่อถูกส่งกลับ)
+// ตัวเลขคำนวณมือ: เก้าอี้ 200 ตัว ตัวละ 1,250.00 บาท = 125,000 สตางค์ รวม 25,000,000 สตางค์
+//   ขอ 50 ตัว: 50/200 x 25,000,000 = 6,250,000 ; ที่เหลือ 150 ตัว = 18,750,000 (6,250,000 + 18,750,000 = 25,000,000)
+const splitProto = { ...proto, code: 'SPLITREQ-' + suffix, quantity: 200, unitSatang: 125000, totalSatang: 25000000 };
+const splitParentId = good(await call('staff', { action: 'create', asset: splitProto })).id;
+const splitParentNow = async () => good(await call('staff')).assets.find(x => x.id === splitParentId);
+const childrenOfParent = async () => good(await call('staff')).assets.filter(x => x.parentId === splitParentId);
+let splitAsset = await splitParentNow();
+const sendSplitRequest = async () => {
+  splitAsset = await splitParentNow();
+  good(await call('staff', { action: 'request', id: splitAsset.id, version: splitAsset.version, kind: 'repair', splitQuantity: 50, payload: { estimateSatang: 100000 }, reason: 'ขอซ่อมบางส่วน 50 ตัว' }));
+  return good(await call('head')).requests.find(x => x.assetId === splitParentId && x.status === 'pending');
+};
+// 1) ตอนยื่นคำขอ: ทะเบียนไม่เปลี่ยน ไม่มีล็อตใหม่ คำขอจดจำนวนที่ขอไว้
+let splitRequest = await sendSplitRequest();
+splitAsset = await splitParentNow();
+assert.equal(splitAsset.lifecycle, 'active', 'Requesting a partial lot must not split it yet');
+assert.equal(splitAsset.quantity, 200);
+assert.equal((await childrenOfParent()).length, 0, 'No lots may be created at request time');
+assert.equal(JSON.parse(splitRequest.payload).splitQuantity, 50);
+// 2) ถูกส่งกลับ: ทะเบียนไม่เปลี่ยน ไม่มีล็อตที่ต้องย้อนคืน
+good(await call('head', { action: 'reject', id: splitRequest.id, version: splitRequest.version, reason: 'ยังไม่จำเป็น' }));
+splitAsset = await splitParentNow();
+assert.equal(splitAsset.lifecycle, 'active', 'A rejected request must leave the register unchanged');
+assert.equal(splitAsset.quantity, 200);
+assert.equal((await childrenOfParent()).length, 0, 'Nothing to undo after rejection');
+// 3) อนุมัติขั้นกลาง (หัวหน้า) ยังไม่แบ่งล็อต
+splitRequest = await sendSplitRequest();
+good(await call('head', { action: 'approve', id: splitRequest.id, version: splitRequest.version, reason: 'เห็นชอบ' }));
+assert.equal((await childrenOfParent()).length, 0, 'Intermediate approval must not split the lot');
+// 4) อนุมัติครบทุกขั้น: แบ่งเป็น 50 + 150 และเปลี่ยนสถานะเฉพาะล็อต 50 ตัว
+for (const role of ['deputy', 'dean']) {
+  const current = good(await call(role)).requests.find(x => x.id === splitRequest.id);
+  good(await call(role, { action: 'approve', id: current.id, version: current.version, reason: 'เห็นชอบในการทดสอบ' }));
+}
+const splitState = good(await call('staff'));
+assert.equal(splitState.assets.find(x => x.id === splitParentId).lifecycle, 'split');
+const lots = splitState.assets.filter(x => x.parentId === splitParentId);
+assert.equal(lots.length, 2);
+const target = lots.find(x => x.quantity === 50), remainder = lots.find(x => x.quantity === 150);
+assert.ok(target && remainder, 'Lots must be 50 and 150 units');
+assert.equal(target.totalSatang, 6250000);
+assert.equal(remainder.totalSatang, 18750000);
+assert.equal(target.totalSatang + remainder.totalSatang, 25000000, 'Split must preserve the total value');
+assert.equal(target.condition, 'repair');
+assert.equal(remainder.condition, 'normal');
+const approvedSplit = splitState.requests.find(x => x.id === splitRequest.id);
+assert.equal(approvedSplit.status, 'approved');
+assert.equal(approvedSplit.assetId, target.id, 'The approved request must follow the lot that was actually repaired');
+// 5) บันทึกซ่อมเสร็จของล็อต 50 ตัว ไม่กระทบอีก 150 ตัว
+good(await call('staff', { action: 'repairComplete', id: target.id, version: target.version, costSatang: 5000, repairedBy: 'ร้านทดสอบ', reason: 'ซ่อมเสร็จ' }));
+const afterRepair = good(await call('staff')).assets;
+assert.equal(afterRepair.find(x => x.id === target.id).condition, 'normal');
+assert.equal(afterRepair.find(x => x.id === remainder.id).quantity, 150);
+console.log('PASS split-at-approval: no split on request or rejection, 50 + 150 lots (6,250,000 + 18,750,000 satang) only after final approval');
+
 const racedId = good(await call('staff', { action: 'create', asset: { ...proto, code: 'RACE-' + suffix } })).id;
 const racedAsset = good(await call('staff')).assets.find(x => x.id === racedId);
 const competingRequests = await Promise.all([1, 2].map(n => call('staff', {
