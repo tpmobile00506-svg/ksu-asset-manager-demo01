@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model StoredFile {
+  key       String   @id
+  body      Bytes
+  createdAt DateTime @default(now())
+  @@map("stored_files")
+}
+
+model LoginAttempt {
+  key         String   @id
+  attempts    Int
+  windowStart DateTime
+  @@map("login_attempts")
+}
+
+model User {
+  id           String @id
+  email        String @unique(map: "users_email")
+  name         String
+  role         String
+  branch       String?
+  active       Int    @default(1)
+  passwordHash String @default("")
+  createdAt    String
+  sessions     Session[]
+  @@map("users")
+}
+
+model Session {
+  tokenHash String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+// Retained for lossless migration of existing invitations.
+model Invite {
+  email  String @id
+  role   String
+  name   String
+  branch String?
+  active Int @default(1)
+  @@map("invites")
+}
+
+model Setting {
+  key   String @id
+  value String
+  @@map("settings")
+}
+
+model Category {
+  name   String @id
+  assets Asset[]
+  @@map("categories")
+}
+
+model Branch {
+  name   String @id
+  assets Asset[]
+  @@map("branches")
+}
+
+model Location {
+  name   String @id
+  assets Asset[]
+  @@map("locations")
+}
+
+model AssetGroup {
+  name        String @id
+  description String
+  assets      Asset[]
+  @@map("asset_groups")
+}
+
+model ImportFile {
+  id        String @id
+  name      String
+  hash      String @unique(map: "imports_hash")
+  objectKey String
+  rowCount  Int
+  createdAt String
+  actor     String
+  @@map("imports")
+}
+
+model SourceRow {
+  id        String @id
+  sourceId  String
+  sourceRow String
+  raw       String @db.Text
+  decision  String
+  reason    String
+  actor     String
+  createdAt String
+  @@unique([sourceId, sourceRow], map: "source_row_once")
+  @@map("source_rows")
+}
+
+model Asset {
+  id           String @id
+  code         String @unique(map: "asset_code_unique")
+  name         String
+  quantity     Int
+  unitSatang   BigInt
+  totalSatang  BigInt
+  notes        String @default("")
+  location     String
+  branch       String
+  category     String
+  groupName    String
+  condition    String @default("normal")
+  lifecycle    String @default("active")
+  version      Int    @default(1)
+  parentId     String?
+  sourceId     String?
+  sourceRow    String?
+  receivedDate String @default("")
+  lifeYears    Int    @default(0)
+  salvageSatang BigInt @default(0)
+  serial       String @default("")
+  brand        String @default("")
+  custodian    String @default("")
+  createdAt    String
+  locationRef  Location   @relation(fields: [location], references: [name])
+  branchRef    Branch     @relation(fields: [branch], references: [name])
+  categoryRef  Category   @relation(fields: [category], references: [name])
+  groupRef     AssetGroup @relation(fields: [groupName], references: [name])
+  requests     AssetRequest[]
+  repairs      RepairRecord[]
+  stocktakeItems StocktakeItem[]
+  @@index([lifecycle, branch], map: "asset_lifecycle_branch")
+  @@index([parentId], map: "asset_parent")
+  @@map("assets")
+}
+
+// ประวัติการซ่อมบำรุง: บันทึกเมื่อกด "บันทึกซ่อมเสร็จ" (ผู้ซ่อม ค่าใช้จ่ายจริง ผลการซ่อม)
+model RepairRecord {
+  id         String  @id
+  assetId    String
+  requestId  String?
+  repairedBy String  @default("")
+  costSatang BigInt  @default(0)
+  result     String  @default("")
+  actor      String
+  createdAt  String
+  asset      Asset   @relation(fields: [assetId], references: [id])
+  @@index([assetId], map: "repair_asset_id")
+  @@map("repair_records")
+}
+
+model Operation {
+  id          String @id
+  valid       Int @default(1)
+  actor       String
+  createdAt   String
+  requestHash String @default("")
+  response    String @default("{}")
+  @@map("operations")
+}
+
+model Audit {
+  id        String @id
+  assetId   String?
+  actor     String
+  actorName String
+  action    String
+  before    String @db.Text
+  after     String @db.Text
+  reason    String
+  createdAt String
+  @@index([assetId, createdAt], map: "audit_asset")
+  @@index([createdAt], map: "audit_created_at")
+  @@map("audit")
+}
+
+model AssetRequest {
+  id           String @id
+  assetId      String
+  assetVersion Int
+  kind         String
+  payload      String @db.Text
+  reason       String
+  stage        Int @default(0)
+  chain        String
+  status       String @default("pending")
+  version      Int @default(1)
+  actor        String
+  createdAt    String
+  asset        Asset @relation(fields: [assetId], references: [id])
+  approvals    Approval[]
+  @@index([status], map: "request_status")
+  @@index([assetId], map: "request_asset_id")
+  @@map("requests")
+}
+
+model Approval {
+  id        String @id
+  requestId String
+  stage     Int
+  decision  String
+  actor     String
+  note      String
+  createdAt String
+  request   AssetRequest @relation(fields: [requestId], references: [id])
+  @@unique([requestId, stage], map: "approval_stage_once")
+  @@map("approvals")
+}
+
+model Stocktake {
+  id        String @id
+  name      String
+  year      Int
+  status    String @default("open")
+  createdAt String
+  closedAt  String?
+  items     StocktakeItem[]
+  @@map("stocktakes")
+}
+
+model StocktakeItem {
+  id        String @id
+  roundId   String
+  assetId   String
+  snapshot  String @db.Text
+  result    String @default("pending")
+  quantity  Int?
+  notes     String @default("")
+  actor     String?
+  checkedAt String?
+  round     Stocktake @relation(fields: [roundId], references: [id])
+  asset     Asset @relation(fields: [assetId], references: [id])
+  @@unique([roundId, assetId], map: "stocktake_asset_once")
+  @@index([assetId], map: "stocktake_item_asset_id")
+  @@map("stocktake_items")
+}
