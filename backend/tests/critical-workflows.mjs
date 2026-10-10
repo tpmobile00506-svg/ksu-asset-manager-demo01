@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import ExcelJS from 'exceljs';
-import { splitAmounts, expandRange, classify, satang, bookValue, headers11 } from '../contracts/domain.ts';
+import { splitAmounts, expandRange, classify, satang, bookValue, headers11, standardBranches } from '../contracts/domain.ts';
+
+const testBranch = standardBranches[0];
 
 // Run only against a separately seeded local test database/server. Never load .env here.
 assert.deepEqual(splitAmounts(400, 37000000, 189), [17482500, 19517500]);
@@ -108,7 +110,8 @@ assert.equal((await fetch(new URL('/api/data', base), { headers: { 'oai-authenti
 good(await login('admin'));
 assert.equal(good(await call('admin')).me.role, 'admin');
 for (const role of ['staff', 'head', 'deputy', 'dean']) {
-  good(await call('admin', { action: 'user', email: identities[role].email, name: `${role} ${suffix}`, role, active: true, password: initialPassword }));
+  // หัวหน้าสาขาอนุมัติได้เฉพาะสาขาตนเอง จึงต้องกำหนดสาขามาตรฐานให้ผู้ใช้ head
+  good(await call('admin', { action: 'user', email: identities[role].email, name: `${role} ${suffix}`, role, active: true, password: initialPassword, ...(role === 'head' ? { branch: testBranch } : {}) }));
   good(await login(role));
   assert.equal(good(await call(role)).me.role, role);
 }
@@ -132,7 +135,7 @@ for (const route of ['/api/data', '/api/auth/login', '/api/auth/logout']) {
 good(await call('staff'));
 console.log('PASS authentication: real cookies, five roles, no forged identity headers, malformed JSON, cross-origin rejection');
 
-const proto = { code: 'CHAIR-' + suffix, name: 'เก้าอี้ทดสอบ', quantity: 400, unitSatang: 92500, totalSatang: 37000000, location: 'ห้องทดสอบ', branch: 'ทดสอบ', category: 'ครุภัณฑ์สำนักงาน', condition: 'normal', groupName: 'ชุดทดสอบ ' + suffix, notes: '', receivedDate: '', lifeYears: 0, salvageSatang: 0 };
+const proto = { code: 'CHAIR-' + suffix, name: 'เก้าอี้ทดสอบ', quantity: 400, unitSatang: 92500, totalSatang: 37000000, location: 'ห้องทดสอบ', branch: testBranch, category: 'ครุภัณฑ์สำนักงาน', condition: 'normal', groupName: 'ชุดทดสอบ ' + suffix, notes: '', receivedDate: '', lifeYears: 0, salvageSatang: 0 };
 const parent = good(await call('staff', { action: 'create', asset: proto })).id;
 let state = good(await call('staff'));
 let asset = state.assets.find(x => x.id === parent);
@@ -184,7 +187,7 @@ state = good(await call('staff'));
 assert.equal(state.assets.find(x => x.id === units[1].id).condition, 'normal');
 asset = state.assets.find(x => x.id === units[1].id);
 assert.equal((await call('staff', { action: 'edit', id: asset.id, version: asset.version, asset: { ...asset, condition: 'repair' }, reason: 'ข้ามคำขอซ่อม' })).status, 400);
-good(await call('staff', { action: 'request', id: asset.id, version: asset.version, kind: 'transfer', payload: { location: 'ปลายทาง', branch: 'สาขาใหม่' }, reason: 'ขอโอนย้าย' }));
+good(await call('staff', { action: 'request', id: asset.id, version: asset.version, kind: 'transfer', payload: { location: 'ปลายทาง', branch: testBranch }, reason: 'ขอโอนย้าย' }));
 let request = good(await call('head')).requests.find(x => x.assetId === asset.id && x.status === 'pending');
 assert.equal((await call('admin', { action: 'approve', id: request.id, version: request.version })).status, 403);
 assert.equal((await call('dean', { action: 'approve', id: request.id, version: request.version })).status, 403);
@@ -198,7 +201,7 @@ request = good(await call('head')).requests.find(x => x.assetId === asset.id && 
 await approveRequest(request.id);
 asset = good(await call('staff')).assets.find(x => x.id === asset.id);
 assert.equal(asset.condition, 'repair');
-good(await call('staff', { action: 'repairComplete', id: asset.id, version: asset.version, costSatang: 12550, reason: 'เปลี่ยนอะไหล่' }));
+good(await call('staff', { action: 'repairComplete', id: asset.id, version: asset.version, costSatang: 12550, repairedBy: 'ร้านทดสอบ', reason: 'เปลี่ยนอะไหล่' }));
 asset = good(await call('staff')).assets.find(x => x.id === asset.id);
 assert.equal(asset.condition, 'normal');
 good(await call('staff', { action: 'request', id: asset.id, version: asset.version, kind: 'disposal', reason: 'ขอจำหน่าย' }));
