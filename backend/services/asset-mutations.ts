@@ -1,12 +1,60 @@
 import { createHash } from 'node:crypto';
-import { prisma, json, type Transaction, Prisma } from '../db/client';
+import { prisma, json, plain, type Transaction, Prisma } from '../db/client';
 import { freshMember, publicUserFields, hashPassword, type Member } from '../auth/sessions';
-import { type Asset, type Candidate, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, normalizeBranch } from '../contracts/domain';
-import { ApiError, clean, allow, now, id, asset, audit, dimensions, financialData, insertAsset, validated, getSource } from './asset-service';
+import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, normalizeBranch, branchAbbr, codeKey, markExistingCodes } from '../contracts/domain';
+import { ApiError, clean, allow, now, id, asset, audit, dimensions, financialData, insertAsset, validated, getSource, registeredCodes } from './asset-service';
 import { assetImageKey } from '../storage/asset-image-metadata';
 import { validate, userMutationSchema, workflowMutationSchema, assetRequestSchema, approvalMutationSchema } from '../validation';
 
 type Input = Record<string, any>;
+// รหัสชุดคงที่ต่อไฟล์ต้นฉบับ แถวในชุดเดียวกันที่นำเข้าคนละครั้งจึงเข้าชุดเดิม
+export function setIdFor(sourceId: string, setKey: string) {
+  return 'set-' + createHash('sha256').update(sourceId + '\n' + setKey).digest('hex').slice(0, 24);
+}
+async function linkToSet(tx: Transaction, sourceId: string | null, set: CandidateSet | undefined) {
+  if (!sourceId || !set) return {};
+  const setId = setIdFor(sourceId, set.key);
+  await tx.assetSet.upsert({ where: { id: setId }, create: { id: setId, name: set.name, kind: set.kind, createdAt: now() }, update: {} });
+  return { setId, setRole: set.role ?? 'member' };
+}
+// หัวทุนจากไฟล์ต้นฉบับ: สร้างรายชื่อทุนไว้ และจดเป็น "รายการแนะนำ" (fundHintId) ยังไม่นับว่ามาจากทุนจนเจ้าหน้าที่ยืนยัน
+// หัวเดียวกันที่พิมพ์ซ้ำทุกหน้า/ทุกแผ่น (ชื่อเหมือนกัน ไม่สนช่องว่างซ้อน) = ทุนเดียวกัน
+const fundName = (name: string) => name.trim().replace(/\s+/g, ' ');
+async function fundIdsByName(tx: Transaction) {
+  const funds = await tx.assetSet.findMany({ where: { kind: 'fund' }, select: { id: true, name: true } });
+  return new Map(funds.map(f => [fundName(f.name), f.id]));
+}
+async function hintFund(tx: Transaction, sourceId: string | null, fund: CandidateFund | undefined) {
+  if (!sourceId || !fund) return {};
+  const name = fundName(fund.name);
+  const existing = (await fundIdsByName(tx)).get(name);
+  if (existing) return { fundHintId: existing };
+  const fundHintId = setIdFor(sourceId, 'fund:' + name);
+  await tx.assetSet.upsert({ where: { id: fundHintId }, create: { id: fundHintId, name, kind: 'fund', createdAt: now() }, update: {} });
+  return { fundHintId };
+}
+// หมายเลขครุภัณฑ์ห้ามซ้ำ (เทียบด้วย codeKey) และบอกให้ชัดว่าซ้ำกับรายการไหน แทนข้อความกลางๆ จากฐานข้อมูล
+export { codeKey };
+// registered: รายการรหัสในทะเบียนที่อ่านไว้แล้วใน transaction เดียวกัน (นำเข้าแบบกลุ่ม) ไม่ต้องอ่านทั้งตารางซ้ำ
+async function assertCodesFree(tx: Transaction, codes: string[], exceptId?: string, registered?: Map<string, string>) {
+  const wanted = new Map(codes.map(c => [codeKey(c), c]));
+  if (wanted.size !== codes.length) throw new ApiError('หมายเลขครุภัณฑ์ในรายการที่เพิ่มซ้ำกันเอง กรุณาตรวจสอบ', 409);
+  if (registered) {
+    const dup = [...wanted].find(([key]) => registered.has(key));
+    if (dup) throw new ApiError(`หมายเลขครุภัณฑ์ ${dup[1]} ซ้ำกับรายการที่มีในทะเบียนแล้ว: ${registered.get(dup[0])}`, 409);
+    return;
+  }
+  const existing = await tx.asset.findMany({ select: { id: true, code: true, name: true, branch: true, lifecycle: true } });
+  const hit = existing.find(a => a.id !== exceptId && wanted.has(codeKey(a.code)));
+  if (hit) {
+    const state = hit.lifecycle === 'disposed' ? ' ซึ่งจำหน่ายแล้ว' : hit.lifecycle === 'split' ? ' (ประวัติการแบ่งล็อต)' : '';
+    throw new ApiError(`หมายเลขครุภัณฑ์ ${wanted.get(codeKey(hit.code))} ซ้ำกับรายการที่มีในทะเบียนแล้ว: ${hit.code} · ${hit.name} · ${branchAbbr(hit.branch)}${state}`, 409);
+  }
+}
+// ครุภัณฑ์ในชุดเดียวกันที่ยังใช้งาน (ห้ามแยก: โอนย้าย/จำหน่ายต้องทำทั้งชุด)
+async function setMembers(tx: Transaction, setId: string) {
+  return tx.asset.findMany({ where: { setId, lifecycle: 'active' } });
+}
 function split(quantity: number, total: number, take: number) {
   try { return splitAmounts(quantity, total, take); }
   catch { throw new ApiError('จำนวนที่แบ่งต้องเป็นจำนวนเต็ม ตั้งแต่ 1 ถึงจำนวนเดิมลบ 1'); }
@@ -48,22 +96,28 @@ export async function mutate(member: Member, input: Input) {
   }
   // Version/pending checks and writes must share a serializable snapshot.
   const isolationLevel: Prisma.TransactionIsolationLevel = 'Serializable';
-  try {
-    return await prisma.$transaction(async tx => {
-      const m = await freshMember(tx, member);
-      const existing = await tx.operation.findUnique({ where: { id: token } });
-      if (existing) return replay(existing);
-      const result = await perform(tx, m, action, input, passwordHash, sourceRows);
-      await tx.operation.create({ data: { id: token, valid: 1, actor: m.id, createdAt: now(), requestHash, response: json(result) } });
-      return result;
-    }, { isolationLevel, maxWait: 15000, timeout: 45000 });
-  } catch (error) {
-    // A concurrent identical request may have committed while this transaction rolled back.
-    if (['P2002', 'P2034'].includes((error as { code?: string }).code || '')) {
-      const existing = await prisma.operation.findUnique({ where: { id: token } });
-      if (existing) return replay(existing);
+  // Serializable อาจยกเลิก transaction ที่ทำพร้อมกันแม้แก้คนละรายการ (P2034) เช่น 2 คนเพิ่มครุภัณฑ์พร้อมกัน
+  // ซึ่งต่างก็อ่านรหัสทั้งทะเบียนเพื่อตรวจรหัสซ้ำ: ทุกอย่างถูกย้อนกลับแล้ว จึงลองใหม่ได้อย่างปลอดภัย
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await prisma.$transaction(async tx => {
+        const m = await freshMember(tx, member);
+        const existing = await tx.operation.findUnique({ where: { id: token } });
+        if (existing) return replay(existing);
+        const result = await perform(tx, m, action, input, passwordHash, sourceRows && structuredClone(sourceRows));
+        await tx.operation.create({ data: { id: token, valid: 1, actor: m.id, createdAt: now(), requestHash, response: json(result) } });
+        return result;
+      }, { isolationLevel, maxWait: 15000, timeout: 45000 });
+    } catch (error) {
+      const code = (error as { code?: string }).code || '';
+      // A concurrent identical request may have committed while this transaction rolled back.
+      if (['P2002', 'P2034'].includes(code)) {
+        const existing = await prisma.operation.findUnique({ where: { id: token } });
+        if (existing) return replay(existing);
+      }
+      if (code === 'P2034' && attempt < 3) continue;
+      throw error;
     }
-    throw error;
   }
 }
 
@@ -78,6 +132,8 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     if (!target && !passwordHash) throw new ApiError('กรุณากำหนดรหัสผ่านสำหรับบัญชีใหม่อย่างน้อย 12 ตัวอักษร');
     const existingInvite = await tx.invite.findUnique({ where: { email } });
     const userBranch = branch !== undefined ? branch : (target?.branch ?? existingInvite?.branch ?? null);
+    // หัวหน้าสาขาที่ไม่มีสาขาอนุมัติคำขอใดไม่ได้เลย (ถูกปฏิเสธทุกครั้ง) จึงต้องระบุสาขาตั้งแต่สร้าง/แก้บัญชี
+    if (role === 'head' && !userBranch) throw new ApiError('หัวหน้าสาขาต้องระบุสาขาที่รับผิดชอบ');
     if (target) {
       await tx.user.update({ where: { id: target.id }, data: { role, name, branch: userBranch, active, ...(passwordHash ? { passwordHash } : {}) } });
       if (passwordHash || !active || role !== target.role) await tx.session.deleteMany({ where: { userId: target.id } });
@@ -99,19 +155,21 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     const a = validated(b.asset), reason = clean(b.reason ?? '');
     // เหมือนการแก้ไข: เข้าสถานะ "กำลังซ่อม" ได้ทางคำขอซ่อมที่ผ่านการอนุมัติเท่านั้น
     if (a.condition === 'repair') throw new ApiError('สถานะกำลังซ่อมต้องผ่านคำขอซ่อม ไม่สามารถกำหนดตอนเพิ่มครุภัณฑ์');
-    let sourceId: string | null = null, sourceRow: string | null = null, raw: unknown = null;
+    let sourceId: string | null = null, sourceRow: string | null = null, raw: unknown = null, sourceSet: CandidateSet | undefined, sourceFund: CandidateFund | undefined;
     if (action === 'import') {
       sourceId = clean(b.sourceId); sourceRow = clean(b.sourceRow);
       const row = sourceRows?.find(x => x.key === sourceRow);
       if (!row || row.kind !== 'asset') throw new ApiError('เลือกแถวรายการครุภัณฑ์');
       if (!b.reviewed) throw new ApiError('กรุณาตรวจสอบข้อมูลก่อนนำเข้า');
-      if (row.groupName && !String(a.groupName).includes(row.groupName)) throw new ApiError('ต้องเก็บข้อความชุด / โครงการต้นฉบับไว้ในหมวด');
-      raw = row;
+      raw = row; sourceSet = row.set; sourceFund = row.fund;
     }
     if (BigInt(a.unitSatang!) * BigInt(a.quantity!) !== BigInt(a.totalSatang!) && !reason) throw new ApiError('ยอดเงินไม่ตรงสูตร กรุณาระบุเหตุผลที่ใช้ยอดนี้');
     const range = expandRange(a.code!, a.quantity!);
     if (a.code!.includes('ถึง') && !range) throw new ApiError('กรุณายืนยันหมายเลขครุภัณฑ์ที่ชัดเจนก่อนนำเข้า เก็บรหัสช่วงเดิมในหมายเหตุ');
-    const base = { ...a, id: id(), lifecycle: range ? 'split' : 'active', version: 1, parentId: null, sourceId, sourceRow, createdAt: now() } as Asset;
+    await assertCodesFree(tx, [a.code!, ...(range ?? [])]);
+    const setLink = await linkToSet(tx, sourceId, sourceSet);
+    const fundLink = await hintFund(tx, sourceId, sourceFund);
+    const base = { ...a, id: id(), lifecycle: range ? 'split' : 'active', version: 1, parentId: null, sourceId, sourceRow, createdAt: now(), ...setLink, ...fundLink } as Asset;
     await dimensions(tx, base); await insertAsset(tx, base);
     if (sourceId && sourceRow) await tx.sourceRow.create({ data: { id: id(), sourceId, sourceRow, raw: json(raw), decision: 'imported', reason, actor: m.id, createdAt: now() } });
     if (range) {
@@ -130,7 +188,11 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     const doneKeys = new Set(existingDecisions.map(x => x.sourceRow));
 
     let keys: string[] = Array.isArray(b.keys) ? b.keys.filter((k: unknown) => typeof k === 'string').map((k: string) => clean(k)) : [];
+    // อ่านรหัสในทะเบียนครั้งเดียว ใช้ทั้งข้ามแถวที่ซ้ำและตรวจรหัสซ้ำก่อนบันทึก
+    const registered = await registeredCodes(tx);
     if (b.allReady) {
+      // ข้ามแถวที่หมายเลขมีในทะเบียนแล้ว (หน้าตรวจทานขึ้นเตือนไว้) แทนที่จะให้ทั้งชุดล้มเพราะแถวเดียว
+      markExistingCodes(allRows, registered, doneKeys);
       keys = allRows.filter(r => r.kind === 'asset' && !r.issue && !doneKeys.has(r.key)).map(r => r.key);
     }
     keys = keys.filter(k => !doneKeys.has(k));
@@ -141,6 +203,8 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     const assetsToInsert: Prisma.AssetCreateManyInput[] = [];
     const sourceRowsToInsert: Prisma.SourceRowCreateManyInput[] = [];
     const codes = new Set<string>();
+    const setsToInsert = new Map<string, CandidateSet>();
+    let fundIds: Map<string, string> | undefined;
     const addAsset = (a: Asset) => {
       if (codes.has(a.code)) throw new ApiError('รหัสครุภัณฑ์ซ้ำในรายการที่เลือก กรุณาตรวจทานทีละรายการ', 409);
       codes.add(a.code);
@@ -153,8 +217,22 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
       if (BigInt(a.unitSatang!) * BigInt(a.quantity!) !== BigInt(a.totalSatang!)) throw new ApiError('ยอดเงินไม่ตรงสูตร กรุณาตรวจทานทีละรายการ');
       const range = expandRange(a.code!, a.quantity!);
       if (a.code!.includes('ถึง') && !range) throw new ApiError('รหัสช่วงไม่ชัดเจน กรุณาตรวจทานทีละรายการ');
+      if (row.set) setsToInsert.set(setIdFor(sourceId, row.set.key), row.set);
+      let fundHintId: string | undefined;
+      if (row.fund) {
+        const name = fundName(row.fund.name);
+        if (!fundIds) fundIds = await fundIdsByName(tx);
+        fundHintId = fundIds.get(name);
+        if (!fundHintId) {
+          fundHintId = setIdFor(sourceId, 'fund:' + name);
+          fundIds.set(name, fundHintId);
+          setsToInsert.set(fundHintId, { key: row.fund.key, name, kind: 'fund' as CandidateSet['kind'] });
+        }
+      }
       const base = { ...a, id: id(), lifecycle: range ? 'split' : 'active', version: 1,
-        parentId: null, sourceId, sourceRow: key, createdAt: now() } as Asset;
+        parentId: null, sourceId, sourceRow: key, createdAt: now(),
+        ...(row.set ? { setId: setIdFor(sourceId, row.set.key), setRole: row.set.role ?? 'member' } : {}),
+        ...(fundHintId ? { fundHintId } : {}) } as Asset;
       addAsset(base);
       if (range) {
         const amounts = split(base.quantity, base.totalSatang, 1);
@@ -165,12 +243,12 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
       sourceRowsToInsert.push({ id: id(), sourceId, sourceRow: key, raw: json(row),
         decision: 'imported', reason, actor: m.id, createdAt: now() });
     }
-    const conflict = await tx.asset.findFirst({ where: { code: { in: [...codes] } }, select: { code: true } });
-    if (conflict) throw new ApiError('มีรหัสครุภัณฑ์ในทะเบียนแล้ว: ' + conflict.code + ' กรุณาตรวจทานก่อนนำเข้า', 409);
+    await assertCodesFree(tx, [...codes], undefined, registered);
     await tx.location.createMany({ data: [...new Set(assetsToInsert.map(a => a.location))].map(name => ({ name })), skipDuplicates: true });
     await tx.branch.createMany({ data: [...new Set(assetsToInsert.map(a => a.branch))].map(name => ({ name })), skipDuplicates: true });
     await tx.category.createMany({ data: [...new Set(assetsToInsert.map(a => a.category))].map(name => ({ name })), skipDuplicates: true });
     await tx.assetGroup.createMany({ data: [...new Set(assetsToInsert.map(a => a.groupName))].map(name => ({ name, description: name })), skipDuplicates: true });
+    if (setsToInsert.size) await tx.assetSet.createMany({ data: [...setsToInsert].map(([setId, set]) => ({ id: setId, name: set.name, kind: set.kind, createdAt: now() })), skipDuplicates: true });
     // A conflict must roll back the entire batch, including all source decisions.
     await tx.asset.createMany({ data: assetsToInsert });
     await tx.sourceRow.createMany({ data: sourceRowsToInsert });
@@ -178,6 +256,60 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
 
     await audit(tx, m, 'นำเข้าครุภัณฑ์แบบกลุ่ม', null, null, { sourceId, count: importedCount, requested: keys.length }, `นำเข้าพร้อมกัน ${importedCount} รายการ`);
     return { ok: true, count: importedCount, importedCount };
+  }
+  // ทุน / โครงการ: เจ้าหน้าที่สร้างทุนและเลือกครุภัณฑ์ใส่เอง (ไม่นับรายการที่อยู่ต่อลงมาเองอัตโนมัติ)
+  if (action === 'fundSave' || action === 'fundDelete' || action === 'fundAssign' || action === 'fundUnassign') {
+    allow(m, ['staff', 'admin']);
+    const fundOf = async (fundId: string) => {
+      const f = await tx.assetSet.findUnique({ where: { id: fundId } });
+      if (!f || f.kind !== 'fund') throw new ApiError('ไม่พบทุนนี้', 404);
+      return f;
+    };
+    if (action === 'fundSave') {
+      const name = fundName(clean(b.name ?? '', 500));
+      if (!name) throw new ApiError('กรุณาระบุชื่อทุน / โครงการ');
+      if (b.fundId) {
+        const f = await fundOf(clean(b.fundId));
+        await tx.assetSet.update({ where: { id: f.id }, data: { name } });
+        await audit(tx, m, 'แก้ชื่อทุน', null, f, { ...f, name });
+        return { ok: true, id: f.id };
+      }
+      // เทียบชื่อแบบไม่สนช่องว่างซ้อน (ชื่อหัวทุนจากไฟล์ต้นฉบับมีช่องว่างหลายช่อง)
+      const same = (await fundIdsByName(tx)).get(name);
+      if (same) return { ok: true, id: same, existing: true };
+      const f = { id: 'fund-' + id(), name, kind: 'fund', createdAt: now() };
+      await tx.assetSet.create({ data: f });
+      await audit(tx, m, 'สร้างทุน', null, null, f);
+      return { ok: true, id: f.id };
+    }
+    if (action === 'fundDelete') {
+      const f = await fundOf(clean(b.fundId));
+      const members = await tx.asset.findMany({ where: { fundId: f.id }, select: { id: true } });
+      await tx.asset.updateMany({ where: { fundId: f.id }, data: { fundId: null, version: { increment: 1 } } });
+      await tx.asset.updateMany({ where: { fundHintId: f.id }, data: { fundHintId: null } });
+      await tx.assetSet.delete({ where: { id: f.id } });
+      await audit(tx, m, 'ลบทุน', null, { ...f, assetIds: members.map(x => x.id) }, null);
+      return { ok: true };
+    }
+    const ids: string[] = Array.isArray(b.assetIds) ? [...new Set(b.assetIds.filter((x: unknown) => typeof x === 'string').map((x: string) => clean(x, 100)))] as string[] : [];
+    if (!ids.length || ids.length > 5000) throw new ApiError('เลือกครุภัณฑ์อย่างน้อย 1 รายการ');
+    const rows = await tx.asset.findMany({ where: { id: { in: ids } }, select: { id: true, code: true, fundId: true, lifecycle: true } });
+    if (rows.length !== ids.length) throw new ApiError('ไม่พบครุภัณฑ์บางรายการ กรุณาโหลดใหม่', 409);
+    if (action === 'fundAssign') {
+      const f = await fundOf(clean(b.fundId));
+      const inactive = rows.find(x => x.lifecycle !== 'active');
+      if (inactive) throw new ApiError('รายการ ' + inactive.code + ' ถูกแบ่งยอดหรือจำหน่ายแล้ว');
+      const other = rows.find(x => x.fundId && x.fundId !== f.id);
+      if (other) throw new ApiError('รายการ ' + other.code + ' อยู่ในทุนอื่นแล้ว ต้องเอาออกจากทุนเดิมก่อน', 409);
+      const add = rows.filter(x => x.fundId !== f.id).map(x => x.id);
+      if (add.length) await tx.asset.updateMany({ where: { id: { in: add } }, data: { fundId: f.id, version: { increment: 1 } } });
+      await audit(tx, m, 'ใส่ครุภัณฑ์เข้าทุน', null, null, { fundId: f.id, fundName: f.name, assetIds: add });
+      return { ok: true, count: add.length };
+    }
+    const remove = rows.filter(x => x.fundId);
+    if (remove.length) await tx.asset.updateMany({ where: { id: { in: remove.map(x => x.id) } }, data: { fundId: null, version: { increment: 1 } } });
+    await audit(tx, m, 'เอาครุภัณฑ์ออกจากทุน', null, remove.map(x => ({ id: x.id, code: x.code, fundId: x.fundId })), null);
+    return { ok: true, count: remove.length };
   }
   if (['edit', 'split', 'request', 'repairComplete'].includes(action)) {
     allow(m, ['staff', 'admin']);
@@ -191,11 +323,13 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
       if (next.condition !== a.condition && (next.condition === 'repair' || a.condition === 'repair')) throw new ApiError('การเข้า/ออกสถานะซ่อมต้องใช้คำขอซ่อมหรือบันทึกซ่อมเสร็จ');
       if (!reason) throw new ApiError('กรุณาระบุเหตุผลการแก้ไข');
       if (next.quantity !== a.quantity || next.totalSatang !== a.totalSatang || next.unitSatang !== a.unitSatang) throw new ApiError('จำนวนและมูลค่าที่ลงทะเบียนแล้วแก้ตรงนี้ไม่ได้ ใช้แบ่งล็อตพร้อมหลักฐาน');
+      if (codeKey(next.code!) !== codeKey(a.code)) await assertCodesFree(tx, [next.code!], a.id);
       await dimensions(tx, next);
       await tx.asset.update({ where: { id: a.id }, data: { ...financialData(next), version: { increment: 1 } } });
       await audit(tx, m, 'แก้ไขครุภัณฑ์', a.id, a, next, reason);
     }
     if (action === 'split') {
+      if (a.setId) throw new ApiError('ครุภัณฑ์ในชุดห้ามแยก จึงแบ่งล็อตไม่ได้');
       if (a.condition === 'repair') throw new ApiError('กรุณาบันทึกผลการซ่อมก่อนแบ่งล็อต');
       if (!reason) throw new ApiError('กรุณาระบุเหตุผลการแบ่งล็อต');
       const take = Number(b.quantity), amounts = split(a.quantity, a.totalSatang, take), salvage = split(a.quantity, a.salvageSatang, take), condition = clean(b.condition);
@@ -220,6 +354,12 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
       const payload: Input = kind === 'transfer'
         ? { location: validatedReq.payload.location, branch: normalizeBranch(validatedReq.payload.branch, '', ''), ...(validatedReq.payload.custodian ? { custodian: validatedReq.payload.custodian } : {}) }
         : {};
+      // ปลายทางเหมือนเดิมทุกอย่าง = ไม่มีอะไรย้าย ไม่ต้องส่งให้ผู้อนุมัติ 3 ขั้น (เปลี่ยนแค่ผู้รับผิดชอบยังยื่นได้)
+      if (kind === 'transfer' && payload.location === a.location && payload.branch === normalizeBranch(a.branch, '', '')
+        && (!payload.custodian || payload.custodian === a.custodian)) {
+        throw new ApiError('สถานที่ สาขา และผู้รับผิดชอบปลายทางเหมือนเดิม กรุณาแก้ปลายทางก่อนยื่นคำขอโอนย้าย');
+      }
+      if (kind === 'repair' && a.condition === 'repair') throw new ApiError('รายการนี้อยู่ระหว่างซ่อมแล้ว กรุณาบันทึกผลการซ่อมก่อนยื่นคำขอซ่อมใหม่');
       if (kind === 'repair') {
         payload.estimateSatang = validatedReq.payload?.estimateSatang ?? 0;
       }
@@ -235,13 +375,28 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
         payload.splitQuantity = splitQty;
       }
 
+      // ชุดห้ามแยก: โอนย้าย/จำหน่ายมีผลทั้งชุด ส่วนส่งซ่อมทำทีละชิ้นได้ (ผู้ใช้ยืนยัน 13 ต.ค. 2569)
+      if (a.setId) {
+        const members = await setMembers(tx, a.setId);
+        const pending = await tx.assetRequest.findMany({ where: { status: 'pending', assetId: { in: members.map(x => x.id) } }, select: { kind: true } });
+        if (kind === 'transfer' || kind === 'disposal') {
+          if (splitQty !== null) throw new ApiError('ครุภัณฑ์ในชุดต้องโอนย้ายหรือจำหน่ายทั้งชุด แบ่งจำนวนไม่ได้');
+          if (pending.length) throw new ApiError('รายการในชุดนี้มีคำขอรออนุมัติ กรุณาดำเนินการคำขอให้เสร็จก่อน');
+          payload.setId = a.setId;
+          payload.setCount = members.length;
+        } else if (pending.some(p => p.kind === 'transfer' || p.kind === 'disposal')) {
+          throw new ApiError('ชุดนี้มีคำขอโอนย้าย/จำหน่ายทั้งชุดรออนุมัติ กรุณาดำเนินการให้เสร็จก่อน');
+        }
+      }
+
       const req = await tx.assetRequest.create({ data: { id: id(), assetId: a.id, assetVersion: a.version + 1, kind, payload: json(payload), reason, chain, actor: m.id, createdAt: now() } });
       await tx.asset.update({ where: { id: a.id }, data: { version: { increment: 1 } } });
       await audit(tx, m, 'ส่งคำขอ ' + requestTypes[kind as keyof typeof requestTypes], a.id, a, req, reason);
       return { ok: true, id: req.id, assetId: a.id };
     }
     if (action === 'repairComplete') {
-      if (a.condition !== 'repair' || !reason) throw new ApiError('เลือกรายการที่กำลังซ่อม และระบุผลการซ่อม');
+      if (a.condition !== 'repair') throw new ApiError('รายการนี้ไม่ได้อยู่ระหว่างซ่อม จึงบันทึกซ่อมเสร็จไม่ได้');
+      if (!reason) throw new ApiError('กรุณาระบุรายละเอียดการซ่อม');
       const cost = Number(b.costSatang);
       if (!Number.isSafeInteger(cost) || cost < 0 || cost > 100000000000000) throw new ApiError('ค่าซ่อมไม่ถูกต้อง');
       const repairedBy = clean(b.repairedBy ?? '', 200);
@@ -287,6 +442,10 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
         target = await splitLotForRequest(tx, m, a, takeQty, r.reason);
         await tx.assetRequest.update({ where: { id: r.id }, data: { assetId: target.id } });
       }
+      // คำขอโอนย้าย/จำหน่ายของครุภัณฑ์ในชุด มีผลกับทุกรายการในชุดที่ยังใช้งาน
+      const wholeSet = payload.setId && (r.kind === 'transfer' || r.kind === 'disposal')
+        ? (await setMembers(tx, String(payload.setId))).filter(x => x.id !== target.id).map(x => plain<Asset>(x)) : [];
+      const affected = [target, ...wholeSet];
       if (r.kind === 'transfer') {
         // แปลงชื่อสาขาปลายทางเป็นชื่อมาตรฐานก่อนเขียน (รวมคำขอเก่าที่เก็บชื่อแบบย่อไว้)
         const location = clean(payload.location), branch = normalizeBranch(clean(payload.branch), '', '');
@@ -294,10 +453,11 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
         await tx.location.createMany({ data: [{ name: location }], skipDuplicates: true });
         await tx.branch.createMany({ data: [{ name: branch }], skipDuplicates: true });
         // เปลี่ยนผู้รับผิดชอบเฉพาะเมื่อคำขอระบุไว้ ประวัติเดิม/ใหม่เก็บใน audit (before/after) ของรายการนี้
-        await tx.asset.update({ where: { id: target.id }, data: { location, branch, ...(custodian ? { custodian } : {}), version: { increment: 1 } } });
+        for (const x of affected) await tx.asset.update({ where: { id: x.id }, data: { location, branch, ...(custodian ? { custodian } : {}), version: { increment: 1 } } });
       }
       if (r.kind === 'repair') await tx.asset.update({ where: { id: target.id }, data: { condition: 'repair', version: { increment: 1 } } });
-      if (r.kind === 'disposal') await tx.asset.update({ where: { id: target.id }, data: { lifecycle: 'disposed', version: { increment: 1 } } });
+      if (r.kind === 'disposal') for (const x of affected) await tx.asset.update({ where: { id: x.id }, data: { lifecycle: 'disposed', version: { increment: 1 } } });
+      for (const x of wholeSet) await audit(tx, m, 'ดำเนินการ ' + requestTypes[r.kind as keyof typeof requestTypes] + ' (ทั้งชุด)', x.id, x, { ...payload, kind: r.kind, requestId: r.id }, r.reason);
       await audit(tx, m, 'ดำเนินการ ' + requestTypes[r.kind as keyof typeof requestTypes], target.id, target, { ...payload, kind: r.kind }, r.reason);
     }
     return { ok: true };

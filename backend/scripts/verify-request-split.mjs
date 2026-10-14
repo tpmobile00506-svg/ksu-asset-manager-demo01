@@ -1,12 +1,19 @@
 // Verification script for lot splitting within request action
-const baseUrl = 'http://localhost:3000';
+const baseUrl = process.env.VERIFY_BASE_URL || 'http://localhost:3000';
+// อ่านบัญชีทดสอบจากตัวแปรสภาพแวดล้อม ห้ามเขียนรหัสผ่านลงในไฟล์
+const email = process.env.VERIFY_STAFF_EMAIL;
+const password = process.env.VERIFY_STAFF_PASSWORD;
+if (!email || !password) {
+  console.error('ตั้งค่า VERIFY_STAFF_EMAIL และ VERIFY_STAFF_PASSWORD ก่อนรันสคริปต์นี้');
+  process.exit(1);
+}
 
 async function main() {
   console.log('1. Logging in as staff...');
   const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'staff@ksu.ac.th', password: 'StaffPassword2026!' })
+    body: JSON.stringify({ email, password })
   });
 
   if (!loginRes.ok) {

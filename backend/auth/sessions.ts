@@ -61,8 +61,7 @@ export function checkOrigin(request: Request) {
   try {
     const originHost = new URL(origin).host;
     if (host && originHost.toLowerCase() === host.toLowerCase()) return;
-    // Allow vercel preview URLs belonging to this project
-    if (originHost.endsWith('.vercel.app') && host && host.endsWith('.vercel.app')) return;
+    // ไม่รับ *.vercel.app ทั้งหมด (ใครก็สร้างเว็บ xxx.vercel.app ได้) ลิงก์ของโปรเจกต์นี้อยู่ใน allowed ด้านล่างแล้ว
   } catch { /* Ignore invalid origin */ }
 
   const allowed = new Set([settings.frontendOrigin]);

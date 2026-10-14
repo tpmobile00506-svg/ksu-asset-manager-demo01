@@ -13,7 +13,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import type { Asset } from '@/shared/domain';
+import { branchAbbr, type Asset } from '@/shared/domain';
 
 interface OverviewChartsProps {
   assets: Asset[];
@@ -28,14 +28,10 @@ const STATUS_COLORS = {
   damaged: '#64748b'    // สีเทา ชำรุด/รอจำหน่าย
 };
 
+// ชื่อย่อสาขาเดียวกับใน Excel (วค วคม สนง คจก ...) เดิมเดาจากตัวอักษรบางส่วน ทำให้ "วคม" กลายเป็นคอมพิวเตอร์ และ "สนง.ควอ." กลายเป็นอุตสาหการ
 function formatBranchShort(name: string): string {
-  if (!name) return 'ทั่วไป';
-  if (name.includes('คอมพิวเตอร์') || name.includes('วค')) return 'วศ.คอมฯ';
-  if (name.includes('อุตสาหการ') || name.includes('วอ')) return 'วศ.อุตสาหการ';
-  if (name.includes('ไฟฟ้า') || name.includes('วฟ')) return 'วศ.ไฟฟ้า';
-  if (name.includes('เครื่องจักรกล') || name.includes('เครื่องกล') || name.includes('ศจก') || name.includes('วศศ')) return 'วศ.เครื่องกล';
-  if (name.includes('คณบดี') || name.includes('สำนักงาน') || name.includes('สนง')) return 'สนง.คณบดี';
-  return name.replace(/^สาขาวิชา(วิศวกรรม)?/, 'วศ.').slice(0, 10);
+  if (!name) return 'ส่วนกลาง';
+  return branchAbbr(name) || name.slice(0, 10);
 }
 
 export default function OverviewCharts({ assets, onSelectBranch }: OverviewChartsProps) {
@@ -131,6 +127,7 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis
+                    interval={0}
                     dataKey="name"
                     tick={{ fontSize: 11.5, fill: '#64748b' }}
                     axisLine={{ stroke: '#e2e8f0' }}
@@ -240,7 +237,7 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
                     dataKey="value"
                   >
                     {activeSlices.map((entry) => (
-                      <Cell key={entry.key} fill={entry.color} stroke="#ffffff" strokeWidth={2} />
+                      <Cell key={entry.key} fill={entry.color} stroke={activeSlices.length > 1 ? '#ffffff' : 'none'} strokeWidth={2} />
                     ))}
                   </Pie>
                 </PieChart>

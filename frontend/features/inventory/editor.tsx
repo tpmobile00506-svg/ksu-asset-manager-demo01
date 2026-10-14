@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useRef, FormEvent } from 'react';
 import { Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,7 +69,7 @@ export default function Editor({
   data,
   selected,
   setSelected,
-  modal,
+  modal: currentModal,
   setModal,
   open,
   write,
@@ -92,6 +92,11 @@ export default function Editor({
   onPhotoChanged: () => Promise<void>;
   historyRevision: number;
 }) {
+  // ระหว่างแอนิเมชันปิดหน้าต่าง ยังแสดงเนื้อหาเดิมไว้ (ไม่งั้นเห็นกรอบว่าง "หน้าต่างรายการ" แวบหนึ่ง)
+  // การเปิด/ปิดหน้าต่างใช้ currentModal ส่วนเนื้อหาใช้ modal
+  const lastModal = useRef<Any | null>(null);
+  if (currentModal) lastModal.current = currentModal;
+  const modal = currentModal ?? lastModal.current;
   const [take, setTake] = useState(1);
   const [splitOption, setSplitOption] = useState<'all' | 'partial'>('all');
   const [requestSplitTake, setRequestSplitTake] = useState(1);
@@ -202,14 +207,14 @@ export default function Editor({
     <>
       {/* 1. หน้าต่างพิมพ์ป้าย QR Code */}
       <QrLabelModal
-        open={modal?.kind === 'qr'}
+        open={currentModal?.kind === 'qr'}
         onClose={() => setModal(null)}
         assets={modal?.assets || []}
       />
 
       {/* 3. หน้าต่างเพิ่ม/แก้ไข/นำเข้าข้อมูลครุภัณฑ์ */}
       <AssetFormModal
-        open={!!modal && ['create', 'edit', 'import'].includes(modal.kind)}
+        open={!!currentModal && ['create', 'edit', 'import'].includes(currentModal.kind)}
         onClose={() => setModal(null)}
         modal={modal}
         data={data}
@@ -224,7 +229,7 @@ export default function Editor({
       {/* 4. หน้าต่างการดำเนินงานอื่นๆ (แบ่งล็อต, คำขอ, ตรวจนับ, ผู้ใช้, ซ่อมเสร็จ, ข้อมูลต้นฉบับ) */}
       <Dialog
         open={
-          !!modal && !['create', 'edit', 'import', 'qr'].includes(modal.kind)
+          !!currentModal && !['create', 'edit', 'import', 'qr'].includes(currentModal.kind)
         }
         onOpenChange={v => {
           if (!v && !busy) {
@@ -489,13 +494,13 @@ export default function Editor({
                     {requestKind === 'transfer' && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Field
-                          label="สถานที่ใหม่ (ปลายทาง) *"
+                          label="สถานที่ใหม่ (ปลายทาง)"
                           name="location"
                           defaultValue={modal.asset.location}
                           required
                         />
                         <Field
-                          label="สาขาใหม่ (ปลายทาง) *"
+                          label="สาขาใหม่ (ปลายทาง)"
                           name="branch"
                           defaultValue={modal.asset.branch}
                           required
@@ -706,8 +711,9 @@ export default function Editor({
                       required
                     />
                     <label>
-                      <span>รายละเอียดการซ่อม / หมายเหตุ</span>
+                      <span>รายละเอียดการซ่อม / หมายเหตุ *</span>
                       <Textarea
+                        required
                         name="reason"
                         placeholder="เช่น เปลี่ยนอะไหล่เมนบอร์ด และทดสอบการทำงานแล้ว"
                         rows={2}

@@ -2,7 +2,7 @@
 import {useState,useEffect,useCallback,useRef} from 'react';import {Package,LayoutDashboard,Upload,ArrowLeftRight,QrCode,BarChart3,Users,History,Plus,Search,Download,ChevronRight,ArrowUpDown,FileSpreadsheet,Coins,TriangleAlert,FileCheck2,ArrowRight,LogOut,Pencil,X,Bell,Lock,Eye,EyeOff,Check,Eye as ViewIcon,ScanLine,Wrench,CheckCircle2,ClipboardCheck,Clock} from 'lucide-react';
 import {Button} from '@/components/ui/button';import {Input} from '@/components/ui/input';import {Table,TableHeader,TableBody,TableRow,TableHead,TableCell} from '@/components/ui/table';import {SidebarProvider,Sidebar,SidebarContent,SidebarHeader,SidebarFooter,SidebarMenu,SidebarMenuItem,SidebarMenuButton,SidebarInset,SidebarTrigger,useSidebar} from '@/components/ui/sidebar';import {Skeleton} from '@/components/ui/skeleton';
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription} from '@/components/ui/dialog';import {Toaster,toast} from 'sonner';
-import {Asset,Role,roles,conditions,headers11,money,standardCategories,standardBranches,thaiDateOnly} from '@/shared/domain';import {exportWorkbook,reportHeaders} from '@/frontend/services/excel-export';import {Any,api,Badge,Pick,Empty,Metric,Pager,Activity,getInitials,SESSION_EXPIRED_EVENT,readApiResponse,cancelApiRequests} from '@/frontend/components/common';import {useAssetTools} from '@/frontend/hooks/use-asset-tools';import Editor from './editor';import AssetThumbnail from './asset-thumbnail';import ImportView from '@/frontend/features/imports/import-view';import Operations from '@/frontend/features/operations/operations';import OverviewCharts from './overview-charts';import AssetDetailView from './asset-detail-view';
+import {Asset,Role,roles,conditions,headers11,money,standardCategories,standardBranches,thaiDateOnly,fiscalYearOf,awaitsApprovalBy} from '@/shared/domain';import {reportHeaders} from '@/frontend/services/excel-export';import {Any,api,Badge,Pick,Empty,Metric,Pager,Activity,getInitials,SESSION_EXPIRED_EVENT,readApiResponse,cancelApiRequests} from '@/frontend/components/common';import {useAssetTools} from '@/frontend/hooks/use-asset-tools';import Editor from './editor';import AssetThumbnail from './asset-thumbnail';import ImportView from '@/frontend/features/imports/import-view';import ExportView from '@/frontend/features/exports/export-view';import Operations from '@/frontend/features/operations/operations';import OverviewCharts from './overview-charts';import AssetDetailView from './asset-detail-view';
 import QrScannerModal from '@/frontend/components/qr-scanner-modal';
 import {WorkspaceData} from '@/frontend/types/models';
 const nav=[['overview','ภาพรวม (Dashboard)',LayoutDashboard],['registry','ทะเบียนครุภัณฑ์',Package],['imports','นำเข้าข้อมูล Excel',Upload],['requests','คำขอและโอนย้าย',ArrowLeftRight],['stocktakes','ตรวจนับประจำปี (QR)',QrCode],['reports','รายงานและค่าเสื่อม',BarChart3],['audit','ประวัติการทำงาน (Audit)',History],['users','ผู้ใช้งานและสิทธิ์',Users]] as const;
@@ -97,6 +97,7 @@ export default function Workspace(){
  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
  const [modal,setModal]=useState<Any|null>(null),[selected,setSelected]=useState<Asset|null>(null),[formError,setFormError]=useState(''),[revision,setRevision]=useState(0);
  const [scannerOpen, setScannerOpen] = useState(false);
+ const [exportOpen, setExportOpen] = useState(false);
  const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [loggingIn, setLoggingIn] = useState(false);
  const [showPassword, setShowPassword] = useState(false), [rememberMe, setRememberMe] = useState(false);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
@@ -199,7 +200,6 @@ export default function Workspace(){
  const selectAllFiltered=()=>{setSelectedAssetIds(filtered.map(x=>x.id));};
  const clearSelection=()=>{setSelectedAssetIds([]);};
  const branchTotals=Object.entries(active.reduce((s:Record<string,number>,a)=>{s[a.branch]=(s[a.branch]||0)+a.totalSatang;return s;},{})).sort((a,b)=>b[1]-a[1]);
- async function exportRows(rows:Asset[]){setBusy(true);try{await exportWorkbook(rows);toast.success('ส่งออก Excel เรียบร้อยแล้ว');}catch(e:any){toast.error(e.message);}finally{setBusy(false);}}
  const handleScanRegistry=(scannedText:string)=>{
    let cleanCode=scannedText.trim();
    try{
@@ -427,8 +427,12 @@ export default function Workspace(){
             </div>
           </div>
           {(() => {
-            const pendingRequests = data.requests?.filter((r: Any) => r.status === 'pending') || [];
-            const openRounds = data.rounds?.filter((r: Any) => r.status === 'open') || [];
+            // ผู้อนุมัติ (head/deputy/dean) เห็นเฉพาะคำขอที่รอตัวเองอนุมัติ (เงื่อนไขเดียวกับหน้าคำขอ)
+            // staff/admin เห็นคำขอค้างทั้งหมดและรอบตรวจนับที่เปิดอยู่ เพราะเป็นผู้ติดตามงาน
+            const approver = ['head', 'deputy', 'dean'].includes(data.me.role);
+            const awaitsMe = (r: WorkspaceData['requests'][number]) => awaitsApprovalBy(r, data.me, data.assets.find((a: Asset) => a.id === r.assetId)?.branch);
+            const pendingRequests = data.requests?.filter(r => r.status === 'pending' && (!approver || awaitsMe(r))) || [];
+            const openRounds = approver ? [] : data.rounds?.filter((r: Any) => r.status === 'open') || [];
             const totalNotifications = pendingRequests.length + openRounds.length;
 
             return (
@@ -690,7 +694,7 @@ export default function Workspace(){
             <h1>{heading}</h1>
             <p>{({
               registry: `ค้นหา ตรวจสอบข้อมูล ติดตามสถานะ และจัดการประวัติรายการครุภัณฑ์ทั้งหมด (${active.length.toLocaleString('th-TH')} รายการ)`,
-              overview: 'สรุปมูลค่าสินทรัพย์ การกระจายตัวตามสาขาวิชา และความพร้อมใช้งานประจำปีงบประมาณ 2569',
+              overview: `สรุปมูลค่าสินทรัพย์ การกระจายตัวตามสาขาวิชา และความพร้อมใช้งานประจำปีงบประมาณ ${fiscalYearOf(new Date())}`,
               imports: 'ตรวจสอบข้อมูลจาก Excel ก่อนเพิ่มเข้าสู่ทะเบียนกลาง',
               requests: 'ติดตามสถานะสายอนุมัติ 3 ระดับ: หัวหน้าสาขาวิชา (Head) → รองคณบดี (Deputy) → คณบดี (Dean)',
               stocktakes: 'ตรวจสอบรายการจริงในพื้นที่เทียบกับฐานข้อมูลทะเบียนกลาง',
@@ -701,9 +705,6 @@ export default function Workspace(){
           </div>
           <div className="actions">
             {view==='registry'&&<>
-              <Button variant="outline" className="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 cursor-pointer font-bold" disabled={busy||!filtered.length} onClick={()=>exportRows(filtered)}>
-                <Download size={15} className="mr-1 text-emerald-600"/>Excel
-              </Button>
               {editable&&<Button className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold cursor-pointer" onClick={()=>open('create')}><Plus size={16} className="mr-1"/>เพิ่มครุภัณฑ์</Button>}
             </>}
 
@@ -853,7 +854,7 @@ export default function Workspace(){
           </div>
         </>}
 
-        {view==='registry'&&<div className="panel"><div className="panel-head"><h2>รายการครุภัณฑ์ <span className="badge ml-2">{filtered.length}</span></h2><div className="actions"><Button variant="outline" size="sm" className="cursor-pointer bg-white text-blue-700 hover:bg-blue-50 border-blue-200" onClick={()=>setScannerOpen(true)}><ScanLine size={15}/>สแกน QR</Button><Button variant="outline" size="sm" disabled={busy||!filtered.length} onClick={()=>exportRows(filtered)}><Download size={15}/>ส่งออก Excel</Button>{editable&&selectedAssetIds.length===0&&<Button variant="ghost" size="sm" className="cursor-pointer" disabled={!filtered.some(a=>a.lifecycle==='active')} onClick={()=>open('qr',{assets:filtered.filter(a=>a.lifecycle==='active')})}><QrCode size={16}/>พิมพ์ QR</Button>}</div></div><div className="toolbar"><div className="searchbox relative flex items-center"><Search/><Input aria-label="ค้นหาครุภัณฑ์" placeholder="ค้นหาหมายเลข ชื่อ หรือ Serial…" value={search} onChange={e=>setSearch(e.target.value)} className={search ? 'pr-8' : ''}/>{search&&<button type="button" onClick={()=>setSearch('')} className="absolute right-2 text-slate-400 hover:text-slate-600 focus:outline-none p-1" aria-label="ล้างคำค้นหา" title="ล้างคำค้นหา"><X size={15}/></button>}</div><Pick label="สาขา" value={branch} onChange={setBranch} options={[['all','ทุกสาขา'],...Array.from(new Set([...standardBranches, ...assets.map(x=>x.branch)].filter(Boolean))).map(x=>[x,x] as [string,string])]}/><Pick label="สถานะ" value={condition} onChange={setCondition} options={[['all','ทุกสถานะ'],...Object.entries(conditions)]}/><Pick label="หมวดหมู่" value={category} onChange={setCategory} options={[['all','ทุกหมวดหมู่'],...Array.from(new Set([...standardCategories, ...assets.map(x=>x.category)].filter(Boolean))).map(x=>[x,x] as [string,string])]}/><Pick label="ทะเบียน" value={lifecycle} onChange={setLifecycle} options={[['active','ทะเบียนที่ถือครอง'],['disposed','จำหน่ายแล้ว'],['split','ประวัติการแบ่ง'],['all','ทั้งหมดรวมประวัติ']]}/></div>
+        {view==='registry'&&<div className="panel"><div className="panel-head"><h2>รายการครุภัณฑ์ <span className="badge ml-2">{filtered.length}</span></h2><div className="actions"><Button variant="outline" size="sm" className="cursor-pointer bg-white text-blue-700 hover:bg-blue-50 border-blue-200" onClick={()=>setScannerOpen(true)}><ScanLine size={15}/>สแกน QR</Button><Button variant="outline" size="sm" disabled={busy||!active.length} onClick={()=>setExportOpen(true)}><Download size={15}/>ส่งออก Excel</Button>{editable&&selectedAssetIds.length===0&&<Button variant="ghost" size="sm" className="cursor-pointer" disabled={!filtered.some(a=>a.lifecycle==='active')} onClick={()=>open('qr',{assets:filtered.filter(a=>a.lifecycle==='active')})}><QrCode size={16}/>พิมพ์ QR</Button>}</div></div><div className="toolbar"><div className="searchbox relative flex items-center"><Search/><Input aria-label="ค้นหาครุภัณฑ์" placeholder="ค้นหาหมายเลข ชื่อ หรือ Serial…" value={search} onChange={e=>setSearch(e.target.value)} className={search ? 'pr-8' : ''}/>{search&&<button type="button" onClick={()=>setSearch('')} className="absolute right-2 text-slate-400 hover:text-slate-600 focus:outline-none p-1" aria-label="ล้างคำค้นหา" title="ล้างคำค้นหา"><X size={15}/></button>}</div><Pick label="สาขา" value={branch} onChange={setBranch} options={[['all','ทุกสาขา'],...Array.from(new Set([...standardBranches, ...assets.map(x=>x.branch)].filter(Boolean))).map(x=>[x,x] as [string,string])]}/><Pick label="สถานะ" value={condition} onChange={setCondition} options={[['all','ทุกสถานะ'],...Object.entries(conditions)]}/><Pick label="หมวดหมู่" value={category} onChange={setCategory} options={[['all','ทุกหมวดหมู่'],...Array.from(new Set([...standardCategories, ...assets.map(x=>x.category)].filter(Boolean))).map(x=>[x,x] as [string,string])]}/><Pick label="ทะเบียน" value={lifecycle} onChange={setLifecycle} options={[['active','ทะเบียนที่ถือครอง'],['disposed','จำหน่ายแล้ว'],['split','ประวัติการแบ่ง'],['all','ทั้งหมดรวมประวัติ']]}/></div>
         {selectedAssetIds.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50/70 border border-blue-200 rounded-xl mb-3 shadow-xs">
             <div className="flex items-center gap-2.5">
@@ -928,6 +929,6 @@ export default function Workspace(){
         {['requests','stocktakes','reports','users','audit'].includes(view)&&<Operations view={view} data={data} open={open} write={write} busy={busy} revision={revision} select={setSelected}/>}
       </>
     )}
-  </main></SidebarInset><Editor historyRevision={revision} onPhotoChanged={reload} data={data} selected={selected} setSelected={setSelected} modal={modal} setModal={setModal} open={open} write={write} busy={busy} error={formError} setError={setFormError}/><QrScannerModal open={scannerOpen} onClose={()=>setScannerOpen(false)} onScan={handleScanRegistry} title="สแกนค้นหาครุภัณฑ์" description="ส่องกล้องไปที่ QR Code หรือ Barcode เพื่อเปิดดูข้อมูลครุภัณฑ์" /><Toaster position="bottom-right" richColors closeButton/></SidebarProvider>
+  </main></SidebarInset><Editor historyRevision={revision} onPhotoChanged={reload} data={data} selected={selected} setSelected={setSelected} modal={modal} setModal={setModal} open={open} write={write} busy={busy} error={formError} setError={setFormError}/><QrScannerModal open={scannerOpen} onClose={()=>setScannerOpen(false)} onScan={handleScanRegistry} title="สแกนค้นหาครุภัณฑ์" description="ส่องกล้องไปที่ QR Code หรือ Barcode เพื่อเปิดดูข้อมูลครุภัณฑ์" /><Dialog open={exportOpen} onOpenChange={setExportOpen}><DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle className="flex items-center gap-2"><FileSpreadsheet size={18} className="text-emerald-600"/>ส่งออกรายงานครุภัณฑ์ (Excel)</DialogTitle><DialogDescription>เลือกรายงาน สาขา และประเภท แล้วกดส่งออก</DialogDescription></DialogHeader>{exportOpen&&<ExportView data={data} initialBranch={branch} onDone={()=>setExportOpen(false)} write={write} busy={busy}/>}</DialogContent></Dialog><Toaster position="bottom-right" richColors closeButton/></SidebarProvider>
   );
 }

@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge, Activity, api } from '@/frontend/components/common';
-import { Asset, money, conditions } from '@/shared/domain';
+import { Asset, money, conditions, groupFor, setRoles, type SetRole } from '@/shared/domain';
 import type { RepairRecord } from '@/shared/models';
 import AssetPhoto from './asset-photo';
 import QRCode from 'qrcode';
@@ -379,6 +379,26 @@ export default function AssetDetailView({
                   className="text-sm bg-white border-slate-200 text-slate-800"
                 />
               </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  หมวด (กลุ่มต่างๆ)
+                </label>
+                <Input value={groupFor(asset)} readOnly className="text-sm bg-white border-slate-200 text-slate-800" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  ทุน / โครงการ
+                </label>
+                <Input value={asset.fundName || '— ไม่ได้ระบุทุน'} readOnly title={asset.fundName || ''} className="text-sm bg-white border-slate-200 text-slate-800" />
+              </div>
+              {asset.setId && (
+                <div className="col-span-full">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    ชุด (ห้ามแยก — โอนย้าย/จำหน่ายต้องไปทั้งชุด)
+                  </label>
+                  <Input value={`${setRoles[asset.setRole as SetRole] ?? 'รายการในชุด'} · ${asset.setName ?? ''}`} readOnly className="text-sm bg-amber-50 border-amber-200 text-slate-800" />
+                </div>
+              )}
             </div>
 
             {/* Row 5: Acquisition Date & Pricing */}

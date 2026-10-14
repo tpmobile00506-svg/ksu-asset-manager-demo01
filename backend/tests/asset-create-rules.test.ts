@@ -54,7 +54,7 @@ function createEnvironment() {
     user: { findUnique: async () => staff },
     operation: { findUnique: async () => null, create: async () => ({}) },
     location: noop, branch: noop, category: noop, assetGroup: noop,
-    asset: { create: async ({ data }: { data: Record<string, any> }) => { created.push(data); return data; } },
+    asset: { create: async ({ data }: { data: Record<string, any> }) => { created.push(data); return data; }, findMany: async () => [] },
     audit: { create: async () => ({}) },
   };
   return { tx, created };
@@ -87,4 +87,11 @@ test('เพิ่มครุภัณฑ์ด้วยสถานะ "ปก
     assert.equal(created[0].condition, 'normal');
     assert.equal(created[0].totalSatang, 300000n);
   } finally { restore(); }
+});
+
+test('หมายเลขครุภัณฑ์ซ้ำ (ไม่สนตัวพิมพ์และช่องว่าง) ถูกปฏิเสธพร้อมบอกว่าซ้ำกับรายการไหน', async () => {
+  const { codeKey } = await import('../services/asset-mutations');
+  assert.equal(codeKey(' ksu165-1610-060-086-002(002) '), 'KSU165-1610-060-086-002(002)');
+  assert.equal(codeKey('วข.กส.36/2  7110-019-001-003'), codeKey('วข.กส.36/2 7110-019-001-003'));
+  assert.notEqual(codeKey('KSU165-1610-060-086-002(002)'), codeKey('KSU165-1610-060-086-003(002)'));
 });

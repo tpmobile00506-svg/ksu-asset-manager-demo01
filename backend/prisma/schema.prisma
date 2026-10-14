@@ -135,6 +135,14 @@ model Asset {
   brand        String @default("")
   custodian    String @default("")
   createdAt    String
+  // ชุดครุภัณฑ์ที่ห้ามแยก: header = หัวชุดที่มีมูลค่า, part = ชิ้นส่วนที่มูลค่ารวมในหัวชุด, member = รายการในหัวข้อชุดที่มีมูลค่าของตัวเอง
+  setId        String?
+  setRole      String?
+  setRef       AssetSet?  @relation("AssetSetMembers", fields: [setId], references: [id], onDelete: SetNull)
+  // ทุน / โครงการที่มาของครุภัณฑ์ (ไม่บังคับโอนย้ายทั้งก้อน): fundId = เจ้าหน้าที่ยืนยันแล้ว, fundHintId = แนะนำจากไฟล์ต้นฉบับ
+  fundId       String?
+  fundHintId   String?
+  fundRef      AssetSet?  @relation("AssetFund", fields: [fundId], references: [id], onDelete: SetNull)
   locationRef  Location   @relation(fields: [location], references: [name])
   branchRef    Branch     @relation(fields: [branch], references: [name])
   categoryRef  Category   @relation(fields: [category], references: [name])
@@ -144,7 +152,22 @@ model Asset {
   stocktakeItems StocktakeItem[]
   @@index([lifecycle, branch], map: "asset_lifecycle_branch")
   @@index([parentId], map: "asset_parent")
+  @@index([setId], map: "asset_set_id")
+  @@index([fundId], map: "asset_fund_id")
+  @@index([fundHintId], map: "asset_fund_hint_id")
   @@map("assets")
+}
+
+// ชุดครุภัณฑ์ห้ามแยก: package = หัวชุดไม่มีลำดับแต่มีราคา, lot = หัวชุดมีลำดับและราคา
+// ทุน / โครงการ: fund = บรรทัดข้อความไม่มีราคาในไฟล์ต้นฉบับ หรือเจ้าหน้าที่สร้างเอง
+model AssetSet {
+  id         String  @id
+  name       String
+  kind       String
+  createdAt  String
+  assets     Asset[] @relation("AssetSetMembers")
+  fundAssets Asset[] @relation("AssetFund")
+  @@map("asset_sets")
 }
 
 // ประวัติการซ่อมบำรุง: บันทึกเมื่อกด "บันทึกซ่อมเสร็จ" (ผู้ซ่อม ค่าใช้จ่ายจริง ผลการซ่อม)

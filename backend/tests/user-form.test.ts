@@ -30,6 +30,12 @@ function mount(user?: Record<string, unknown>) {
       if (!(index in slots)) slots[index] = initial;
       return [slots[index], (value: unknown) => { slots[index] = value; }];
     },
+    // useRef: ค่าคงอยู่ข้ามการ render เหมือน React จริง (Editor ใช้จำเนื้อหาหน้าต่างระหว่างปิด)
+    useRef(initial: unknown) {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = { current: initial };
+      return slots[index];
+    },
     useEffect(effect: () => void, deps: unknown[]) {
       const index = cursor++;
       if (!slots[index] || deps.some((value, i) => !Object.is(value, slots[index][i]))) {

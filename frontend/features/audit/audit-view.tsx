@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   History,
   Search,
@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge, Empty, Pager } from '@/frontend/components/common';
+import { Badge, Empty, Pager, api } from '@/frontend/components/common';
 import { Asset, money, conditions } from '@/shared/domain';
 import type { WorkspaceData, AuditRecord } from '@/shared/models';
 import { toast } from 'sonner';
@@ -783,7 +783,37 @@ export default function AuditView({
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
   const [page, setPage] = useState(0);
 
-  const events: AuditRecord[] = data.events || [];
+  // getData ส่งมาแค่ 100 รายการล่าสุด ประวัติเก่ากว่านั้นโหลดเพิ่มทีละ 200 รายการ
+  const [older, setOlder] = useState<AuditRecord[]>([]);
+  const [olderState, setOlderState] = useState<{ more: boolean; total: number | null; loading: boolean }>({ more: true, total: null, loading: false });
+  const events: AuditRecord[] = useMemo(() => {
+    const seen = new Set((data.events || []).map(e => e.id));
+    return [...(data.events || []), ...older.filter(e => !seen.has(e.id))];
+  }, [data.events, older]);
+  // มีเหตุการณ์ใหม่เข้ามา (100 รายการล่าสุดเลื่อนไป) ประวัติเก่าที่โหลดไว้อาจไม่ต่อกันแล้ว จึงล้างแล้วให้โหลดใหม่
+  // การโหลดที่ค้างอยู่ตอนล้างก็ทิ้งผล (olderRound) ไม่ให้ต่อท้ายผิดช่วง
+  const newestId = data.events?.[0]?.id ?? '';
+  const olderRound = useRef(0);
+  useEffect(() => {
+    olderRound.current++;
+    setOlder([]);
+    setOlderState({ more: true, total: null, loading: false });
+  }, [newestId]);
+  async function loadOlder() {
+    const last = events[events.length - 1];
+    const oldest = last?.createdAt;
+    if (!oldest || olderState.loading) return;
+    const round = olderRound.current;
+    setOlderState(s => ({ ...s, loading: true }));
+    try {
+      const r = await api<{ events: AuditRecord[]; more: boolean; total: number }>('?view=audit&before=' + encodeURIComponent(oldest) + '&beforeId=' + encodeURIComponent(last.id));
+      if (round !== olderRound.current) return;
+      setOlder(prev => [...prev, ...r.events]);
+      setOlderState({ more: r.more, total: r.total, loading: false });
+    } catch {
+      if (round === olderRound.current) setOlderState(s => ({ ...s, loading: false }));
+    }
+  }
   const assets: Asset[] = data.assets || [];
 
   // สถิติ KPI ด้านบน 4 ใบ
@@ -1161,6 +1191,19 @@ export default function AuditView({
             <Pager page={page} total={filtered.length} size={pageSize} onChange={setPage} />
           </div>
         )}
+        {/* โหลดประวัติเก่าเพิ่ม: ระบบส่งมาเฉพาะ 100 เหตุการณ์ล่าสุด */}
+        <div className="p-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+          <span>
+            โหลดแล้ว {events.length.toLocaleString('th-TH')} เหตุการณ์ล่าสุด
+            {olderState.total !== null && ` จากทั้งหมด ${olderState.total.toLocaleString('th-TH')} เหตุการณ์`}
+          </span>
+          {olderState.more && events.length > 0 && (
+            <button type="button" onClick={loadOlder} disabled={olderState.loading}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+              {olderState.loading ? 'กำลังโหลด…' : 'โหลดประวัติเก่าเพิ่ม (200 รายการ)'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

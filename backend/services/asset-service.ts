@@ -5,7 +5,7 @@ import { ApiError } from './errors';
 import { parseWorkbook } from '../imports/workbook';
 import { readFileBytes, putFile } from '../storage/files';
 import { withAssetImages } from '../storage/asset-image-metadata';
-import { type Asset, type Source, classify, conditions, resolveCategory, normalizeBranch } from '../contracts/domain';
+import { type Asset, type Source, classify, conditions, normalizeBranch, UNKNOWN_ASSET_TYPE, assetGroupOf, codeKey, markExistingCodes, branchAbbr } from '../contracts/domain';
 import type { SourceViewResponse } from '../contracts/imports';
 import type { StocktakeResponse, WorkspaceData } from '../contracts/models';
 
@@ -38,9 +38,9 @@ export function validated(input: Record<string, unknown>): Partial<Asset> {
   if (!a.code || !a.name) throw new ApiError('กรุณาระบุรหัสและชื่อครุภัณฑ์');
   if (!a.branch) a.branch = 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
   else a.branch = normalizeBranch(a.branch, '', '');
-  if (!a.category) a.category = resolveCategory(a.branch);
+  if (!a.category) a.category = UNKNOWN_ASSET_TYPE;
   if (!a.location) a.location = 'ไม่ระบุสถานที่';
-  if (!a.groupName) a.groupName = 'ทั่วไป';
+  if (!a.groupName) a.groupName = assetGroupOf(a.name);
   if (a.quantity < 1 || a.quantity > 1000000) throw new ApiError('จำนวนต้องเป็นจำนวนเต็ม 1–1,000,000');
   if (a.salvageSatang > a.totalSatang || a.lifeYears > 100) throw new ApiError('ตรวจสอบอายุใช้งานและมูลค่าซาก');
   if (a.receivedDate && (!/^\d{4}-\d{2}-\d{2}$/.test(a.receivedDate) || !Number.isFinite(Date.parse(a.receivedDate)) || new Date(a.receivedDate).toISOString().slice(0, 10) !== a.receivedDate)) throw new ApiError('วันที่รับไม่ถูกต้อง');
@@ -51,8 +51,8 @@ export function validated(input: Record<string, unknown>): Partial<Asset> {
 export async function dimensions(tx: Transaction, a: Partial<Asset>) {
   const loc = a.location || 'ไม่ระบุสถานที่';
   const branch = a.branch || 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
-  const cat = a.category || resolveCategory(branch);
-  const group = a.groupName || 'ทั่วไป';
+  const cat = a.category || UNKNOWN_ASSET_TYPE;
+  const group = a.groupName || assetGroupOf(a.name || '');
   await tx.location.createMany({ data: [{ name: loc }], skipDuplicates: true });
   await tx.branch.createMany({ data: [{ name: branch }], skipDuplicates: true });
   await tx.category.createMany({ data: [{ name: cat }], skipDuplicates: true });
@@ -72,6 +72,11 @@ export async function asset(tx: Transaction, assetId: string): Promise<Asset> {
   if (!a) throw new ApiError('ไม่พบครุภัณฑ์', 404);
   return plain<Asset>(a);
 }
+// หมายเลขครุภัณฑ์ทั้งหมดในทะเบียน (รวมที่จำหน่ายแล้ว) สำหรับเตือนแถวนำเข้าที่ซ้ำ
+export async function registeredCodes(db: Pick<Transaction, 'asset'>) {
+  const list = await db.asset.findMany({ select: { code: true, name: true, branch: true, lifecycle: true } });
+  return new Map(list.map(a => [codeKey(a.code), `${a.code} · ${a.name} · ${branchAbbr(a.branch)}${a.lifecycle === 'disposed' ? ' (จำหน่ายแล้ว)' : ''}`]));
+}
 export async function getSource(sourceId: string): Promise<Source> {
   const file = await prisma.importFile.findUnique({ where: { id: sourceId } });
   if (!file) throw new ApiError('ไม่พบไฟล์', 404);
@@ -81,9 +86,9 @@ export async function getData(m: Member, url: URL) {
   const view = url.searchParams.get('view') || 'state';
   if (view === 'source') {
     const s = await getSource(url.searchParams.get('source') || 'provided-2569');
-    let rows = classify(s);
     const decisions = await prisma.sourceRow.findMany({ where: { sourceId: s.id }, select: { sourceRow: true } });
     const done = new Set(decisions.map(x => x.sourceRow));
+    let rows = markExistingCodes(classify(s), await registeredCodes(prisma), done);
     const assetRows = rows.filter(x => x.kind === 'asset');
     const stats = {
       rows: rows.length,
@@ -116,6 +121,17 @@ export async function getData(m: Member, url: URL) {
     const activeSheets = s.sheets.filter(x => x.rows.length > 0).map(x => x.name);
     return { id: s.id, name: s.name, hash: s.hash, sheets: activeSheets, stats, total: rows.length, rows: rows.slice(page * size, (page + 1) * size).map(x => ({ ...x, done: done.has(x.key) })) } satisfies SourceViewResponse;
   }
+  // ประวัติการทำงานทั้งระบบที่เก่ากว่าที่โหลดมาแล้ว (หน้า Audit โหลดเพิ่มทีละชุด)
+  if (view === 'audit') {
+    // ตัวชี้ตำแหน่ง = เวลา + id (บันทึกที่เขียนใน transaction เดียวกันมีเวลาเท่ากันหลายร้อยรายการ เทียบเวลาอย่างเดียวจะข้ามไปทั้งกลุ่ม)
+    const before = url.searchParams.get('before') || '', beforeId = url.searchParams.get('beforeId') || '';
+    const take = 200;
+    const where = !before ? {} : beforeId
+      ? { OR: [{ createdAt: { lt: before } }, { createdAt: before, id: { lt: beforeId } }] }
+      : { createdAt: { lt: before } };
+    const events = await prisma.audit.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: take + 1 });
+    return { events: events.slice(0, take), more: events.length > take, total: await prisma.audit.count() };
+  }
   if (view === 'history') return {
     events: await prisma.audit.findMany({ where: { assetId: url.searchParams.get('asset') || '' }, orderBy: { createdAt: 'desc' } }),
     children: await withAssetImages(await prisma.asset.findMany({ where: { parentId: url.searchParams.get('asset') || '' } })),
@@ -128,25 +144,26 @@ export async function getData(m: Member, url: URL) {
       return { ...item, code: snapshot.code, name: snapshot.name };
     }).sort((a, b) => a.code.localeCompare(b.code, 'th')) } satisfies StocktakeResponse;
   }
-  const [assets, requests, rounds, users, invites, events, imports, settings, approvals, names, sessions] = await Promise.all([
-    prisma.asset.findMany({ orderBy: { createdAt: 'desc' } }),
+  const [assets, requests, rounds, users, invites, events, imports, settings, approvals, names, sessions, funds] = await Promise.all([
+    prisma.asset.findMany({ orderBy: { createdAt: 'desc' }, include: { setRef: { select: { name: true, kind: true } }, fundRef: { select: { name: true } } } }),
     prisma.assetRequest.findMany({ include: { asset: { select: { code: true, name: true } } }, orderBy: { createdAt: 'desc' } }),
     prisma.stocktake.findMany({ include: { items: { select: { result: true } } }, orderBy: { createdAt: 'desc' } }),
     m.role === 'admin' ? prisma.user.findMany({ select: publicUserFields }) : [],
     m.role === 'admin' ? prisma.invite.findMany() : [],
-    prisma.audit.findMany({ orderBy: { createdAt: 'desc' }, take: 100 }), prisma.importFile.findMany(),
+    prisma.audit.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100 }), prisma.importFile.findMany(),
     prisma.setting.findMany({ where: { key: { not: 'bootstrap' } } }),
     prisma.approval.findMany({ orderBy: { createdAt: 'asc' } }), prisma.user.findMany({ select: { id: true, name: true } }),
     m.role === 'admin' ? prisma.session.findMany({ where: { expiresAt: { gt: new Date() } }, select: { userId: true } }) : [],
+    prisma.assetSet.findMany({ where: { kind: 'fund' }, select: { id: true, name: true }, orderBy: [{ createdAt: 'asc' }, { name: 'asc' }] }),
   ]);
   const actorNames = new Map(names.map(u => [u.id, u.name]));
   const onlineUserIds = new Set(sessions.map(s => s.userId));
   onlineUserIds.add(m.id);
   const usersWithOnline = users.map(u => ({ ...u, isOnline: onlineUserIds.has(u.id) }));
   return {
-    me: m, assets: await withAssetImages(assets.map(a => ({ ...a, branch: normalizeBranch(a.branch || '', '', '') }))), requests: requests.map(({ asset, ...r }) => ({ ...r, ...asset })),
+    me: m, assets: await withAssetImages(assets.map(({ setRef, fundRef, ...a }) => ({ ...a, branch: normalizeBranch(a.branch || '', '', ''), setName: setRef?.name ?? null, setKind: setRef?.kind ?? null, fundName: fundRef?.name ?? null }))), requests: requests.map(({ asset, ...r }) => ({ ...r, ...asset })),
     rounds: rounds.map(({ items, ...r }) => ({ ...r, total: items.length, checked: items.filter(i => i.result !== 'pending').length })),
-    users: usersWithOnline, invites, events, imports,
+    users: usersWithOnline, invites, events, imports, funds,
     settings: Object.fromEntries(settings.map(s => [s.key, s.value])), approvals: approvals.map(a => ({ ...a, actorName: actorNames.get(a.actor) || '' })),
   } satisfies WorkspaceDatabaseData;
 }

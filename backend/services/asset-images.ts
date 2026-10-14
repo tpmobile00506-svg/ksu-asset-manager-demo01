@@ -57,15 +57,8 @@ export async function normalizeAssetImage(bytes: Uint8Array) {
   if (bytes.length > ASSET_IMAGE_MAX_BYTES) throw new ApiError('รูปภาพต้องไม่เกิน 4 MB', 413);
 
   const sharp = await getSharp();
-  if (!sharp) {
-    const isJpeg = bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-    const isPng = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
-    const isWebp = bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
-    if (!isJpeg && !isPng && !isWebp) {
-      throw new ApiError('อ่านรูปภาพไม่สำเร็จ กรุณาใช้ JPEG, PNG หรือ WebP ที่สมบูรณ์และไม่เกิน 25 ล้านพิกเซล', 400);
-    }
-    return { body: Buffer.from(bytes), width: null, height: null };
-  }
+  // ไม่มี sharp = ลบ EXIF/GPS และย่อรูปไม่ได้ จึงไม่เก็บรูปดิบ (พิกัดสถานที่ถ่ายอาจติดไปกับรูป)
+  if (!sharp) throw new ApiError('ระบบประมวลผลรูปภาพไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลังหรือแจ้งผู้ดูแลระบบ', 503);
 
   try {
     const image = sharp(bytes, { limitInputPixels: ASSET_IMAGE_MAX_PIXELS, failOn: 'warning' });

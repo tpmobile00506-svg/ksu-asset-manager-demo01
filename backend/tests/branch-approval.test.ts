@@ -339,3 +339,30 @@ test('เมื่อ invite มีการกำหนด branch ไว้ ต
     restore();
   }
 });
+
+test('สร้างหรือแก้บัญชีหัวหน้าสาขาโดยไม่มีสาขา ถูกปฏิเสธ (หัวหน้าที่ไม่มีสาขาอนุมัติอะไรไม่ได้)', async () => {
+  const { tx, usersMap } = createMockEnvironment();
+  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  try {
+    const before = usersMap.size;
+    await assert.rejects(mutate(adminUser, {
+      action: 'user', email: 'nobranch-head@ksu.ac.th', name: 'หัวหน้าไม่มีสาขา', role: 'head', password: 'StrongPassword2026!',
+    }), /หัวหน้าสาขาต้องระบุสาขา/);
+    assert.equal(usersMap.size, before);
+  } finally {
+    restore();
+  }
+});
+
+test('awaitsApprovalBy: กระดิ่งและหน้าคำขอนับคำขอที่รอผู้ใช้คนนี้ตรงกัน', async () => {
+  const { awaitsApprovalBy } = await import('../contracts/domain');
+  const req = { status: 'pending', chain: '["head","deputy","dean"]', stage: 0, actor: 'staff-1' };
+  const headVk = { id: 'h1', role: 'head', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)' };
+  assert.equal(awaitsApprovalBy(req, headVk, 'วค'), true);                                   // สาขาเดียวกัน (ชื่อย่อ)
+  assert.equal(awaitsApprovalBy(req, { ...headVk, branch: null }, 'วค'), false);            // หัวหน้าไม่มีสาขา
+  assert.equal(awaitsApprovalBy(req, headVk, 'วิศวกรรมไฟฟ้า (วฟ)'), false);                 // คนละสาขา
+  assert.equal(awaitsApprovalBy(req, { id: 'd1', role: 'deputy' }, 'วค'), false);          // ยังไม่ถึงขั้นรองคณบดี
+  assert.equal(awaitsApprovalBy({ ...req, stage: 1 }, { id: 'd1', role: 'deputy' }, 'วค'), true);
+  assert.equal(awaitsApprovalBy({ ...req, actor: 'h1' }, headVk, 'วค'), false);             // คำขอของตัวเอง
+  assert.equal(awaitsApprovalBy({ ...req, status: 'approved' }, headVk, 'วค'), false);
+});
