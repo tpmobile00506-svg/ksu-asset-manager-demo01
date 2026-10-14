@@ -38,7 +38,7 @@ import {
   DialogTitle,
   DialogDescription
 } from '@/components/ui/dialog';
-import { Role, roles, money, normalizeBranch } from '@/shared/domain';
+import { Role, roles, money, awaitsApprovalBy } from '@/shared/domain';
 import { buildApprovalDocumentHtml } from '@/shared/approval-document';
 import { toast } from 'sonner';
 import { Empty, Badge } from '@/frontend/components/common';
@@ -398,13 +398,6 @@ export default function RequestsView({
               <TableBody>
                 {filtered.map(r => {
                   const asset = assets.find(a => a.id === r.assetId || a.code === r.code);
-                  let chain: Role[] = ['head', 'deputy', 'dean'];
-                  try {
-                    chain = JSON.parse(r.chain);
-                  } catch {
-                    chain = ['head', 'deputy', 'dean'];
-                  }
-
                   let payload: Record<string, any> = {};
                   try {
                     payload = JSON.parse(r.payload || '{}');
@@ -412,19 +405,7 @@ export default function RequestsView({
                     payload = {};
                   }
 
-                  const currentStageRole = chain[r.stage];
-                  const isMatchingBranch =
-                    currentStageRole !== 'head' ||
-                    (Boolean(data.me.branch) &&
-                      Boolean(asset?.branch) &&
-                      normalizeBranch(data.me.branch!, '', '') ===
-                        normalizeBranch(asset!.branch, '', ''));
-
-                  const isApproverForThisStage =
-                    r.status === 'pending' &&
-                    currentStageRole === data.me.role &&
-                    r.actor !== data.me.id &&
-                    isMatchingBranch;
+                  const isApproverForThisStage = awaitsApprovalBy(r, data.me, asset?.branch);
 
                   return (
                     <TableRow key={r.id} className="hover:bg-slate-50/70 transition-colors">

@@ -98,6 +98,7 @@ test('bulk import prepares immutable sources before its transaction and checks d
     },
     asset: {
       findFirst: async () => { assert.equal(inTransaction, true); return null; },
+      findMany: async () => { assert.equal(inTransaction, true); return []; },   // ตรวจรหัสซ้ำในทะเบียน (ว่าง)
       createMany: async ({ data }: { data: typeof insertedAssets }) => { insertedAssets = data; return { count: data.length }; },
     },
     location: dimensions, branch: dimensions, category: dimensions, assetGroup: dimensions,

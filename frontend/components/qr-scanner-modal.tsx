@@ -32,6 +32,20 @@ interface QrScannerModalProps {
   description?: string;
 }
 
+
+// html5-qrcode เรียก video.play() เองโดยไม่ดักผล ถ้าปิดหน้าต่างก่อนวิดีโอเริ่มเล่น เบราว์เซอร์ยกเลิก play()
+// เป็น AbortError ที่ไม่มีผลเสีย (กล้องถูกปิดอยู่แล้ว) แต่ Next.js ขึ้นหน้าแดง จึงดักผลเฉพาะวิดีโอของตัวสแกนนี้
+function guardVideoPlay(video: HTMLVideoElement) {
+  const play = video.play.bind(video);
+  video.play = () => {
+    const result = play();
+    result?.catch((e: unknown) => {
+      if ((e as { name?: string })?.name !== 'AbortError') console.error(e);
+    });
+    return result;
+  };
+}
+
 export default function QrScannerModal({
   open,
   onClose,
@@ -112,7 +126,13 @@ export default function QrScannerModal({
     }
   }, [onScan, playBeep, triggerHaptic]);
 
+  // รอบการเปิดกล้อง: ปิดหน้าต่างหรือสลับกล้องระหว่างที่กล้องกำลังเปิด ต้องไม่ปล่อยกล้องค้างไว้
+  const startGeneration = useRef(0);
+  // จับวิดีโอที่ html5-qrcode ใส่ลงพื้นที่กล้อง (ใส่ก่อนเรียก play() เพราะรอ applyConstraints ของ aspectRatio ก่อน)
+  const videoObserver = useRef<MutationObserver | null>(null);
+  useEffect(() => () => videoObserver.current?.disconnect(), []);
   const stopScanner = useCallback(async () => {
+    startGeneration.current++;
     if (scannerRef.current) {
       try {
         if (scannerRef.current.isScanning) {
@@ -138,6 +158,8 @@ export default function QrScannerModal({
 
     try {
       await stopScanner();
+      const generation = startGeneration.current;
+      const cancelled = () => generation !== startGeneration.current;
 
       // ตรวจสอบ secure context
       if (typeof window !== 'undefined' && !window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
@@ -151,6 +173,11 @@ export default function QrScannerModal({
       if (!container) {
         throw new Error('ไม่พบพื้นที่แสดงผลกล้อง');
       }
+      videoObserver.current?.disconnect();
+      videoObserver.current = new MutationObserver(records => {
+        for (const r of records) r.addedNodes.forEach(n => { if (n instanceof HTMLVideoElement) guardVideoPlay(n); });
+      });
+      videoObserver.current.observe(container, { childList: true, subtree: true });
 
       const scanner = new Html5Qrcode(containerId, {
         formatsToSupport: [
@@ -184,7 +211,7 @@ export default function QrScannerModal({
           const size = Math.max(50, Math.floor(Math.min(w, h) * 0.75));
           return { width: size, height: size };
         },
-        aspectRatio: 1.0
+        aspectRatio: 1.0  // ต้องมี: ทำให้ html5-qrcode รอก่อนเรียก play() ตัวดัก AbortError (videoObserver) จึงทันจับวิดีโอ
       };
 
       await scanner.start(
@@ -198,6 +225,12 @@ export default function QrScannerModal({
         }
       );
 
+      // หน้าต่างถูกปิด (หรือเริ่มกล้องใหม่) ระหว่างรอกล้องเปิด: ปิดกล้องตัวนี้ทิ้ง ไม่ให้ไฟกล้องค้าง
+      if (cancelled()) {
+        try { await scanner.stop(); } catch { /* กล้องหยุดแล้ว */ }
+        try { scanner.clear(); } catch { /* ล้างแล้ว */ }
+        return;
+      }
       setLoading(false);
 
       // ตรวจสอบการรองรับไฟฉาย (Torch)

@@ -3,8 +3,16 @@ export type Role = keyof typeof roles;
 export const conditions = {normal:'ปกติ',damaged:'ชำรุด',repair:'กำลังซ่อม',missing:'ไม่พบ'} as const;
 export const requestTypes = {transfer:'โอนย้าย',repair:'ซ่อมบำรุง',disposal:'จำหน่าย / ตัดบัญชี'} as const;
 export const headers11 = ['ลำดับ','หมายเลขครุภัณฑ์','รายการ','จำนวน','ราคาต่อหน่วย','จำนวนเงิน','หมายเหตุ','สถานที่','สาขา','หมวด (กลุ่มต่างๆ)','สำนักงาน'];
-export type Asset = {imageVersion?:string|null;imageUrl?:string|null;id:string;code:string;name:string;quantity:number;unitSatang:number;totalSatang:number;notes:string;location:string;branch:string;groupName:string;category:string;condition:string;lifecycle:string;version:number;parentId:string|null;sourceId:string|null;sourceRow:string|null;receivedDate:string;lifeYears:number;salvageSatang:number;serial:string;brand:string;custodian:string;createdAt:string};
-export type Candidate = {key:string;sheet:string;row:number;kind:string;issue:string;issueType?:string;groupName:string;values:unknown[];asset:Partial<Asset>};
+export type Asset = {imageVersion?:string|null;imageUrl?:string|null;id:string;code:string;name:string;quantity:number;unitSatang:number;totalSatang:number;notes:string;location:string;branch:string;groupName:string;category:string;condition:string;lifecycle:string;version:number;parentId:string|null;sourceId:string|null;sourceRow:string|null;receivedDate:string;lifeYears:number;salvageSatang:number;serial:string;brand:string;custodian:string;createdAt:string;setId?:string|null;setRole?:string|null;setName?:string|null;setKind?:string|null;fundId?:string|null;fundHintId?:string|null;fundName?:string|null};
+// ชุดครุภัณฑ์ที่ห้ามแยก: package = หัวชุดไม่มีลำดับแต่มีราคา, lot = หัวชุดมีลำดับและราคา, heading = หัวข้อชุดไม่มีราคา
+// ชุดห้ามแยก (package/lot) · heading = บรรทัดหัวทุน/โครงการในไฟล์ต้นฉบับ (ใช้ระหว่างตรวจไฟล์เท่านั้น)
+export type SetKind = 'package' | 'lot' | 'heading' | 'fund';
+export type SetRole = 'header' | 'part' | 'member';
+export const setRoles: Record<SetRole, string> = { header: 'หัวชุด', part: 'ชิ้นส่วนในชุด', member: 'รายการในชุด' };
+export type CandidateSet = { key: string; name: string; kind: SetKind; role?: SetRole };
+// fund = หัวทุนที่อยู่เหนือแถวนี้ในไฟล์ต้นฉบับ: เป็นแค่ "รายการแนะนำ" เจ้าหน้าที่ต้องยืนยันเองว่ามาจากทุนนั้นจริง
+export type CandidateFund = { key: string; name: string };
+export type Candidate = {key:string;sheet:string;row:number;kind:string;issue:string;issueType?:string;groupName:string;values:unknown[];asset:Partial<Asset>;set?:CandidateSet;fund?:CandidateFund};
 export type Source = {id:string;name:string;hash:string;sheets:{name:string;rows:{row:number;values:unknown[]}[]}[]};
 export function satang(value: unknown): number {
   const text = String(value ?? '').replace(/,/g,'').trim();
@@ -35,9 +43,33 @@ export function fiscalYearAsOfDate(fiscalYear: number | string): Date {
   const yearCE = yearBE - 543;
   return new Date(`${yearCE}-09-30T23:59:59Z`);
 }
+// ปีงบประมาณ (พ.ศ.) ของวันที่: เริ่ม 1 ต.ค. เช่น 13 ส.ค. 2569 → 2569, 1 ต.ค. 2569 → 2570
+export function fiscalYearOf(date: Date): number {
+  return date.getFullYear() + 543 + (date.getMonth() >= 9 ? 1 : 0);
+}
 export const money=(n:number)=>new Intl.NumberFormat('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n/100);
 function cell(v:unknown):unknown {if(v&&typeof v==='object'&&'cached' in v)return (v as {cached:unknown}).cached;return v;}
 function str(v:unknown){return String(cell(v)??'').trim();}
+// ตัวเลขจากเซลล์ Excel: แปลงเลขไทย (๐–๙) และตัดเศษทศนิยมที่เกิดจากสูตร (เช่น 1260331.7999999998 → 1260331.80)
+// ทศนิยมจริงเกิน 2 ตำแหน่ง (เช่น 6666.665) ไม่ปัด เพื่อให้เจ้าหน้าที่ตรวจเอง
+function amount(v:unknown):unknown{
+  const x=cell(v);
+  if(typeof x==='number'&&Number.isFinite(x)&&Math.abs(x*100-Math.round(x*100))<1e-6)return (Math.round(x*100)/100).toFixed(2);
+  if(typeof x==='string')return x.replace(/[๐-๙]/g,d=>String(d.charCodeAt(0)-0x0E50));
+  return x;
+}
+// บอกปัญหาของช่องราคาให้ตรงเหตุ แทนข้อความรวมๆ
+function satangSafe(v:unknown){try{satang(amount(v));return true;}catch{return false;}}
+function priceProblem(v:unknown):string{
+  const x=amount(v);
+  if(v&&typeof v==='object'&&'formula' in (v as object)&&(x===null||x===undefined))return 'ช่องราคาเป็นสูตรที่ไม่มีค่าผลลัพธ์ ต้องเปิดไฟล์ใน Excel แล้วบันทึกใหม่';
+  if(x===null||x===undefined||String(x).trim()==='')return 'ยังไม่มีราคาต่อหน่วย/จำนวนเงิน';
+  const n=Number(String(x).replace(/,/g,''));
+  if(isNaN(n))return 'ช่องราคาไม่ใช่ตัวเลข: '+String(x).slice(0,30);
+  if(n<0)return 'ราคาติดลบ ต้องตรวจสอบต้นฉบับ';
+  if(Math.round(n*100)!==n*100)return 'ราคามีทศนิยมเกิน 2 ตำแหน่ง ('+String(x)+') ต้องปัดเป็นสตางค์ก่อนนำเข้า';
+  return 'ข้อมูลราคาไม่ครบหรือไม่มีค่าผลลัพธ์สูตร';
+}
 type ImportColumns = { branch: number; group: number; category: number; location: number };
 function tableHeader(values: unknown[]) {
   const labels = values.map(value => str(value).replace(/\s+/g, ''));
@@ -66,6 +98,71 @@ export const standardCategories = [
 ] as const;
 
 export type StandardCategory = typeof standardCategories[number];
+
+// ประเภทครุภัณฑ์ (คอลัมน์ "สำนักงาน") ตามแถว "คณะวิศวกรรมศาสตร์ฯ ครุภัณฑ์…" ของแต่ละแผ่นในไฟล์ต้นฉบับของเจ้าหน้าที่
+export const assetTypes = [
+  'ครุภัณฑ์สำนักงาน',
+  'ครุภัณฑ์คอมพิวเตอร์',
+  'ครุภัณฑ์โฆษณาและเผยแพร่',
+  'ครุภัณฑ์การแพทย์และวิทยาศาสตร์',
+  'ครุภัณฑ์ไฟฟ้าและวิทยุ',
+  'ครุภัณฑ์การศึกษา',
+  'ครุภัณฑ์การเกษตร',
+  'ครุภัณฑ์โรงงาน',
+  'ครุภัณฑ์งานบ้านงานครัว',
+  'ครุภัณฑ์สำรวจ',
+  'ครุภัณฑ์ยานพาหนะและขนส่ง',
+] as const;
+export const UNKNOWN_ASSET_TYPE = 'รอระบุประเภท';
+
+// ชื่อแผ่นงานในไฟล์ต้นฉบับ → ประเภท (ใช้เมื่อแผ่นไม่มีแถวหัว "ครุภัณฑ์…")
+const assetTypeBySheet: Record<string, (typeof assetTypes)[number]> = {
+  'สำนักงาน': 'ครุภัณฑ์สำนักงาน', 'คอม': 'ครุภัณฑ์คอมพิวเตอร์', 'โฆษณา': 'ครุภัณฑ์โฆษณาและเผยแพร่',
+  'วิทยาศาสตร์': 'ครุภัณฑ์การแพทย์และวิทยาศาสตร์', 'ไฟฟ้า': 'ครุภัณฑ์ไฟฟ้าและวิทยุ', 'การศึกษา': 'ครุภัณฑ์การศึกษา',
+  'เกษตร': 'ครุภัณฑ์การเกษตร', 'โรงงาน': 'ครุภัณฑ์โรงงาน', 'งานครัว': 'ครุภัณฑ์งานบ้านงานครัว',
+  'สำรวจ': 'ครุภัณฑ์สำรวจ', 'ยานพาหนะ': 'ครุภัณฑ์ยานพาหนะและขนส่ง',
+};
+
+// คืนประเภทที่ข้อความระบุ เช่น "คณะวิศวกรรมศาสตร์ฯ ครุภัณฑ์คอมพิวเตอร์" หรือชื่อแผ่น "คอม" ไม่รู้จัก → ''
+export function assetTypeOf(text: string): string {
+  const t = (text || '').replace(/\s+/g, '');
+  if (!t) return '';
+  if (assetTypeBySheet[t]) return assetTypeBySheet[t];
+  return [...assetTypes].sort((a, b) => b.length - a.length).find(type => t.includes(type)) || '';
+}
+
+// หมวด (กลุ่มต่างๆ) จัดจากชื่อรายการด้วยคำค้น — ร่าง 19 หมวดให้เจ้าหน้าที่ตรวจ (ร่างหมวดครุภัณฑ์_ให้เจ้าหน้าที่ตรวจ.xlsx)
+// ลำดับมีผล: ตรวจจากบนลงล่าง เจอก่อนใช้ก่อน เช่น "โต๊ะคอมพิวเตอร์" ต้องเป็นโต๊ะ ไม่ใช่คอมพิวเตอร์
+const assetGroupRules: Array<[string, RegExp]> = [
+  ['อุปกรณ์เครือข่ายและเครื่องแม่ข่าย', /แม่ข่าย|server|เซิร์ฟเวอร์|กระจายสัญญาณ|switch|สวิตช์|router|rack|access point|เครือข่าย|รับส่งภาพ|เครื่องให้บริการ|สำรองข้อมูล|ตัวเชื่อมต่อระบบ|converter|เน็ตเวิร์ค|สลับสัญญาณ/i],
+  ['ชุดฝึกและชุดทดลอง', /ชุดฝึก|ชุดทดลอง|ชุดการเรียน|ชุดสาธิต|ชุดปฏิบัติ|ชุดเครื่องทดลอง|ชุดทดสอบ|ชุดจำลอง|หุ่นยนต์|trainer/i],
+  ['ยานพาหนะ', /^[\d.\s]*รถ(?!เข็น)|จักรยานยนต์/],
+  ['เครื่องมือวัดและทดสอบ', /เครื่องวัด|วัดค่า|มิเตอร์|meter|ออสซิลโล|oscillo|เครื่องทดสอบ|เกจ|เครื่องชั่ง|เทอร์โม|กล้องจุลทรรศน์|กำเนิดสัญญาณ|เวอร์เนียร์|แท่งแก้ว|กระบอกตวง|บันทึกข้อมูล|วิเคราะห์สัญญาณ|เครื่องมือวัด|ตรวจสอบอาการเสีย/i],
+  ['เครื่องจักรและเครื่องมือช่าง', /เครื่องกลึง|เครื่องเจาะ|เครื่องเชื่อม|ชุดเชื่อม|เครื่องตัด|เครื่องเจียร|สว่าน|ปั๊ม|ปั้ม|คอมเพรสเซอร์|เครื่องยนต์|เครื่องมือช่าง|เครื่องอัด|มิลลิ่ง|cnc|เลื่อย|แกะสลัก|เครื่องขัด|แม่แรง|ประแจ|สูบน้ำ|ปากกาจับ|ทั่ง|กรรไกรตัด|เครื่องกัด/i],
+  ['เครื่องใช้ไฟฟ้าในสำนักงานและงานครัว', /ตู้เย็น|ไมโครเวฟ|กาต้มน้ำ|ตู้ทำน้ำ|เครื่องทำน้ำ|ตู้น้ำ|กดน้ำ|หม้อ(?!แปลง|ต้ม)|กรองน้ำ|ดูดฝุ่น|ทำลายเอกสาร|เคลือบบัตร|เข้าเล่ม|นาฬิกาแขวน|นาฬิกาติดผนัง|เตารีด/],
+  ['โต๊ะ', /(?<!ตั้ง)โต๊ะ/],
+  ['เก้าอี้และโซฟา', /เก้าอี้|เก้าอี|เก้าอื้|โซฟา|ม้านั่ง/],
+  ['ตู้และชั้นวาง', /ตู้(?!ลำโพง)|ชั้นวาง|ชั้นเก็บ|ล็อกเกอร์|ล๊อกเกอร์/],
+  ['ซอฟต์แวร์', /^[\d.\s]*(โปรแกรม|ซอฟ)|ซอฟท์แวร์|ซอฟต์แวร์|ซอฟแวร์|software/i],
+  ['เครื่องพิมพ์และสแกนเนอร์', /พิมพ์|พรินเตอร์|ปริ้น|ปริ๊น|printer|สแกน|scanner|ถ่ายเอกสาร/i],
+  ['คอมพิวเตอร์และโน้ตบุ๊ก', /คอมพิวเตอร์|คอมพิเตอร์|คอมฯ|โน้ตบุ๊ก|โน๊ตบุ๊ค|โน๊ตบุ๊ก|โน้ตบุ๊ค|notebook|แท็บเล็ต|แท็ปแลต|tablet|ipad|all in one/i],
+  ['จอภาพ โปรเจคเตอร์ และจอรับภาพ', /จอ|monitor|โปรเจค|โปรเจ็ค|โปเจค|projector|ทีวี|โทรทัศน์|\btv\b|เครื่องฉาย|แว่นสามมิติ|\bvr\b/i],
+  ['เครื่องเสียงและไมโครโฟน', /ลำโพง|ขยายเสียง|ไมค์|ไมด์|ไมโครโฟน|มิกเซอร์|มิกซ์เซอร์|เครื่องเสียง|หูฟัง/],
+  ['เครื่องปรับอากาศและพัดลม', /ปรับอากาศ|แอร์|พัดลม/],
+  ['อุปกรณ์ไฟฟ้าและเครื่องสำรองไฟ', /สำรองไฟ|ups|ไฟฉุกเฉิน|ปลั๊ก|หม้อแปลง|ควบคุมไฟฟ้า|โคมไฟ/i],
+  ['ม่าน พาร์ติชั่น และอุปกรณ์อาคาร', /ม่าน|พาร์ติชั่น|ฉากกั้น|บานเฟี้ยม|ถังเก็บน้ำ|กระจก|กระดาน|ไวท์บอร์ด|พรม|กระเบื้อง|แท่นบรรยาย|โพเดียม/],
+  ['อุปกรณ์ความปลอดภัย', /ดับเพลิง|กล้องวงจรปิด|cctv|สัญญาณเตือน|เข็มขัดขึ้นเสา/i],
+  ['อุปกรณ์การเกษตร', /เพาะ|รดน้ำ|ไถ|พ่นยา|พ่นสาร|เกษตร|ปลูก|สีข้าว|กะเทาะ|กระพ้อ/],
+];
+export const UNGROUPED = 'รอจัดหมวด';
+export const assetGroups: readonly string[] = [...assetGroupRules.map(([g]) => g), UNGROUPED];
+export const isAssetGroup = (text: string) => assetGroups.includes((text || '').trim());
+export function assetGroupOf(name: string): string {
+  return assetGroupRules.find(([, re]) => re.test(name || ''))?.[0] || UNGROUPED;
+}
+// หมวดที่บันทึกไว้ (รวมหมวดที่เจ้าหน้าที่ตั้งเอง) ใช้ตามนั้น ยกเว้นว่างหรือ "รอจัดหมวด" จึงจัดจากชื่อรายการ
+// (ข้อความชุด/โครงการเก่าในช่องหมวดถูกล้างแล้ว 15 ต.ค. 2569)
+export const groupFor = (a: { groupName?: string; name?: string }) => { const g = (a.groupName || '').trim(); return g && g !== UNGROUPED ? g : assetGroupOf(a.name || ''); };
 
 export const standardBranches = [
   'วิศวกรรมคอมพิวเตอร์ (วค)',
@@ -147,17 +244,85 @@ export function normalizeBranch(raw: string, note: string, sheet: string): strin
   if (sheet === 'สำรวจ' || sheet === 'ยานพาหนะ') return 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
   return 'ส่วนกลาง / การศึกษา';
 }
+
+// ชื่อย่อสาขาที่ใช้ในรายงาน ตามที่เจ้าหน้าที่พัสดุเขียนในไฟล์ต้นฉบับ (ผู้ใช้ยืนยัน 13 ต.ค. 2569: นอส = ออกแบบ)
+const branchAbbreviation: Record<StandardBranch, string> = {
+  'วิศวกรรมคอมพิวเตอร์ (วค)': 'วค',
+  'วิศวกรรมไฟฟ้า (วฟ)': 'วฟ',
+  'เทคโนโลยีเครื่องจักรกลเกษตร (คจก)': 'คจก',
+  'วิศวกรรมเครื่องกล (วคม/วศค)': 'วคม',
+  'วิศวกรรมอุตสาหการ (วอ)': 'วอ',
+  'วิศวกรรมโยธา/โลจิสติกส์ (วย/วล)': 'วล',
+  'วิศวกรรมเมคคาทรอนิกส์ (มค)': 'มค',
+  'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ/นอส)': 'นอส',
+  'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)': 'สนง',
+  'ส่วนกลาง / การศึกษา': 'ส่วนกลาง',
+};
+
+export function branchAbbr(branch: string): string {
+  const raw = (branch || '').trim();
+  if (!raw) return '';
+  return branchAbbreviation[normalizeBranch(raw, '', '') as StandardBranch] ?? raw;
+}
+
+// สาขามาตรฐานทั้งหมดที่ช่องสาขาระบุไว้ เช่น "วอ /คจก" ได้ 2 สาขา — มากกว่า 1 ต้องให้เจ้าหน้าที่เลือก ไม่เดา
+export function branchCandidates(raw: string): StandardBranch[] {
+  const text = (raw || '').trim();
+  const standard = standardBranches as readonly string[];
+  if (standard.includes(text)) return [text as StandardBranch];
+  const found = new Set<StandardBranch>();
+  for (const part of text.split('/')) {
+    const branch = part.trim() && normalizeBranch(part.trim(), '', '');
+    if (branch && standard.includes(branch)) found.add(branch as StandardBranch);
+  }
+  return [...found];
+}
+// แถวในไฟล์ที่หมายเลขมีในทะเบียนอยู่แล้ว (จากไฟล์อื่นหรือเพิ่มเอง) ต้องไม่ขึ้นว่า "พร้อมนำเข้า"
+// existing: codeKey → คำอธิบายรายการเดิม · ข้ามแถวที่นำเข้าจากไฟล์นี้ไปแล้ว (done)
+export function markExistingCodes(rows: Candidate[], existing: Map<string, string>, done: Set<string>): Candidate[] {
+  for (const row of rows) {
+    if (row.kind !== 'asset' || done.has(row.key)) continue;
+    // รหัสช่วง ("…-1(1) ถึง -2(1)") นำเข้าเป็นรหัสย่อยแต่ละตัวด้วย จึงต้องเทียบรหัสย่อยกับทะเบียนด้วย
+    const code = String(row.asset.code || '');
+    const hit = [code, ...(expandRange(code, Number(row.asset.quantity)) ?? [])].map(c => existing.get(codeKey(c))).find(Boolean);
+    if (!hit) continue;
+    const note = 'มีหมายเลขนี้ในทะเบียนแล้ว: ' + hit;
+    row.issue = row.issue ? note + ' · ' + row.issue : note;
+    row.issueType = 'duplicate';
+  }
+  return rows;
+}
+// หมายเลขครุภัณฑ์ที่ถือว่าเป็นตัวเดียวกัน: ไม่สนตัวพิมพ์เล็ก/ใหญ่และช่องว่าง (เช่น "ksu165 -1610" = "KSU165-1610")
+// คำขอนี้รอผู้ใช้คนนี้อนุมัติอยู่หรือไม่ (ใช้ทั้งหน้าคำขอและกระดิ่งแจ้งเตือน ให้นับตรงกัน)
+// ขั้นของหัวหน้าสาขา: ต้องเป็นสาขาเดียวกับครุภัณฑ์ · ห้ามอนุมัติคำขอของตัวเอง
+export function awaitsApprovalBy(r: { status: string; chain: string; stage: number; actor: string }, me: { id: string; role: string; branch?: string | null }, assetBranch?: string | null): boolean {
+  if (r.status !== 'pending' || r.actor === me.id) return false;
+  let chain: string[] = ['head', 'deputy', 'dean'];
+  try { chain = JSON.parse(r.chain); } catch { /* ใช้สายอนุมัติเริ่มต้น */ }
+  const stageRole = chain[r.stage];
+  if (stageRole !== me.role) return false;
+  if (stageRole !== 'head') return true;
+  return !!me.branch && !!assetBranch && normalizeBranch(me.branch, '', '') === normalizeBranch(assetBranch, '', '');
+}
+export const codeKey = (code: string) => (code || '').normalize('NFC').toUpperCase().replace(/\s+/g, '').replace(/[–—]/g, '-');
 export function classify(source:Source):Candidate[]{
  const out:Candidate[]=[];
  const codeCounts = new Map<string, number>();
  const codeHistorical = new Set<string>();
+ // ประเภทของแต่ละแผ่น: จากแถว "คณะวิศวกรรมศาสตร์ฯ ครุภัณฑ์…" ก่อน ไม่มีจึงใช้ชื่อแผ่น
+ const sheetTypes = new Map<string, string>(), codeTypes = new Map<string, string>();
  for(const sh of source.sheets){
   const isHist = /ชำรุด|ไม่มีตัวตน|วัสดุฝึกสอน/.test(sh.name);
+  const headingRow = sh.rows.find(r => /^คณะวิศวกรรม/.test(r.values.slice(0, 3).map(str).find(Boolean) || ''));
+  const headingType = headingRow ? assetTypeOf(headingRow.values.slice(0, 3).map(str).find(Boolean) || '') : '';
+  // แผ่น "ไม่มีตัวตน" ในต้นฉบับใช้หัว "ครุภัณฑ์สำรวจ" ที่ไม่ตรงกับรายการ จึงไม่เชื่อหัวของแผ่นนี้
+  sheetTypes.set(sh.name, /ไม่มีตัวตน/.test(sh.name) ? '' : headingType || assetTypeOf(sh.name));
   for(const r of sh.rows){
-   const c = str(r.values[1]);
+   const c = codeKey(str(r.values[1]));
    if(c){
     codeCounts.set(c, (codeCounts.get(c) || 0) + 1);
     if(isHist) codeHistorical.add(c);
+    else if(sheetTypes.get(sh.name) && !codeTypes.has(c)) codeTypes.set(c, sheetTypes.get(sh.name)!);
    }
   }
  }
@@ -173,47 +338,166 @@ export function classify(source:Source):Candidate[]{
    // Report annotations occupy the leading cells. A normal asset's name/notes may
    // legitimately contain words such as เจ้าหน้าที่ or รวมเป็นเงิน.
    else if((!name||!code||subtotalLabel(code))&&v.slice(0,5).some(subtotalLabel))kind='subtotal';
-   else if((!name||!code)&&/^(?:หน้าที่\s*\d|รายละเอียดครุภัณฑ์คงเหลือ|มหาวิทยาลัย|ณ\s*วันที่|คณะวิศวกรรม)/.test(heading))kind='header';
-   else if(name && code && Number(cell(v[3]))>0){kind='asset';}
+   else if((!name||!code)&&/^(?:หน้าที่\s*\d|รายละเอียดครุภัณฑ์(?:คงเหลือ|ชำรุด)|มหาวิทยาลัย|ณ\s*วันที่|ประจำปีงบประมาณ|คณะวิศวกรรม)/.test(heading))kind='header';
+   else if(name && code && Number(amount(v[3]))>0){kind='asset';}
+   else if(name&&code&&str(v[3])!==''&&Number(amount(v[3]))<=0){kind='asset';issue='จำนวนต้องมากกว่า 0 ต้องตรวจสอบต้นฉบับ';issueType='price';}
    else if(name&&code){kind='asset';issue='จำนวนหรือราคาของรายการย่อยยังไม่ครบ ต้องระบุวิธีลงมูลค่าชุด';issueType='price';}
    else if(!name&&/\d{2,}[-/]/.test(code)){kind='asset';issue='ชื่อหรือข้อมูลรายการที่รวมเซลล์ยังไม่ครบ ต้องตรวจสอบต้นฉบับ';issueType='name';}
+   // มีหมายเลขแต่ไม่มีชื่อ: ข้อความที่มีตัวเลขและไม่มีสระ/วรรณยุกต์ไทยคือรหัส ไม่ใช่ชื่อชุด (ชื่อชุดจริงมีสระเสมอ)
+   else if(!name&&/\d/.test(code)&&!/[ัิ-ฺเ-๎]/.test(code)&&Number(amount(v[3]))>0){kind='asset';issue='มีหมายเลขครุภัณฑ์แต่ไม่มีชื่อรายการ ต้องเติมชื่อก่อนนำเข้า';issueType='name';}
    else if(!name&&code){kind='group';group=text;}
    else if(/ชุด|โครงการ|สัญญา|งบประมาณ|ประกอบด้วย|ทดแทน/.test(text)){kind='group';group=text;}
-   let qty=Number(cell(v[3])),unit=0,total=0;
+   // บรรทัดราคาของชุดที่ไม่มีรหัส (มีชื่อ จำนวน และราคา) เช่น "โต๊ะประชุมมีบังตา | 2 | 5,900 | 11,800" แล้วตามด้วยรายชิ้นที่ไม่มีราคา
+   // ต้องไม่ถูกทิ้งเป็นหมายเหตุ ไม่งั้นยอดเงินหายและรายชิ้นไปเข้าชุดก่อนหน้า → ส่งต่อให้ detectSets ทำเป็นหัวชุด
+   else if(!code&&name&&Number(amount(v[3]))>0&&Number(String(amount(v[4])??'').replace(/,/g,''))>0){kind='group';}
+   let qty=Number(amount(v[3])),unit=0,total=0;
    let explicitCat = '';
    let finalGroup = '';
+   let memo = '';
+   let rawGroup = '';
    if (columns) {
      const vGroup = str(v[columns.group]);
+     rawGroup = vGroup;
      const vOffice = columns.category >= 0 ? str(v[columns.category]) : '';
      if (standardCategories.includes(vGroup as any)) {
+       // ไฟล์ที่ Export จากเว็บรุ่นก่อน: หมวดหมู่ตามสาขาอยู่ในคอลัมน์หมวด
        explicitCat = vGroup;
        finalGroup = vOffice;
      } else {
-       explicitCat = vOffice;
-       finalGroup = vGroup;
+       // คอลัมน์ "หมวด" รับเฉพาะหมวดที่รู้จัก และ "สำนักงาน" รับเฉพาะประเภทครุภัณฑ์
+       // ข้อความอื่นเป็นบันทึกช่วยจำของเจ้าหน้าที่ → ย้ายไปหมายเหตุ
+       // "รอจัดหมวด" / "รอระบุประเภท" เป็นแค่ป้ายบอกว่ายังไม่ได้จัด ไม่ใช่ข้อมูล
+       finalGroup = isAssetGroup(vGroup) && vGroup !== UNGROUPED ? vGroup : '';
+       explicitCat = assetTypeOf(vOffice);
+       const placeholder = (x: string) => !x || /^(?:ทั่วไป|—|-)$/.test(x) || x === UNGROUPED || x === UNKNOWN_ASSET_TYPE;
+       // บันทึกช่วยจำที่อยู่ถัดจากคอลัมน์สำนักงาน (เช่นไฟล์ที่จัดข้อมูลแล้วย้ายบันทึกไปช่อง K เป็นต้นไป) ต้องไม่หาย
+       const last = Math.max(columns.group, columns.category, columns.branch);
+       const extra = v.slice(last + 1).map(str);
+       const memos = [isAssetGroup(vGroup) ? '' : vGroup, explicitCat ? '' : vOffice, ...extra].filter(x => !placeholder(x));
+       memo = memos.join(' · ');
      }
    } else {
-     finalGroup = [group, ...v.slice(8).map(str)].filter(Boolean).join(' • ');
+     finalGroup = '';
    }
-   const groupName = finalGroup;
+   // หมวดจัดจากชื่อรายการ ข้อความชุด/โครงการเก็บแยกในชุด (detectSets) และใน groupName ของแถว
+   const groupName = columns ? rawGroup : [group, ...v.slice(8).map(str)].filter(Boolean).join(' • ');
+   const assetGroup = finalGroup || assetGroupOf(name);
+   const rawBranch = columns ? str(v[columns.branch]) : (str(v[7]) || str(v[8]));
+   const branch = normalizeBranch(rawBranch, str(v[6]), sheet.name);
+   // ชีตชำรุด/ประวัติไม่บอกประเภท จึงใช้ประเภทของรหัสเดียวกันในแผ่นหลัก
+   const category = explicitCat || (historical ? codeTypes.get(codeKey(code)) || sheetTypes.get(sheet.name) : sheetTypes.get(sheet.name)) || UNKNOWN_ASSET_TYPE;
+   const notes = [str(v[6]), memo].filter(Boolean).join(' · ');
    if(kind==='asset'){
-    try{unit=satang(cell(v[4]));total=satang(cell(v[5]));}catch{issue ||= 'ข้อมูลราคาไม่ครบหรือไม่มีค่าผลลัพธ์สูตร';issueType='price';}
+    try{unit=satang(amount(v[4]));total=satang(amount(v[5]));}catch{issue ||= priceProblem(satangSafe(v[4])?v[5]:v[4]);issueType='price';}
     if(!Number.isSafeInteger(qty)||qty<=0){qty=0;issue ||= 'ตรวจสอบจำนวนรายการ';}
     if(qty&&unit*qty!==total){issue ||= 'จำนวน × ราคาต่อหน่วยไม่ตรงยอดเดิม';if(issueType==='other')issueType='price';}
-    if(codeHistorical.has(code)&&!historical){issue ||= 'รหัสนี้มีอยู่ในชีตชำรุด/ประวัติ อาจแทงจำหน่ายแล้ว';issueType='duplicate';}
-    else if((codeCounts.get(code)||0)>1){issue ||= 'รหัสครุภัณฑ์ซ้ำซ้อนในไฟล์';issueType='duplicate';}
+    if(codeHistorical.has(codeKey(code))&&!historical){issue ||= 'รหัสนี้มีอยู่ในชีตชำรุด/ประวัติ อาจแทงจำหน่ายแล้ว';issueType='duplicate';}
+    else if((codeCounts.get(codeKey(code))||0)>1){issue ||= 'รหัสครุภัณฑ์ซ้ำซ้อนในไฟล์';issueType='duplicate';}
     else if(historical){issue ||= 'ชีตประวัติ / ชำรุด ต้องตรวจสอบรายการซ้ำกับทะเบียนหลัก';issueType='duplicate';}
     if(/ถึง/.test(code)||/\(\d+-\d+\)/.test(code)){issue ||= 'ช่วงรหัสไม่ชัดเจน ต้องตรวจสอบหมายเลขรายชิ้น';issueType='range';}
     if(group && (!unit || !total || unit*qty !== total)){issue ||= 'รายการอยู่ในชุด / โครงการ ต้องยืนยันการจัดกลุ่มและการลงมูลค่า';if(issueType==='other')issueType='price';}
     if(!unit&&!total&&!issue){issue='ยังไม่มีราคาต่อหน่วย/จำนวนเงิน';issueType='price';}
+    // ข้อความยาวเกินที่ระบบรับได้: ถ้าปล่อยเป็น "พร้อมนำเข้า" การนำเข้าทั้งชุดจะล้มเพราะแถวเดียว
+    if([code,name,str(v[6])].some(t=>t.length>5000)){issue ||= 'ข้อความในแถวยาวเกิน 5,000 ตัวอักษร ต้องย่อก่อนนำเข้า';issueType='name';}
+    const branches=branchCandidates(rawBranch);
+    if(branches.length>1){const note=`ระบุไว้หลายสาขา (${branches.map(branchAbbr).join(' / ')}) ต้องเลือกสาขาก่อนนำเข้า`;if(issue)issue+=' · '+note;else{issue=note;issueType='branch';}}
     if(!issue)issueType='ready';
    }
-   const rawBranch = columns ? str(v[columns.branch]) : (str(v[7]) || str(v[8]));
-   const branch = normalizeBranch(rawBranch, str(v[6]), sheet.name);
-   const category = explicitCat || resolveCategory(branch, sheet.name);
-   out.push({key:sheet.name+':'+r.row,sheet:sheet.name,row:r.row,kind,issue,issueType,groupName,values:v,asset:{code,name,quantity:qty||0,unitSatang:unit,totalSatang:total,notes:str(v[6]),location:columns&&columns.location>=0?str(v[columns.location]):str(v[6]),branch,groupName:groupName||'ทั่วไป',category,condition:'normal'}});
+   out.push({key:sheet.name+':'+r.row,sheet:sheet.name,row:r.row,kind,issue,issueType,groupName,values:v,asset:{code,name,quantity:qty||0,unitSatang:unit,totalSatang:total,notes,location:columns&&columns.location>=0?str(v[columns.location]):str(v[6]),branch,groupName:assetGroup,category,condition:'normal'}});
   }
- }return out;
+ }return detectSets(out);
+}
+
+// ช่องราคาที่ว่างจริง (ไม่ใช่ 0) — ชิ้นส่วนของชุดในไฟล์ต้นฉบับเว้นช่องราคาไว้ ส่วนราคา 0 คือรายการที่ลงราคาเป็นศูนย์
+function priceIsBlank(value: unknown): boolean {
+  const v = amount(value);
+  if (v === null || v === undefined) return true;
+  const text = String(v).replace(/,/g, '').trim();
+  return !text || isNaN(Number(text));
+}
+
+// จัดชุดครุภัณฑ์จากลำดับแถวในแต่ละแผ่น (ผู้ใช้ยืนยัน 13 ต.ค. 2569):
+// - หัวชุดไม่มีลำดับแต่มีราคา (package) และรายการมีลำดับที่มีราคา (lot) ตามด้วยแถวมีลำดับที่เว้นช่องราคา = ชิ้นส่วน มูลค่ารวมในหัวชุด
+//   ชุดจบเมื่อเจอรายการที่มีราคาของตัวเอง
+// - หัวข้อชุดไม่มีราคา (heading) = รายการมีราคาที่ตามมาอยู่ในชุดเดียวกัน จนเจอหัวชุดหรือหัวข้อใหม่
+// - หัวชุด package ไม่มีหมายเลข จึงใช้หมายเลขของชิ้นส่วน และต่อท้ายชิ้นส่วนที่ใช้เลขเดียวกันด้วย -ชิ้น1, -ชิ้น2 …
+function detectSets(rows: Candidate[]): Candidate[] {
+  const sheets = new Map<string, Candidate[]>();
+  for (const row of rows) { if (!sheets.has(row.sheet)) sheets.set(row.sheet, []); sheets.get(row.sheet)!.push(row); }
+  const reviewSet = (row: Candidate, note: string) => { row.issue = note; row.issueType = 'set'; };
+  for (const sheetRows of sheets.values()) {
+    let heading: CandidateSet | null = null;
+    let lastPriced: Candidate | null = null;
+    let lastCounted: Candidate | null = null;
+    const packages: Array<{ header: Candidate; parts: Candidate[] }> = [];
+    let currentPackage: { header: Candidate; parts: Candidate[] } | null = null;
+    for (const row of sheetRows) {
+      if (row.kind === 'header' || row.kind === 'subtotal' || row.kind === 'note') continue;   // หัวกระดาษแต่ละหน้าไม่ตัดชุด
+      const v = row.values, seq = Number(cell(v[0]));
+      const hasSeq = Number.isInteger(seq) && seq > 0 && String(cell(v[0]) ?? '').trim() !== '';
+      if (row.kind === 'group') {
+        const text = str(v[1]) || str(v[2]) || row.groupName;
+        if (!priceIsBlank(v[4]) && Number(amount(v[3])) > 0) {
+          // หัวชุด package: มีราคา ไม่มีลำดับ → เป็นครุภัณฑ์ที่ถือมูลค่าของทั้งชุด
+          const set: CandidateSet = { key: row.key, name: text, kind: 'package', role: 'header' };
+          let unit = 0, total = 0;
+          try { unit = satang(amount(v[4])); total = satang(amount(v[5])); } catch { /* ราคาผิดรูปแบบ: ให้เจ้าหน้าที่ตรวจ */ }
+          row.kind = 'asset';
+          row.set = set;
+          row.asset = { ...row.asset, code: '', name: text, quantity: Number(amount(v[3])), unitSatang: unit, totalSatang: total };
+          reviewSet(row, `หัวชุด "${text}" มูลค่ารวมของทั้งชุด ตรวจการจัดชุดก่อนนำเข้า`);
+          currentPackage = { header: row, parts: [] };
+          packages.push(currentPackage);
+          if (heading) row.fund = { key: heading.key, name: heading.name };
+          lastPriced = row; heading = null; lastCounted = row;
+          continue;
+        }
+        if (lastCounted && lastCounted.kind === 'group' && lastCounted.set?.kind === 'heading' && heading) {
+          heading.name += ' ' + text;                                                 // หัวข้อชุดที่เขียนต่อหลายบรรทัด
+        } else {
+          heading = { key: row.key, name: text, kind: 'heading' };
+          lastPriced = null; currentPackage = null;
+        }
+        row.set = heading;
+        lastCounted = row;
+        continue;
+      }
+      if (row.kind !== 'asset') continue;
+      lastCounted = row;
+      if (heading) row.fund = { key: heading.key, name: heading.name };
+      if (hasSeq && priceIsBlank(v[4]) && lastPriced && row.asset.name) {
+        // ชิ้นส่วนของหัวชุดก่อนหน้า
+        if (!lastPriced.set) {
+          const setName = lastPriced.asset.name || lastPriced.asset.code || '';
+          lastPriced.set = { key: lastPriced.key, name: setName, kind: 'lot', role: 'header' };
+          const extra = lastPriced.issue && lastPriced.issueType !== 'ready' ? ' · ' + lastPriced.issue : '';
+          reviewSet(lastPriced, `หัวชุด "${setName}" มีชิ้นส่วนรวมในชุด ตรวจการจัดชุดก่อนนำเข้า${extra}`);
+          currentPackage = { header: lastPriced, parts: [] };
+        }
+        const headerSet = lastPriced.set!;
+        row.set = { key: headerSet.key, name: headerSet.name, kind: headerSet.kind, role: 'part' };
+        row.asset = { ...row.asset, quantity: row.asset.quantity || 1, unitSatang: 0, totalSatang: 0 };
+        reviewSet(row, `ชิ้นส่วนของชุด "${headerSet.name}" มูลค่ารวมในหัวชุดแล้ว ตรวจการจัดชุดก่อนนำเข้า`);
+        if (currentPackage && currentPackage.header === lastPriced) currentPackage.parts.push(row);
+        continue;
+      }
+      // รายการที่มีราคาของตัวเอง: จบชุดแบบ package/lot ส่วนหัวข้อชุดยังต่อเนื่อง
+      currentPackage = null;
+      lastPriced = row;
+    }
+    // หมายเลขของหัวชุด package มาจากชิ้นส่วน (เลือกข้อ ก.)
+    for (const { header, parts } of packages) {
+      const code = parts.map(p => p.asset.code).find(Boolean) || '';
+      header.asset.code = code;
+      if (!code) reviewSet(header, `หัวชุด "${header.set!.name}" ไม่มีหมายเลขครุภัณฑ์ ต้องระบุก่อนนำเข้า`);
+      let n = 0;
+      for (const part of parts) if (code && part.asset.code === code) part.asset.code = `${code}-ชิ้น${++n}`;
+    }
+  }
+  // หัวทุนที่ต่อหลายบรรทัด: ให้ทุกรายการใช้ชื่อเต็มเดียวกัน
+  const headings = new Map(rows.filter(r => r.kind === 'group' && r.set?.kind === 'heading').map(r => [r.key, r.set!.name]));
+  for (const row of rows) if (row.fund && headings.has(row.fund.key)) row.fund = { ...row.fund, name: headings.get(row.fund.key)! };
+  return rows;
 }
 
 // ผลต่างการตรวจนับ: เทียบจำนวนที่พบจริงกับจำนวนในทะเบียน ณ วันเปิดรอบ (ขาด / เกิน / ตรง / ยังไม่ได้ตรวจ)

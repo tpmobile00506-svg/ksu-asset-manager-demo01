@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { api, Badge, Empty, Pager, date } from '@/frontend/components/common';
 import type { StocktakeItem, StocktakeResponse, WorkspaceData } from '@/shared/models';
 import QrScannerModal from '@/frontend/components/qr-scanner-modal';
+import { codeKey } from '@/shared/domain';
 import { exportStocktakeWorkbook } from '@/frontend/services/excel-export';
 
 export default function StocktakesView({
@@ -134,8 +135,8 @@ export default function StocktakesView({
     const found = items.find(i => {
       if (i.assetId && i.assetId.toLowerCase() === target) return true;
       if (i.id && i.id.toLowerCase() === target) return true;
-      if (i.code && i.code.toLowerCase() === target) return true;
-      if (i.code && i.code.toLowerCase() === rawTarget) return true;
+      // หมายเลขครุภัณฑ์เทียบแบบไม่สนตัวพิมพ์และช่องว่าง (เหมือนการตรวจรหัสซ้ำ)
+      if (i.code && (codeKey(i.code) === codeKey(cleanCode) || codeKey(i.code) === codeKey(scannedText))) return true;
       try {
         const snap = JSON.parse(i.snapshot || '{}');
         if (snap.serial && snap.serial.toLowerCase() === target) return true;

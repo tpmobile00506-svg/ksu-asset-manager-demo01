@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Printer, TrendingDown, CheckCircle2, AlertCircle, FileSpreadsheet, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,7 +11,7 @@ import {
   TableHead,
   TableCell
 } from '@/components/ui/table';
-import { Asset, money, bookValue, standardBranches, fiscalYearAsOfDate, remainingLifeYears, thaiDateOnly, lifeBucket, lifeBucketLabels, type LifeBucket } from '@/shared/domain';
+import { Asset, money, bookValue, standardBranches, fiscalYearAsOfDate, fiscalYearOf, remainingLifeYears, thaiDateOnly, lifeBucket, lifeBucketLabels, type LifeBucket } from '@/shared/domain';
 import { printAssets } from '@/frontend/services/excel-export';
 import { Badge, Empty, Pager } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
@@ -23,14 +23,38 @@ export default function ReportsView({
   data: Pick<WorkspaceData, 'assets'>;
   select: (a: Asset) => void;
 }) {
-  const [fiscalYear, setFiscalYear] = useState('2569');
+  // ปีงบประมาณปัจจุบันคำนวณจากวันนี้ (เริ่ม 1 ต.ค.) แทนการเขียนปีตายตัว
+  const currentFiscalYear = fiscalYearOf(new Date());
+  const [fiscalYear, setFiscalYear] = useState(String(currentFiscalYear));
   const [selectedBranch, setSelectedBranch] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [page, setPage] = useState(0);
 
+  // วันที่ของรายงาน: ปีงบที่จบแล้ว = 30 ก.ย. ของปีนั้น · ปีงบปัจจุบัน = วันนี้ (ไม่คำนวณค่าเสื่อมล่วงหน้า)
+  // วันนี้ใช้วันที่ตามเวลาในเครื่อง (toISOString เป็น UTC ช้ากว่าไทย 7 ชั่วโมง หลังเที่ยงคืนจะได้วันก่อนหน้า)
+  // เปิดหน้าค้างข้ามเที่ยงคืน: เปลี่ยนวันของรายงานตาม (ตั้งเวลาไว้ที่เที่ยงคืนถัดไป)
+  const [day, setDay] = useState(() => new Date().toDateString());
+  useEffect(() => {
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
+    const timer = setTimeout(() => setDay(new Date().toDateString()), nextMidnight + 1000);
+    return () => clearTimeout(timer);
+  }, [day]);
+  const { asOfDate, asOfIso } = useMemo(() => {
+    const end = fiscalYearAsOfDate(fiscalYear), now = new Date();
+    if (end.getTime() <= now.getTime()) return { asOfDate: end, asOfIso: end.toISOString().slice(0, 10) };
+    const local = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return { asOfDate: now, asOfIso: local };
+  }, [fiscalYear, day]);
+
+  // ของที่รับเข้าหลังวันที่รายงาน ยังไม่มีอยู่ ณ วันนั้น จึงไม่นับ
   const active = useMemo(
-    () => data.assets.filter(a => a.lifecycle === 'active'),
-    [data.assets]
+    () => data.assets.filter(a => a.lifecycle === 'active' && !(a.receivedDate && a.receivedDate > asOfIso)),
+    [data.assets, asOfIso]
+  );
+  const receivedLater = useMemo(
+    () => data.assets.filter(a => a.lifecycle === 'active' && a.receivedDate && a.receivedDate > asOfIso).length,
+    [data.assets, asOfIso]
   );
 
   const filtered = useMemo(() => {
@@ -40,8 +64,6 @@ export default function ReportsView({
     );
   }, [active, selectedBranch, selectedCategory]);
 
-  // วันที่สิ้นปีงบประมาณเป้าหมาย (30 กันยายน ของปี พ.ศ. ที่เลือก)
-  const asOfDate = useMemo(() => fiscalYearAsOfDate(fiscalYear), [fiscalYear]);
 
   // Financial Calculations
   const stats = useMemo(() => {
@@ -56,7 +78,8 @@ export default function ReportsView({
       if (bv !== null) {
         totalNetBook += bv;
         totalAccDep += Math.max(0, a.totalSatang - bv);
-        if (bv <= (a.salvageSatang || 100)) {
+        // ตัดค่าเสื่อมครบ = มูลค่าสุทธิเหลือเท่ามูลค่าซาก (เดิมเทียบกับ 1 บาท ทำให้ของราคาต่ำกว่า 1 บาทนับว่าครบตั้งแต่วันแรก)
+        if (a.lifeYears > 0 && bv <= a.salvageSatang) {
           fullyDepreciatedCount++;
         }
       } else {
@@ -107,7 +130,7 @@ export default function ReportsView({
   }, [filtered, asOfDate]);
 
   const handlePrint = () => {
-    printAssets(filtered);
+    printAssets(filtered, { asOf: asOfDate, asOfLabel: thaiDateOnly(asOfIso) });
   };
 
   return (
@@ -191,11 +214,17 @@ export default function ReportsView({
               onChange={e => setFiscalYear(e.target.value)}
               className="bg-transparent font-medium text-slate-900 border-none outline-none cursor-pointer"
             >
-              <option value="2569">2569 (ปัจจุบัน)</option>
-              <option value="2568">2568</option>
-              <option value="2567">2567</option>
+              {[0, 1, 2, 3, 4].map(n => (
+                <option key={n} value={String(currentFiscalYear - n)}>
+                  {currentFiscalYear - n}{n === 0 ? ' (ปัจจุบัน)' : ''}
+                </option>
+              ))}
             </select>
           </div>
+          <span className="text-xs text-slate-500">
+            ข้อมูล ณ {thaiDateOnly(asOfIso)}
+            {receivedLater > 0 && ` · ไม่รวม ${receivedLater.toLocaleString('th-TH')} รายการที่รับเข้าหลังวันที่รายงาน`}
+          </span>
 
           {/* Department selector */}
           <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">

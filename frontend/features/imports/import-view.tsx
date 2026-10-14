@@ -7,7 +7,7 @@ import {Checkbox} from '@/components/ui/checkbox';
 import {Table,TableHeader,TableBody,TableRow,TableHead,TableCell} from '@/components/ui/table';
 import {Skeleton} from '@/components/ui/skeleton';
 import {toast} from 'sonner';
-import {Candidate,money} from '@/shared/domain';
+import {Candidate,money,setRoles} from '@/shared/domain';
 import type {BatchImportInput,SourceViewResponse} from '@/shared/imports';
 import {createBatchImporter,sourceResponse} from './import-requests';
 import {api,Metric,Pick,Pager,Empty} from '@/frontend/components/common';
@@ -400,6 +400,11 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
                               หมวด{r.asset.category}
                             </span>
                           )}
+                          {r.set && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">
+                              {r.set.role ? setRoles[r.set.role] : 'หัวข้อชุด'}: {r.set.name}
+                            </span>
+                          )}
                           {r.kind==='asset'&&r.groupName && r.groupName !== 'ทั่วไป' && r.groupName !== r.asset.category && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600 border border-slate-200">
                               {r.groupName}
@@ -424,7 +429,8 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
                               r.issueType === 'range' ? 'รหัสช่วง' :
                               r.issueType === 'name' ? 'ชื่อว่าง' :
                               r.issueType === 'price' ? 'ราคา 0 / ชุด' :
-                              r.issueType === 'duplicate' ? 'รหัสซ้ำ / ชำรุด' : 'ต้องตรวจทาน'
+                              r.issueType === 'duplicate' ? 'รหัสซ้ำ / ชำรุด' :
+                              r.issueType === 'branch' ? 'หลายสาขา' : 'ต้องตรวจทาน'
                             ) : ({header:'หัวกระดาษ',subtotal:'ยอดยก / ยอดรวม',group:'หัวข้อชุด / โครงการ',note:'ข้อความประกอบ'} as Record<string,string>)[r.kind]}
                           </span>
                         </div>

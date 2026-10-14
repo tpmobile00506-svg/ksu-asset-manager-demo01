@@ -25,6 +25,7 @@ export default function Operations({
   revision: number;
   select: (a: Asset) => void;
 }) {
+
   if (view === 'requests') {
     return <RequestsView data={data} open={open} />;
   }

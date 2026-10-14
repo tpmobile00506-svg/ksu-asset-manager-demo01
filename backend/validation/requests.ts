@@ -49,7 +49,8 @@ const baseRequestFields = {
 export const transferRequestSchema = z.object({
   ...baseRequestFields,
   kind: z.literal('transfer'),
-  payload: transferPayloadSchema,
+  // ไม่ส่งข้อมูลปลายทางมาเลย: ตอบเป็นภาษาไทยแทน "Required" ของ zod
+  payload: transferPayloadSchema.optional().refine(v => v !== undefined, 'ระบุสถานที่และสาขาปลายทาง').transform(v => v!),
 });
 
 export const repairRequestSchema = z.object({

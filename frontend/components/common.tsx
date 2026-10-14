@@ -63,6 +63,7 @@ export async function api<T = Any>(params = '', body?: Any | FormData, options: 
     ? typeof data.me?.name === 'string' && typeof data.me?.role === 'string' && ['assets', 'requests', 'rounds', 'users', 'invites', 'events', 'imports', 'approvals'].every(key => Array.isArray(data[key])) && !!data.settings
     : view === 'history' ? Array.isArray(data.events) && Array.isArray(data.children)
     : view === 'stocktake' ? Array.isArray(data.items)
+    : view === 'audit' ? Array.isArray(data.events) && typeof data.more === 'boolean'
     : view === 'source' ? Array.isArray(data.rows) && Array.isArray(data.sheets) && !!data.stats
     : false;
   if (!valid) throw new Error('เซิร์ฟเวอร์ส่งข้อมูลไม่ครบ กรุณาลองใหม่');

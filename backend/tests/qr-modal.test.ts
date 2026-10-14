@@ -20,6 +20,8 @@ function renderModal(toDataURL: (url: string) => Promise<string>) {
   const errors: string[] = [];
   let stateIndex = 0;
   let effectIndex = 0;
+  const memos: { deps: unknown[]; value: unknown }[] = [];
+  let memoIndex = 0;
   let pendingEffects: (() => void)[] = [];
   let prints = 0;
   const jsx = (type: string, props: Record<string, any>): Node => ({ type, props });
@@ -31,6 +33,13 @@ function renderModal(toDataURL: (url: string) => Promise<string>) {
         return [states[index], (value: unknown) => {
           states[index] = typeof value === 'function' ? value(states[index]) : value;
         }];
+      },
+      // useMemo: คำนวณใหม่เมื่อ deps เปลี่ยน เหมือน React จริง (ใช้แบ่งป้าย QR เป็นชุดละ 100)
+      useMemo(factory: () => unknown, deps: unknown[]) {
+        const index = memoIndex++;
+        const previous = memos[index];
+        if (!previous || deps.some((value, i) => !Object.is(value, previous.deps[i]))) memos[index] = { deps, value: factory() };
+        return memos[index].value;
       },
       useEffect(effect: () => (() => void) | undefined, deps: unknown[]) {
         const index = effectIndex++;
@@ -70,6 +79,7 @@ function renderModal(toDataURL: (url: string) => Promise<string>) {
     render(open: boolean, assets: QrAsset[]) {
       stateIndex = 0;
       effectIndex = 0;
+      memoIndex = 0;
       pendingEffects = [];
       const tree = module.exports.default({ open, assets, onClose() {} });
       // Return the rendered output before effects so stale labels cannot escape

@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { Asset, money } from '@/shared/domain';
+import { Asset, money, setRoles, type SetRole } from '@/shared/domain';
 import { Any, api, Badge, Activity } from '@/frontend/components/common';
 import AssetPhoto from './asset-photo';
 
@@ -132,6 +132,8 @@ export default function AssetDetailSheet({
                 ['สถานที่', selected.location],
                 ['สาขา', selected.branch],
                 ['ประเภท', selected.category],
+                ...(selected.setId ? [['ชุด (ห้ามแยก)', `${setRoles[selected.setRole as SetRole] ?? 'รายการในชุด'} · ${selected.setName ?? ''}`]] : []),
+                ...(selected.fundId ? [['ทุน / โครงการ', selected.fundName ?? '']] : []),
                 ['ผู้รับผิดชอบ', selected.custodian],
                 ['Serial', selected.serial],
                 ['ยี่ห้อ / รุ่น', selected.brand],

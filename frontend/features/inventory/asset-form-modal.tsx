@@ -24,7 +24,7 @@ import {
   AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Asset, conditions, satang, standardCategories, standardBranches, resolveCategory } from '@/shared/domain';
+import { Asset, conditions, satang, assetTypes, assetGroups, standardBranches } from '@/shared/domain';
 import {
   Any,
   api,
@@ -50,7 +50,8 @@ export function Field({
   autoComplete,
   placeholder,
   onChange,
-  hint
+  hint,
+  list
 }: {
   label: string;
   name: string;
@@ -67,6 +68,7 @@ export function Field({
   placeholder?: string;
   onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
   hint?: string;
+  list?: string;
 }) {
   return (
     <label className={wide ? 'span-2' : ''}>
@@ -88,6 +90,7 @@ export function Field({
         placeholder={placeholder}
         onChange={onChange}
         step={type === 'number' ? '1' : undefined}
+        list={list}
       />
       {hint && <small className="text-xs text-slate-500 mt-1 block">{hint}</small>}
     </label>
@@ -191,7 +194,7 @@ export default function AssetFormModal({
   useEffect(() => {
     if (modal && ['create', 'edit', 'import'].includes(modal.kind)) {
       const b = modal.asset?.branch || 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
-      const c = modal.asset?.category || resolveCategory(b);
+      const c = modal.asset?.category || '';
       setBranchInput(b);
       setCategoryInput(c);
 
@@ -216,11 +219,7 @@ export default function AssetFormModal({
   }, [modal?.token]);
 
   const handleBranchChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const nextBranch = e.target.value;
-    setBranchInput(nextBranch);
-    if (nextBranch) {
-      setCategoryInput(resolveCategory(nextBranch));
-    }
+    setBranchInput(e.target.value);
   };
 
   useEffect(() => {
@@ -463,27 +462,31 @@ export default function AssetFormModal({
                     required
                   />
                   <label>
-                    <span>ประเภท / หมวดหมู่หลัก *</span>
+                    <span>ประเภทครุภัณฑ์ (สำนักงาน) *</span>
                     <Input
                       name="category"
                       value={categoryInput}
                       onChange={e => setCategoryInput(e.target.value)}
                       list="asset-category-options"
-                      placeholder="เลือกจากรายการหรือพิมพ์ชื่อหมวด"
+                      placeholder="เช่น ครุภัณฑ์คอมพิวเตอร์"
                       required
                     />
                     <datalist id="asset-category-options">
-                      {standardCategories.map(cat => (
+                      {assetTypes.map(cat => (
                         <option key={cat} value={cat} />
                       ))}
                     </datalist>
                   </label>
                   <Field
-                    label="หมวด / ชุด / โครงการ"
+                    label="หมวด (กลุ่มต่างๆ)"
                     name="groupName"
+                    list="asset-group-options"
                     defaultValue={modal?.asset?.groupName || ''}
-                    placeholder="เช่น โครงการพัฒนาห้องปฏิบัติการ AI"
+                    placeholder="เว้นว่าง = จัดจากชื่อรายการ"
                   />
+                  <datalist id="asset-group-options">
+                    {assetGroups.map(g => <option key={g} value={g} />)}
+                  </datalist>
                 </div>
               </div>
 

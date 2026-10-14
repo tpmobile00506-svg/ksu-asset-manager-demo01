@@ -308,3 +308,11 @@ test('workflowMutationSchema validates approval chain', () => {
     (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'สายอนุมัติไม่ถูกต้อง'
   );
 });
+
+test('checkOrigin: รับเฉพาะต้นทางของเว็บนี้ ไม่รับเว็บอื่นบน vercel.app', async () => {
+  const { checkOrigin } = await import('../auth/sessions');
+  const req = (origin: string, host: string) => new Request('http://x/api/auth/login', { method: 'POST', headers: { origin, host } });
+  assert.doesNotThrow(() => checkOrigin(req('https://ksu-asset-manager-demo01.vercel.app', 'ksu-asset-manager-demo01.vercel.app')));
+  assert.throws(() => checkOrigin(req('https://attacker-site.vercel.app', 'ksu-asset-manager-demo01.vercel.app')), /ต้นทางคำขอไม่ถูกต้อง/);
+  assert.throws(() => checkOrigin(req('https://evil.example.com', 'localhost:3000')), /ต้นทางคำขอไม่ถูกต้อง/);
+});

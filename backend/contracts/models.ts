@@ -116,6 +116,7 @@ export interface CurrentUser extends UserRecord {
   role: Role;
 }
 
+export interface FundRecord { id: string; name: string }
 export interface WorkspaceData {
   me: CurrentUser;
   assets: Asset[];
@@ -127,4 +128,6 @@ export interface WorkspaceData {
   imports: ImportFileRecord[];
   settings: Record<string, string>;
   approvals: ApprovalRecord[];
+  // ทุน / โครงการทั้งหมด (รวมทุนที่ยังไม่มีครุภัณฑ์)
+  funds: FundRecord[];
 }
