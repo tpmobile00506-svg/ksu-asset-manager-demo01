@@ -366,3 +366,15 @@ test('awaitsApprovalBy: กระดิ่งและหน้าคำขอ�
   assert.equal(awaitsApprovalBy({ ...req, actor: 'h1' }, headVk, 'วค'), false);             // คำขอของตัวเอง
   assert.equal(awaitsApprovalBy({ ...req, status: 'approved' }, headVk, 'วค'), false);
 });
+
+test('approvalChainOf: ค่าตั้งสายอนุมัติที่เสียใช้ค่าเริ่มต้น 3 ระดับ (คำขอใหม่ต้องมีผู้อนุมัติเสมอ)', async () => {
+  const { approvalChainOf } = await import('../contracts/domain');
+  const fallback = { chain: ['head', 'deputy', 'dean'], valid: false };
+  assert.deepEqual(approvalChainOf('[]'), fallback);                         // ค่าที่พบในฐาน dev
+  assert.deepEqual(approvalChainOf(undefined), fallback);
+  assert.deepEqual(approvalChainOf('ไม่ใช่ JSON'), fallback);
+  assert.deepEqual(approvalChainOf('["head","head"]'), fallback);            // ซ้ำ
+  assert.deepEqual(approvalChainOf('["admin"]'), fallback);                  // admin อนุมัติไม่ได้
+  assert.deepEqual(approvalChainOf('["head","dean"]'), { chain: ['head', 'dean'], valid: true });
+  assert.deepEqual(approvalChainOf('["dean"]'), { chain: ['dean'], valid: true });
+});

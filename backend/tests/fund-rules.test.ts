@@ -37,6 +37,7 @@ function environment() {
     { id: 'D', code: 'D-1', lifecycle: 'disposed', version: 1, fundId: null, fundHintId: null },
   ];
   const audits: any[] = [];
+  const requests: any[] = [];
   const pick = (where: any) => assets.filter(a =>
     (where.id?.in ? where.id.in.includes(a.id) : true) &&
     (where.fundId !== undefined ? a.fundId === where.fundId : true) &&
@@ -61,8 +62,9 @@ function environment() {
       },
     },
     audit: { create: async ({ data }: any) => { audits.push(data); return data; } },
+    assetRequest: { findFirst: async ({ where }: any) => structuredClone(requests.find(r => r.status === where.status && where.assetId.in.includes(r.assetId)) ?? null) },
   };
-  return { tx, sets, assets, audits };
+  return { tx, sets, assets, audits, requests };
 }
 const run = (tx: object) => useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
 
@@ -116,5 +118,20 @@ test('หัวหน้าสาขาดูได้แต่แก้ทุ�
   const restore = run(tx);
   try {
     await assert.rejects(mutate(head, { action: 'fundAssign', fundId: 'fund-lab', assetIds: ['A'] }), /ไม่มีสิทธิ์/);
+  } finally { restore(); }
+});
+
+test('ครุภัณฑ์ที่มีคำขอรออนุมัติ ใส่/เอาออกจากทุนไม่ได้ (เวอร์ชันเปลี่ยนแล้วคำขอจะอนุมัติไม่ได้) และลบทุนไม่เปลี่ยนเวอร์ชัน', async () => {
+  const { tx, assets, requests } = environment();
+  // E มีคำขอโอนย้ายรออนุมัติ (ผูกกับเวอร์ชัน 2)
+  assets.push({ id: 'E', code: 'E-1', lifecycle: 'active', version: 2, fundId: null, fundHintId: null });
+  requests.push({ id: 'R1', assetId: 'E', status: 'pending' });
+  const restore = run(tx);
+  try {
+    await assert.rejects(mutate(staff, { action: 'fundAssign', fundId: 'fund-lab', assetIds: ['B', 'E'] }), /E-1 มีคำขอรออนุมัติ/);
+    assert.deepEqual([assets[1].fundId, assets[4].fundId, assets[4].version], [null, null, 2]);
+    assets[4].fundId = 'fund-other';
+    await mutate(staff, { action: 'fundDelete', fundId: 'fund-other' });
+    assert.deepEqual([assets[4].fundId, assets[4].version], [null, 2]);
   } finally { restore(); }
 });

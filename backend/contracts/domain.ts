@@ -293,6 +293,17 @@ export function markExistingCodes(rows: Candidate[], existing: Map<string, strin
   return rows;
 }
 // หมายเลขครุภัณฑ์ที่ถือว่าเป็นตัวเดียวกัน: ไม่สนตัวพิมพ์เล็ก/ใหญ่และช่องว่าง (เช่น "ksu165 -1610" = "KSU165-1610")
+// สายอนุมัติจากค่าตั้ง: ต้องมี 1–3 ขั้น ไม่ซ้ำ และเป็น head/deputy/dean เท่านั้น
+// ค่าที่เสีย (เช่น "[]") ใช้ค่าเริ่มต้น ไม่งั้นคำขอใหม่จะไม่มีผู้อนุมัติและค้างตลอดไป
+export const DEFAULT_APPROVAL_CHAIN = ['head', 'deputy', 'dean'] as const;
+export function approvalChainOf(value?: string | null): { chain: string[]; valid: boolean } {
+  try {
+    const chain = JSON.parse(value || '');
+    if (Array.isArray(chain) && chain.length >= 1 && chain.length <= 3 && new Set(chain).size === chain.length
+      && chain.every(r => r === 'head' || r === 'deputy' || r === 'dean')) return { chain, valid: true };
+  } catch { /* ค่าที่ไม่ใช่ JSON ใช้ค่าเริ่มต้น */ }
+  return { chain: [...DEFAULT_APPROVAL_CHAIN], valid: false };
+}
 // คำขอนี้รอผู้ใช้คนนี้อนุมัติอยู่หรือไม่ (ใช้ทั้งหน้าคำขอและกระดิ่งแจ้งเตือน ให้นับตรงกัน)
 // ขั้นของหัวหน้าสาขา: ต้องเป็นสาขาเดียวกับครุภัณฑ์ · ห้ามอนุมัติคำขอของตัวเอง
 export function awaitsApprovalBy(r: { status: string; chain: string; stage: number; actor: string }, me: { id: string; role: string; branch?: string | null }, assetBranch?: string | null): boolean {
