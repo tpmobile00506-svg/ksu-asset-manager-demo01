@@ -370,14 +370,17 @@ export default function RequestsView({
           ))}
         </div>
 
-        <Button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg gap-2 shadow-sm text-xs"
-        >
-          <Plus size={16} />
-          ยื่นคำขอใหม่
-        </Button>
+        {/* ยื่นคำขอได้เฉพาะเจ้าหน้าที่/แอดมิน (ผู้อนุมัติกดแล้วจะถูกปฏิเสธว่าไม่มีสิทธิ์) */}
+        {['staff', 'admin'].includes(data.me.role) && (
+          <Button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg gap-2 shadow-sm text-xs"
+          >
+            <Plus size={16} />
+            ยื่นคำขอใหม่
+          </Button>
+        )}
       </div>
 
       {/* 📋 ตารางรายการคำขอสไตล์พรีเมียม (Requests Table) */}

@@ -459,6 +459,7 @@ export default function AssetFormModal({
                     name="name"
                     defaultValue={modal?.asset?.name || ''}
                     placeholder="เช่น เครื่องคอมพิวเตอร์แม่ข่าย"
+                    autoComplete="off"
                     required
                   />
                   <label>
