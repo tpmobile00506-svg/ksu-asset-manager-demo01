@@ -547,6 +547,26 @@ export default function Editor({
                       {modal.request.name}
                       <p className="mono">{modal.request.code}</p>
                       <p className="mt-1">เหตุผลของผู้ขอ: {modal.request.reason}</p>
+                      {/* สิ่งที่จะเกิดขึ้นเมื่ออนุมัติ: ผู้อนุมัติต้องเห็นปลายทาง/จำนวนก่อนตัดสินใจ */}
+                      {(() => {
+                        let p: Record<string, any> = {};
+                        try { p = JSON.parse(modal.request.payload || '{}'); } catch { /* ไม่มีรายละเอียด */ }
+                        return (
+                          <>
+                            {modal.request.kind === 'transfer' && (
+                              <p className="mt-1">ย้ายไป: <b>{p.location || '—'}</b> · {p.branch || '—'}{p.custodian ? ` · ผู้รับผิดชอบใหม่: ${p.custodian}` : ''}</p>
+                            )}
+                            {modal.request.kind === 'repair' && (
+                              <p className="mt-1">ประมาณการค่าซ่อม: <b>฿{money(Number(p.estimateSatang) || 0)}</b></p>
+                            )}
+                            {p.splitQuantity ? (
+                              <p className="mt-1">จำนวน: <b>เฉพาะ {p.splitQuantity} ชิ้น</b> (ระบบแบ่งล็อตเมื่ออนุมัติขั้นสุดท้าย)</p>
+                            ) : p.setId ? (
+                              <p className="mt-1">จำนวน: <b>ทั้งชุด {p.setCount ?? ''} รายการ</b> (ชุดห้ามแยก)</p>
+                            ) : null}
+                          </>
+                        );
+                      })()}
                     </div>
                     <label>
                       <span>

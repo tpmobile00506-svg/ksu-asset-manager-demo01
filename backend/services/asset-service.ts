@@ -125,6 +125,9 @@ export async function getData(m: Member, url: URL) {
   if (view === 'audit') {
     // ตัวชี้ตำแหน่ง = เวลา + id (บันทึกที่เขียนใน transaction เดียวกันมีเวลาเท่ากันหลายร้อยรายการ เทียบเวลาอย่างเดียวจะข้ามไปทั้งกลุ่ม)
     const before = url.searchParams.get('before') || '', beforeId = url.searchParams.get('beforeId') || '';
+    // ตัวชี้ต้องเป็นเวลา ISO และ id ที่ระบบสร้าง (ค่าแปลกปลอมตอบ 400 แทนการนำไปเทียบเป็นข้อความ)
+    if (before && (!Number.isFinite(Date.parse(before)) || new Date(before).toISOString() !== before)) throw new ApiError('ตำแหน่งประวัติไม่ถูกต้อง', 400);
+    if (beforeId && !/^[A-Za-z0-9-]{1,100}$/.test(beforeId)) throw new ApiError('ตำแหน่งประวัติไม่ถูกต้อง', 400);
     const take = 200;
     const where = !before ? {} : beforeId
       ? { OR: [{ createdAt: { lt: before } }, { createdAt: before, id: { lt: beforeId } }] }
