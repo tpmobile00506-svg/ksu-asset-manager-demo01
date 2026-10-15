@@ -12,7 +12,7 @@ import {
   TableHead,
   TableCell
 } from '@/components/ui/table';
-import { Role, roles } from '@/shared/domain';
+import { Role, roles, approvalChainOf } from '@/shared/domain';
 import { Pick, getInitials } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
 
@@ -74,6 +74,8 @@ export default function UsersView({
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  // สายอนุมัติที่ใช้จริง (ค่าที่บันทึกไว้เสีย เช่น "[]" ระบบใช้ค่าเริ่มต้นแทน)
+  const workflow = approvalChainOf(data.settings.workflow);
 
   if (data.me.role !== 'admin') return null;
 
@@ -305,7 +307,7 @@ export default function UsersView({
         <div className="max-w-md">
           <Pick
             label="สายอนุมัติมาตรฐาน"
-            value={data.settings.workflow || '["head","deputy","dean"]'}
+            value={JSON.stringify(workflow.chain)}
             onChange={v => write({ action: 'workflow', chain: JSON.parse(v) })}
             options={[
               [
@@ -316,6 +318,9 @@ export default function UsersView({
               [JSON.stringify(['dean']), '1 ระดับ: คณบดีเท่านั้น']
             ]}
           />
+          {!workflow.valid && data.settings.workflow && (
+            <p className="mt-2 text-xs text-amber-700">ค่าที่บันทึกไว้ไม่ถูกต้อง ระบบใช้ 3 ระดับ (ค่าเริ่มต้น) แทน กรุณาเลือกสายอนุมัติแล้วบันทึกใหม่</p>
+          )}
         </div>
       </div>
     </div>

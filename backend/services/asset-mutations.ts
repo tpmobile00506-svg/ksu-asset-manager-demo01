@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { prisma, json, plain, type Transaction, Prisma } from '../db/client';
 import { freshMember, publicUserFields, hashPassword, type Member } from '../auth/sessions';
-import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, normalizeBranch, branchAbbr, codeKey, markExistingCodes } from '../contracts/domain';
+import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf } from '../contracts/domain';
 import { ApiError, clean, allow, now, id, asset, audit, dimensions, financialData, insertAsset, validated, getSource, registeredCodes } from './asset-service';
 import { assetImageKey } from '../storage/asset-image-metadata';
 import { validate, userMutationSchema, workflowMutationSchema, assetRequestSchema, approvalMutationSchema } from '../validation';
@@ -285,7 +285,8 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     if (action === 'fundDelete') {
       const f = await fundOf(clean(b.fundId));
       const members = await tx.asset.findMany({ where: { fundId: f.id }, select: { id: true } });
-      await tx.asset.updateMany({ where: { fundId: f.id }, data: { fundId: null, version: { increment: 1 } } });
+      // ไม่เพิ่มเวอร์ชัน: ทุนไม่ได้แก้ผ่านฟอร์มแก้ไข และคำขอที่รออนุมัติผูกกับเวอร์ชันของครุภัณฑ์ (เพิ่มแล้วคำขอจะอนุมัติไม่ได้)
+      await tx.asset.updateMany({ where: { fundId: f.id }, data: { fundId: null } });
       await tx.asset.updateMany({ where: { fundHintId: f.id }, data: { fundHintId: null } });
       await tx.assetSet.delete({ where: { id: f.id } });
       await audit(tx, m, 'ลบทุน', null, { ...f, assetIds: members.map(x => x.id) }, null);
@@ -295,6 +296,9 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     if (!ids.length || ids.length > 5000) throw new ApiError('เลือกครุภัณฑ์อย่างน้อย 1 รายการ');
     const rows = await tx.asset.findMany({ where: { id: { in: ids } }, select: { id: true, code: true, fundId: true, lifecycle: true } });
     if (rows.length !== ids.length) throw new ApiError('ไม่พบครุภัณฑ์บางรายการ กรุณาโหลดใหม่', 409);
+    // ใส่/เอาออกจากทุนเพิ่มเวอร์ชันของครุภัณฑ์ ถ้ามีคำขอรออนุมัติ คำขอนั้นจะอนุมัติไม่ได้อีก จึงต้องรอให้คำขอเสร็จก่อน
+    const busy = await tx.assetRequest.findFirst({ where: { status: 'pending', assetId: { in: ids } }, select: { assetId: true } });
+    if (busy) throw new ApiError('รายการ ' + rows.find(x => x.id === busy.assetId)!.code + ' มีคำขอรออนุมัติ กรุณาดำเนินการคำขอให้เสร็จก่อนเปลี่ยนทุน', 409);
     if (action === 'fundAssign') {
       const f = await fundOf(clean(b.fundId));
       const inactive = rows.find(x => x.lifecycle !== 'active');
@@ -363,7 +367,7 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
       if (kind === 'repair') {
         payload.estimateSatang = validatedReq.payload?.estimateSatang ?? 0;
       }
-      const config = await tx.setting.findUnique({ where: { key: 'workflow' } }), chain = config?.value || '["head","deputy","dean"]';
+      const config = await tx.setting.findUnique({ where: { key: 'workflow' } }), chain = json(approvalChainOf(config?.value).chain);
 
       const splitQty = splitQuantity ?? null;
       if (splitQty !== null) {

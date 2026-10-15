@@ -22,7 +22,8 @@ import {
   money,
   satang,
   splitAmounts,
-  standardBranches
+  standardBranches,
+  fiscalYearOf
 } from '@/shared/domain';
 import { Any, Pick, statusLabel } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
@@ -572,13 +573,14 @@ export default function Editor({
                       label="ชื่อรอบตรวจนับ"
                       name="name"
                       placeholder="เช่น ตรวจนับประจำปีงบประมาณ 2568"
+                      autoComplete="off"
                       required
                     />
                     <Field
                       label="ปีงบประมาณ (พ.ศ.)"
                       name="year"
                       type="number"
-                      defaultValue={new Date().getFullYear() + 543}
+                      defaultValue={fiscalYearOf(new Date())}
                       required
                     />
                   </div>
