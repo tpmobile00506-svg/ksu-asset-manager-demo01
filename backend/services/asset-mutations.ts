@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { prisma, json, plain, type Transaction, Prisma } from '../db/client';
 import { freshMember, publicUserFields, hashPassword, type Member } from '../auth/sessions';
-import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf } from '../contracts/domain';
+import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch } from '../contracts/domain';
 import { ApiError, clean, allow, now, id, asset, audit, dimensions, financialData, insertAsset, validated, getSource, registeredCodes } from './asset-service';
 import { assetImageKey } from '../storage/asset-image-metadata';
 import { validate, userMutationSchema, workflowMutationSchema, assetRequestSchema, approvalMutationSchema } from '../validation';
@@ -155,6 +155,8 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     const a = validated(b.asset), reason = clean(b.reason ?? '');
     // เหมือนการแก้ไข: เข้าสถานะ "กำลังซ่อม" ได้ทางคำขอซ่อมที่ผ่านการอนุมัติเท่านั้น
     if (a.condition === 'repair') throw new ApiError('สถานะกำลังซ่อมต้องผ่านคำขอซ่อม ไม่สามารถกำหนดตอนเพิ่มครุภัณฑ์');
+    // สาขา/หน่วยงานต้องเลือกจากรายการมาตรฐาน (ผู้ใช้ตัดสินใจ 15 ต.ค. 2569) กันพิมพ์ผิดแบบ "อว" "โลจิส"
+    if (!isStandardBranch(a.branch!)) throw new ApiError('สาขาไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน');
     let sourceId: string | null = null, sourceRow: string | null = null, raw: unknown = null, sourceSet: CandidateSet | undefined, sourceFund: CandidateFund | undefined;
     if (action === 'import') {
       sourceId = clean(b.sourceId); sourceRow = clean(b.sourceRow);
@@ -326,6 +328,7 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
       const next = validated(b.asset);
       if (next.condition !== a.condition && (next.condition === 'repair' || a.condition === 'repair')) throw new ApiError('การเข้า/ออกสถานะซ่อมต้องใช้คำขอซ่อมหรือบันทึกซ่อมเสร็จ');
       if (!reason) throw new ApiError('กรุณาระบุเหตุผลการแก้ไข');
+      if (next.branch !== a.branch && !isStandardBranch(next.branch!)) throw new ApiError('สาขาไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน');
       if (next.quantity !== a.quantity || next.totalSatang !== a.totalSatang || next.unitSatang !== a.unitSatang) throw new ApiError('จำนวนและมูลค่าที่ลงทะเบียนแล้วแก้ตรงนี้ไม่ได้ ใช้แบ่งล็อตพร้อมหลักฐาน');
       if (codeKey(next.code!) !== codeKey(a.code)) await assertCodesFree(tx, [next.code!], a.id);
       await dimensions(tx, next);
@@ -363,6 +366,7 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
         && (!payload.custodian || payload.custodian === a.custodian)) {
         throw new ApiError('สถานที่ สาขา และผู้รับผิดชอบปลายทางเหมือนเดิม กรุณาแก้ปลายทางก่อนยื่นคำขอโอนย้าย');
       }
+      if (kind === 'transfer' && !isStandardBranch(payload.branch)) throw new ApiError('สาขาปลายทางไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน');
       if (kind === 'repair' && a.condition === 'repair') throw new ApiError('รายการนี้อยู่ระหว่างซ่อมแล้ว กรุณาบันทึกผลการซ่อมก่อนยื่นคำขอซ่อมใหม่');
       if (kind === 'repair') {
         payload.estimateSatang = validatedReq.payload?.estimateSatang ?? 0;

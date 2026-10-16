@@ -5,7 +5,7 @@ import { ApiError } from './errors';
 import { parseWorkbook } from '../imports/workbook';
 import { readFileBytes, putFile } from '../storage/files';
 import { withAssetImages } from '../storage/asset-image-metadata';
-import { type Asset, type Source, classify, conditions, normalizeBranch, UNKNOWN_ASSET_TYPE, assetGroupOf, codeKey, markExistingCodes, branchAbbr } from '../contracts/domain';
+import { type Asset, type Source, classify, conditions, normalizeBranch, UNKNOWN_ASSET_TYPE, assetGroupOfType, codeKey, markExistingCodes, branchAbbr } from '../contracts/domain';
 import type { SourceViewResponse } from '../contracts/imports';
 import type { StocktakeResponse, WorkspaceData } from '../contracts/models';
 
@@ -40,7 +40,8 @@ export function validated(input: Record<string, unknown>): Partial<Asset> {
   else a.branch = normalizeBranch(a.branch, '', '');
   if (!a.category) a.category = UNKNOWN_ASSET_TYPE;
   if (!a.location) a.location = 'ไม่ระบุสถานที่';
-  if (!a.groupName) a.groupName = assetGroupOf(a.name);
+  // หมวด = ชื่อแผ่นงานของประเภทครุภัณฑ์เสมอ (ไม่รับค่าที่ส่งมา)
+  a.groupName = assetGroupOfType(a.category);
   if (a.quantity < 1 || a.quantity > 1000000) throw new ApiError('จำนวนต้องเป็นจำนวนเต็ม 1–1,000,000');
   if (a.salvageSatang > a.totalSatang || a.lifeYears > 100) throw new ApiError('ตรวจสอบอายุใช้งานและมูลค่าซาก');
   if (a.receivedDate && (!/^\d{4}-\d{2}-\d{2}$/.test(a.receivedDate) || !Number.isFinite(Date.parse(a.receivedDate)) || new Date(a.receivedDate).toISOString().slice(0, 10) !== a.receivedDate)) throw new ApiError('วันที่รับไม่ถูกต้อง');
@@ -52,7 +53,7 @@ export async function dimensions(tx: Transaction, a: Partial<Asset>) {
   const loc = a.location || 'ไม่ระบุสถานที่';
   const branch = a.branch || 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
   const cat = a.category || UNKNOWN_ASSET_TYPE;
-  const group = a.groupName || assetGroupOf(a.name || '');
+  const group = a.groupName || assetGroupOfType(cat);
   await tx.location.createMany({ data: [{ name: loc }], skipDuplicates: true });
   await tx.branch.createMany({ data: [{ name: branch }], skipDuplicates: true });
   await tx.category.createMany({ data: [{ name: cat }], skipDuplicates: true });

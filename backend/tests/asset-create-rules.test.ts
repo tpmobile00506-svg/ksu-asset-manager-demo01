@@ -95,3 +95,19 @@ test('หมายเลขครุภัณฑ์ซ้ำ (ไม่สนต
   assert.equal(codeKey('วข.กส.36/2  7110-019-001-003'), codeKey('วข.กส.36/2 7110-019-001-003'));
   assert.notEqual(codeKey('KSU165-1610-060-086-002(002)'), codeKey('KSU165-1610-060-086-003(002)'));
 });
+
+test('สาขานอกรายการมาตรฐานถูกปฏิเสธตอนเพิ่มครุภัณฑ์ ชื่อย่อที่รู้จักแปลงเป็นชื่อมาตรฐาน และหมวดคิดจากประเภท', async () => {
+  const { tx, created } = createEnvironment();
+  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  try {
+    const odd = newAsset('normal');
+    odd.asset.branch = 'สาขามั่วๆ';
+    await assert.rejects(mutate(staff, odd), /สาขาไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน/);
+    assert.equal(created.length, 0);
+    const short = newAsset('normal');
+    short.asset.branch = 'วค';
+    await mutate(staff, short);
+    assert.equal(created[0].branch, 'วิศวกรรมคอมพิวเตอร์ (วค)');
+    assert.equal(created[0].groupName, 'คอม');   // ประเภท "คอมพิวเตอร์" → หมวด "คอม" (ค่า "ทั่วไป" ที่ส่งมาไม่ถูกใช้)
+  } finally { restore(); }
+});

@@ -1,4 +1,4 @@
-import {Asset, assetTypes, branchAbbr, fiscalYearOf, normalizeBranch, stocktakeDifference, assetTypeOf, groupFor, UNKNOWN_ASSET_TYPE, bookValue} from '@/shared/domain';
+import {Asset, assetGroupOfType, UNGROUPED, assetTypes, branchAbbr, fiscalYearOf, normalizeBranch, stocktakeDifference, assetTypeOf, groupFor, UNKNOWN_ASSET_TYPE, bookValue} from '@/shared/domain';
 
 export const reportHeaders = [
   'ลำดับ',
@@ -30,7 +30,8 @@ const FACULTY = 'คณะวิศวกรรมศาสตร์และเ
 function byAssetType(assets: Asset[]): Array<[string, Asset[]]> {
   const groups = new Map<string, Asset[]>();
   for (const a of assets) {
-    const key = a.category || '';
+    // ประเภทที่บันทึกแบบสั้น (เช่น "คอมพิวเตอร์") รวมแผ่นเดียวกับชื่อเต็ม ("ครุภัณฑ์คอมพิวเตอร์")
+    const key = assetTypeOf(a.category) || assetTypeOf('ครุภัณฑ์' + (a.category || '')) || a.category || '';
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(a);
   }
@@ -41,8 +42,10 @@ function byAssetType(assets: Asset[]): Array<[string, Asset[]]> {
   return [...groups].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b, 'th'));
 }
 
+// ชื่อแผ่นงานสั้นแบบไฟล์ต้นฉบับของเจ้าหน้าที่ (สำนักงาน คอม โฆษณา ...) ประเภทที่ไม่รู้จักใช้ชื่อเต็ม
 function sheetTitle(type: string, used: Set<string>) {
-  const base = (type || 'ไม่ระบุประเภท').replace(/[\\/?*[\]:]/g, '-').slice(0, 31);
+  const tab = assetGroupOfType(type);
+  const base = (tab !== UNGROUPED ? tab : type || 'ไม่ระบุประเภท').replace(/[\\/?*[\]:]/g, '-').slice(0, 31);
   let title = base, n = 2;
   while (used.has(title)) title = `${base.slice(0, 26)} (${n++})`;
   used.add(title);

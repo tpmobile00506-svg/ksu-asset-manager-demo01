@@ -131,38 +131,22 @@ export function assetTypeOf(text: string): string {
   return [...assetTypes].sort((a, b) => b.length - a.length).find(type => t.includes(type)) || '';
 }
 
-// หมวด (กลุ่มต่างๆ) จัดจากชื่อรายการด้วยคำค้น — ร่าง 19 หมวดให้เจ้าหน้าที่ตรวจ (ร่างหมวดครุภัณฑ์_ให้เจ้าหน้าที่ตรวจ.xlsx)
-// ลำดับมีผล: ตรวจจากบนลงล่าง เจอก่อนใช้ก่อน เช่น "โต๊ะคอมพิวเตอร์" ต้องเป็นโต๊ะ ไม่ใช่คอมพิวเตอร์
-const assetGroupRules: Array<[string, RegExp]> = [
-  ['อุปกรณ์เครือข่ายและเครื่องแม่ข่าย', /แม่ข่าย|server|เซิร์ฟเวอร์|กระจายสัญญาณ|switch|สวิตช์|router|rack|access point|เครือข่าย|รับส่งภาพ|เครื่องให้บริการ|สำรองข้อมูล|ตัวเชื่อมต่อระบบ|converter|เน็ตเวิร์ค|สลับสัญญาณ/i],
-  ['ชุดฝึกและชุดทดลอง', /ชุดฝึก|ชุดทดลอง|ชุดการเรียน|ชุดสาธิต|ชุดปฏิบัติ|ชุดเครื่องทดลอง|ชุดทดสอบ|ชุดจำลอง|หุ่นยนต์|trainer/i],
-  ['ยานพาหนะ', /^[\d.\s]*รถ(?!เข็น)|จักรยานยนต์/],
-  ['เครื่องมือวัดและทดสอบ', /เครื่องวัด|วัดค่า|มิเตอร์|meter|ออสซิลโล|oscillo|เครื่องทดสอบ|เกจ|เครื่องชั่ง|เทอร์โม|กล้องจุลทรรศน์|กำเนิดสัญญาณ|เวอร์เนียร์|แท่งแก้ว|กระบอกตวง|บันทึกข้อมูล|วิเคราะห์สัญญาณ|เครื่องมือวัด|ตรวจสอบอาการเสีย/i],
-  ['เครื่องจักรและเครื่องมือช่าง', /เครื่องกลึง|เครื่องเจาะ|เครื่องเชื่อม|ชุดเชื่อม|เครื่องตัด|เครื่องเจียร|สว่าน|ปั๊ม|ปั้ม|คอมเพรสเซอร์|เครื่องยนต์|เครื่องมือช่าง|เครื่องอัด|มิลลิ่ง|cnc|เลื่อย|แกะสลัก|เครื่องขัด|แม่แรง|ประแจ|สูบน้ำ|ปากกาจับ|ทั่ง|กรรไกรตัด|เครื่องกัด/i],
-  ['เครื่องใช้ไฟฟ้าในสำนักงานและงานครัว', /ตู้เย็น|ไมโครเวฟ|กาต้มน้ำ|ตู้ทำน้ำ|เครื่องทำน้ำ|ตู้น้ำ|กดน้ำ|หม้อ(?!แปลง|ต้ม)|กรองน้ำ|ดูดฝุ่น|ทำลายเอกสาร|เคลือบบัตร|เข้าเล่ม|นาฬิกาแขวน|นาฬิกาติดผนัง|เตารีด/],
-  ['โต๊ะ', /(?<!ตั้ง)โต๊ะ/],
-  ['เก้าอี้และโซฟา', /เก้าอี้|เก้าอี|เก้าอื้|โซฟา|ม้านั่ง/],
-  ['ตู้และชั้นวาง', /ตู้(?!ลำโพง)|ชั้นวาง|ชั้นเก็บ|ล็อกเกอร์|ล๊อกเกอร์/],
-  ['ซอฟต์แวร์', /^[\d.\s]*(โปรแกรม|ซอฟ)|ซอฟท์แวร์|ซอฟต์แวร์|ซอฟแวร์|software/i],
-  ['เครื่องพิมพ์และสแกนเนอร์', /พิมพ์|พรินเตอร์|ปริ้น|ปริ๊น|printer|สแกน|scanner|ถ่ายเอกสาร/i],
-  ['คอมพิวเตอร์และโน้ตบุ๊ก', /คอมพิวเตอร์|คอมพิเตอร์|คอมฯ|โน้ตบุ๊ก|โน๊ตบุ๊ค|โน๊ตบุ๊ก|โน้ตบุ๊ค|notebook|แท็บเล็ต|แท็ปแลต|tablet|ipad|all in one/i],
-  ['จอภาพ โปรเจคเตอร์ และจอรับภาพ', /จอ|monitor|โปรเจค|โปรเจ็ค|โปเจค|projector|ทีวี|โทรทัศน์|\btv\b|เครื่องฉาย|แว่นสามมิติ|\bvr\b/i],
-  ['เครื่องเสียงและไมโครโฟน', /ลำโพง|ขยายเสียง|ไมค์|ไมด์|ไมโครโฟน|มิกเซอร์|มิกซ์เซอร์|เครื่องเสียง|หูฟัง/],
-  ['เครื่องปรับอากาศและพัดลม', /ปรับอากาศ|แอร์|พัดลม/],
-  ['อุปกรณ์ไฟฟ้าและเครื่องสำรองไฟ', /สำรองไฟ|ups|ไฟฉุกเฉิน|ปลั๊ก|หม้อแปลง|ควบคุมไฟฟ้า|โคมไฟ/i],
-  ['ม่าน พาร์ติชั่น และอุปกรณ์อาคาร', /ม่าน|พาร์ติชั่น|ฉากกั้น|บานเฟี้ยม|ถังเก็บน้ำ|กระจก|กระดาน|ไวท์บอร์ด|พรม|กระเบื้อง|แท่นบรรยาย|โพเดียม/],
-  ['อุปกรณ์ความปลอดภัย', /ดับเพลิง|กล้องวงจรปิด|cctv|สัญญาณเตือน|เข็มขัดขึ้นเสา/i],
-  ['อุปกรณ์การเกษตร', /เพาะ|รดน้ำ|ไถ|พ่นยา|พ่นสาร|เกษตร|ปลูก|สีข้าว|กะเทาะ|กระพ้อ/],
-];
+// หมวด (กลุ่มต่างๆ) = ชื่อแผ่นงานในไฟล์ต้นฉบับของเจ้าหน้าที่ เช่น สำนักงาน คอม ไฟฟ้า (ผู้ใช้ตัดสินใจ 16 ต.ค. 2569)
+// คิดจากประเภทครุภัณฑ์เสมอ ไม่จัดจากชื่อรายการอีก (เลิกใช้ร่าง 19 หมวดย่อย)
 export const UNGROUPED = 'รอจัดหมวด';
-export const assetGroups: readonly string[] = [...assetGroupRules.map(([g]) => g), UNGROUPED];
+const groupByType: Record<string, string> = Object.fromEntries(Object.entries(assetTypeBySheet).map(([sheet, type]) => [type, sheet]));
+export const assetGroups: readonly string[] = [...Object.keys(assetTypeBySheet), UNGROUPED];
 export const isAssetGroup = (text: string) => assetGroups.includes((text || '').trim());
-export function assetGroupOf(name: string): string {
-  return assetGroupRules.find(([, re]) => re.test(name || ''))?.[0] || UNGROUPED;
+export function assetGroupOfType(category: string): string {
+  const type = assetTypeOf(category) || assetTypeOf('ครุภัณฑ์' + (category || ''));
+  return groupByType[type] || UNGROUPED;
 }
-// หมวดที่บันทึกไว้ (รวมหมวดที่เจ้าหน้าที่ตั้งเอง) ใช้ตามนั้น ยกเว้นว่างหรือ "รอจัดหมวด" จึงจัดจากชื่อรายการ
-// (ข้อความชุด/โครงการเก่าในช่องหมวดถูกล้างแล้ว 15 ต.ค. 2569)
-export const groupFor = (a: { groupName?: string; name?: string }) => { const g = (a.groupName || '').trim(); return g && g !== UNGROUPED ? g : assetGroupOf(a.name || ''); };
+export const groupFor = (a: { category?: string }) => assetGroupOfType(a.category || '');
+// ชื่อหมวดย่อยรุ่นก่อน (ที่ไฟล์ Export รุ่นเก่ามีในคอลัมน์หมวด) นำเข้าแล้วทิ้ง ไม่ย้ายไปหมายเหตุ
+const legacyGroupNames = new Set(['อุปกรณ์เครือข่ายและเครื่องแม่ข่าย', 'ชุดฝึกและชุดทดลอง', 'ยานพาหนะ', 'เครื่องมือวัดและทดสอบ',
+  'เครื่องจักรและเครื่องมือช่าง', 'เครื่องใช้ไฟฟ้าในสำนักงานและงานครัว', 'โต๊ะ', 'เก้าอี้และโซฟา', 'ตู้และชั้นวาง', 'ซอฟต์แวร์',
+  'เครื่องพิมพ์และสแกนเนอร์', 'คอมพิวเตอร์และโน้ตบุ๊ก', 'จอภาพ โปรเจคเตอร์ และจอรับภาพ', 'เครื่องเสียงและไมโครโฟน',
+  'เครื่องปรับอากาศและพัดลม', 'อุปกรณ์ไฟฟ้าและเครื่องสำรองไฟ', 'ม่าน พาร์ติชั่น และอุปกรณ์อาคาร', 'อุปกรณ์ความปลอดภัย', 'อุปกรณ์การเกษตร']);
 
 export const standardBranches = [
   'วิศวกรรมคอมพิวเตอร์ (วค)',
@@ -178,6 +162,10 @@ export const standardBranches = [
 ] as const;
 
 export type StandardBranch = typeof standardBranches[number];
+// หน่วยงานที่ไม่ใช่สาขาวิชา (ฟอร์มแยกเป็นกลุ่ม "หน่วยงาน" ในรายการเลือก) ที่เหลือคือสาขาวิชา
+export const officeBranches: readonly StandardBranch[] = ['สำนักงานคณะฯ / คณบดี (สนง.ควอ.)', 'ส่วนกลาง / การศึกษา'];
+export const academicBranches = standardBranches.filter(b => !officeBranches.includes(b));
+export const isStandardBranch = (value: string): value is StandardBranch => (standardBranches as readonly string[]).includes(value);
 
 // หมวดหมู่ของสาขามาตรฐานทั้ง 10 (จับคู่ตรงตัว กันกรณีตัวย่อซ้อนกัน เช่น "ควอ" มี "วอ", "วคม" มี "วค")
 const categoryByStandardBranch: Record<(typeof standardBranches)[number], (typeof standardCategories)[number]> = {
@@ -363,7 +351,6 @@ export function classify(source:Source):Candidate[]{
    else if(!code&&name&&Number(amount(v[3]))>0&&Number(String(amount(v[4])??'').replace(/,/g,''))>0){kind='group';}
    let qty=Number(amount(v[3])),unit=0,total=0;
    let explicitCat = '';
-   let finalGroup = '';
    let memo = '';
    let rawGroup = '';
    if (columns) {
@@ -373,30 +360,26 @@ export function classify(source:Source):Candidate[]{
      if (standardCategories.includes(vGroup as any)) {
        // ไฟล์ที่ Export จากเว็บรุ่นก่อน: หมวดหมู่ตามสาขาอยู่ในคอลัมน์หมวด
        explicitCat = vGroup;
-       finalGroup = vOffice;
      } else {
        // คอลัมน์ "หมวด" รับเฉพาะหมวดที่รู้จัก และ "สำนักงาน" รับเฉพาะประเภทครุภัณฑ์
        // ข้อความอื่นเป็นบันทึกช่วยจำของเจ้าหน้าที่ → ย้ายไปหมายเหตุ
        // "รอจัดหมวด" / "รอระบุประเภท" เป็นแค่ป้ายบอกว่ายังไม่ได้จัด ไม่ใช่ข้อมูล
-       finalGroup = isAssetGroup(vGroup) && vGroup !== UNGROUPED ? vGroup : '';
        explicitCat = assetTypeOf(vOffice);
        const placeholder = (x: string) => !x || /^(?:ทั่วไป|—|-)$/.test(x) || x === UNGROUPED || x === UNKNOWN_ASSET_TYPE;
        // บันทึกช่วยจำที่อยู่ถัดจากคอลัมน์สำนักงาน (เช่นไฟล์ที่จัดข้อมูลแล้วย้ายบันทึกไปช่อง K เป็นต้นไป) ต้องไม่หาย
        const last = Math.max(columns.group, columns.category, columns.branch);
        const extra = v.slice(last + 1).map(str);
-       const memos = [isAssetGroup(vGroup) ? '' : vGroup, explicitCat ? '' : vOffice, ...extra].filter(x => !placeholder(x));
+       const memos = [isAssetGroup(vGroup) || legacyGroupNames.has(vGroup) ? '' : vGroup, explicitCat ? '' : vOffice, ...extra].filter(x => !placeholder(x));
        memo = memos.join(' · ');
      }
-   } else {
-     finalGroup = '';
    }
-   // หมวดจัดจากชื่อรายการ ข้อความชุด/โครงการเก็บแยกในชุด (detectSets) และใน groupName ของแถว
+   // ข้อความชุด/โครงการเก็บแยกในชุด (detectSets) และใน groupName ของแถว (หมวดคิดจากประเภทด้านล่าง)
    const groupName = columns ? rawGroup : [group, ...v.slice(8).map(str)].filter(Boolean).join(' • ');
-   const assetGroup = finalGroup || assetGroupOf(name);
    const rawBranch = columns ? str(v[columns.branch]) : (str(v[7]) || str(v[8]));
    const branch = normalizeBranch(rawBranch, str(v[6]), sheet.name);
    // ชีตชำรุด/ประวัติไม่บอกประเภท จึงใช้ประเภทของรหัสเดียวกันในแผ่นหลัก
    const category = explicitCat || (historical ? codeTypes.get(codeKey(code)) || sheetTypes.get(sheet.name) : sheetTypes.get(sheet.name)) || UNKNOWN_ASSET_TYPE;
+   const assetGroup = assetGroupOfType(category);
    const notes = [str(v[6]), memo].filter(Boolean).join(' · ');
    if(kind==='asset'){
     try{unit=satang(amount(v[4]));total=satang(amount(v[5]));}catch{issue ||= priceProblem(satangSafe(v[4])?v[5]:v[4]);issueType='price';}

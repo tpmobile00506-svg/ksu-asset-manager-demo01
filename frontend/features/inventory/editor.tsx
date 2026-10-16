@@ -30,6 +30,7 @@ import type { WorkspaceData } from '@/shared/models';
 import QrLabelModal from './qr-label-modal';
 import AssetFormModal, {
   Field,
+  BranchSelect,
   assetAmountInput,
   assetTotalInput,
   uploadCreatedAssetPhoto,
@@ -500,12 +501,10 @@ export default function Editor({
                           defaultValue={modal.asset.location}
                           required
                         />
-                        <Field
-                          label="สาขาใหม่ (ปลายทาง)"
-                          name="branch"
-                          defaultValue={modal.asset.branch}
-                          required
-                        />
+                        <label>
+                          <span>สาขาใหม่ (ปลายทาง) *</span>
+                          <BranchSelect name="branch" defaultValue={modal.asset.branch} />
+                        </label>
                         <Field
                           label="ผู้รับผิดชอบใหม่ (ถ้ามี)"
                           name="custodian"

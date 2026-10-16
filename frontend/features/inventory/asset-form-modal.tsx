@@ -24,7 +24,7 @@ import {
   AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Asset, conditions, satang, assetTypes, assetGroups, standardBranches } from '@/shared/domain';
+import { Asset, conditions, satang, assetTypes, assetGroupOfType, academicBranches, officeBranches, isStandardBranch } from '@/shared/domain';
 import {
   Any,
   api,
@@ -34,6 +34,34 @@ import {
   getSessionSignal
 } from '@/frontend/components/common';
 import { WorkspaceData } from '@/frontend/types/models';
+
+// สาขาวิชา / หน่วยงาน: เลือกจากรายการมาตรฐานเท่านั้น แยกกลุ่มสาขาวิชากับหน่วยงาน
+// ค่าเดิมที่ไม่อยู่ในรายการ (ข้อมูลเก่า) แสดงไว้ให้เห็น แต่บันทึกได้เมื่อเลือกค่ามาตรฐานแทนเท่านั้น
+export function BranchSelect({ name, defaultValue, onChange, required = true }: {
+  name: string;
+  defaultValue?: string;
+  onChange?: (e: ChangeEvent<HTMLSelectElement>) => void;
+  required?: boolean;
+}) {
+  const legacy = defaultValue && !isStandardBranch(defaultValue) ? defaultValue : '';
+  return (
+    <select
+      name={name}
+      defaultValue={legacy ? '' : defaultValue || ''}
+      onChange={onChange}
+      required={required}
+      className="h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <option value="" disabled>{legacy ? `ค่าเดิม "${legacy}" ไม่อยู่ในรายการ กรุณาเลือกใหม่` : 'เลือกสาขาวิชา / หน่วยงาน'}</option>
+      <optgroup label="สาขาวิชา">
+        {academicBranches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
+      </optgroup>
+      <optgroup label="หน่วยงาน">
+        {officeBranches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
+      </optgroup>
+    </select>
+  );
+}
 
 export function Field({
   label,
@@ -218,7 +246,7 @@ export default function AssetFormModal({
     }
   }, [modal?.token]);
 
-  const handleBranchChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleBranchChange = (e: ChangeEvent<HTMLSelectElement>) => {
     setBranchInput(e.target.value);
   };
 
@@ -390,11 +418,6 @@ export default function AssetFormModal({
       ? `/api/asset-image?asset=${encodeURIComponent(modal.asset.id)}&v=${encodeURIComponent(modal.asset.imageVersion)}`
        : null);
 
-  const branchOptions = Array.from(new Set([
-    modal.asset?.branch,
-    ...data.assets.map((asset: Asset) => asset.branch),
-    ...standardBranches
-  ].filter((branch): branch is string => typeof branch === 'string' && branch.length > 0)));
   const conditionOptions = prioritized(conditions, modal.asset?.condition || 'normal')
     .filter(([condition]) => modal.kind !== 'edit'
       ? condition !== 'repair'   // เพิ่ม/นำเข้า: ห้ามเลือก "กำลังซ่อม" (ต้องผ่านคำขอซ่อม)
@@ -478,16 +501,11 @@ export default function AssetFormModal({
                       ))}
                     </datalist>
                   </label>
-                  <Field
-                    label="หมวด (กลุ่มต่างๆ)"
-                    name="groupName"
-                    list="asset-group-options"
-                    defaultValue={modal?.asset?.groupName || ''}
-                    placeholder="เว้นว่าง = จัดจากชื่อรายการ"
-                  />
-                  <datalist id="asset-group-options">
-                    {assetGroups.map(g => <option key={g} value={g} />)}
-                  </datalist>
+                  {/* หมวด = ชื่อแผ่นงานของประเภท (สำนักงาน คอม ไฟฟ้า ...) ระบบตั้งให้จากประเภท แก้เองไม่ได้ */}
+                  <label>
+                    <span>หมวด (กลุ่มต่างๆ)</span>
+                    <Input value={assetGroupOfType(categoryInput)} readOnly tabIndex={-1} className="bg-slate-50 text-slate-600" />
+                  </label>
                 </div>
               </div>
 
@@ -542,19 +560,11 @@ export default function AssetFormModal({
                   />
                   <label>
                     <span>สาขาวิชา / หน่วยงาน *</span>
-                    <Input
+                    <BranchSelect
                       name="branch"
                       defaultValue={modal?.asset?.branch || 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)'}
                       onChange={handleBranchChange}
-                      list="asset-branch-options"
-                      placeholder="เลือกจากรายการหรือพิมพ์ชื่อสาขา"
-                      required
                     />
-                    <datalist id="asset-branch-options">
-                      {branchOptions.map(branch => (
-                        <option key={branch} value={branch} />
-                      ))}
-                    </datalist>
                   </label>
                   <Field
                     label="ผู้รับผิดชอบ / ผู้ดูแล"
