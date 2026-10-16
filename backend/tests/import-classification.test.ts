@@ -21,7 +21,7 @@ test('asset names and notes cannot turn complete rows into report headings or to
     assert.equal(row.kind, 'asset');
     assert.equal(row.issue, '');
     assert.equal(row.asset.notes, annotations[index]);
-    assert.equal(row.asset.groupName, 'โต๊ะ');
+    assert.equal(row.asset.groupName, 'สำนักงาน');   // หมวด = ชื่อแผ่นงานของประเภท
     assert.equal(row.asset.category, 'ครุภัณฑ์สำนักงาน');
     assert.equal(row.asset.location, 'ห้อง 101');
   });
@@ -59,15 +59,16 @@ test('exported ten-column workbook preserves branch, group and category when par
   candidates.forEach((row, index) => {
     const expected = assets[index];
     assert.equal(row.issue, '');
-    for (const key of ['code', 'name', 'quantity', 'unitSatang', 'totalSatang', 'branch', 'groupName', 'category'] as const) {
+    for (const key of ['code', 'name', 'quantity', 'unitSatang', 'totalSatang', 'branch', 'category'] as const) {
       assert.equal(row.asset[key], expected[key], key);
     }
+    assert.equal(row.asset.groupName, 'สำนักงาน', 'groupName');   // หมวด = ชื่อแผ่นงานของประเภท ไม่ใช่หมวดเก่าที่ส่งออก
     // This report intentionally combines location and notes into one column.
     assert.equal(row.asset.notes, `${expected.notes} • ${expected.location}`);
   });
 });
 
-test('exported legacy category and unknown group become asset type and name-based group on import', async () => {
+test('exported legacy category and unknown group become asset type and its sheet-name group on import', async () => {
   const assets = Array.from({ length: 10 }, (_, index) => ({
     id: `asset-${index}`, code: `COM-${index}`, name: 'เครื่องคอมพิวเตอร์แบบ All-in-One', quantity: 1,
     unitSatang: 3500000, totalSatang: 3500000, notes: 'ห้องปฏิบัติการคอมพิวเตอร์', location: 'ห้อง 401',
@@ -83,9 +84,9 @@ test('exported legacy category and unknown group become asset type and name-base
     assert.equal(row.issue, '');
     assert.equal(row.asset.code, expected.code);
     assert.equal(row.asset.name, expected.name);
-    // หมวดหมู่เก่า "คอมพิวเตอร์" ส่งออกเป็นประเภท และหมวดที่ไม่รู้จักจัดใหม่จากชื่อรายการ
+    // หมวดหมู่เก่า "คอมพิวเตอร์" ส่งออกเป็นประเภท และหมวดเป็นชื่อแผ่นงานของประเภทนั้น
     assert.equal(row.asset.category, 'ครุภัณฑ์คอมพิวเตอร์');
-    assert.equal(row.asset.groupName, 'คอมพิวเตอร์และโน้ตบุ๊ก');
+    assert.equal(row.asset.groupName, 'คอม');
   });
 });
 

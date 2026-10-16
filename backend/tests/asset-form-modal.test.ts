@@ -109,13 +109,12 @@ function mount(kind: 'create' | 'edit' | 'import', asset: Record<string, unknown
   };
 }
 
-test('asset form preserves custom branches and editable conditions while protecting registered amounts', async () => {
-  const form = mount('edit', { id: 'original-id', branch: 'วิทยาศาสตร์', condition: 'normal', quantity: 2, unitSatang: 1000, totalSatang: 2000 });
-  assert.equal(form.named('branch').props.defaultValue, 'วิทยาศาสตร์');
-  assert.equal(form.named('branch').type, 'Input');
-  const options = form.elements().filter(element => element.type === 'option').map(element => element.props.value);
-  assert.ok(options.includes('วิทยาศาสตร์'));
-  assert.ok(options.includes('สาขาจากทะเบียน'));
+// สาขาบังคับเลือกจากรายการมาตรฐาน และหมวดคิดจากประเภท แก้เองไม่ได้ (ผู้ใช้ตัดสินใจ 15–16 ต.ค. 2569)
+test('asset form picks branches from the standard list, derives the group, and protects registered amounts', async () => {
+  const form = mount('edit', { id: 'original-id', branch: 'วิศวกรรมไฟฟ้า (วฟ)', condition: 'normal', quantity: 2, unitSatang: 1000, totalSatang: 2000 });
+  assert.equal(form.named('branch').props.defaultValue, 'วิศวกรรมไฟฟ้า (วฟ)');
+  assert.equal(form.named('branch').type.name, 'BranchSelect');
+  assert.equal(form.named('groupName'), undefined);
   const condition = form.named('condition').props;
   assert.equal(condition.value, undefined);
   assert.equal(condition.defaultValue, 'normal');
@@ -124,8 +123,8 @@ test('asset form preserves custom branches and editable conditions while protect
   assert.deepEqual(Array.from(mount('edit', { condition: 'repair' }).named('condition').props.options, (option: string[]) => option[0]), ['repair']);
   assert.equal(form.named('lifecycle'), undefined);
   for (const name of ['quantity', 'unitPrice', 'totalPrice']) assert.equal(form.named(name).props.readOnly, true);
-  await form.submit({ branch: 'สาขาใหม่ที่พิมพ์เอง', condition: 'damaged' });
-  assert.equal(form.writes[0].asset.branch, 'สาขาใหม่ที่พิมพ์เอง');
+  await form.submit({ branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', condition: 'damaged' });
+  assert.equal(form.writes[0].asset.branch, 'วิศวกรรมคอมพิวเตอร์ (วค)');
   assert.equal(form.writes[0].asset.condition, 'damaged');
 });
 

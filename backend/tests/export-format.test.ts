@@ -19,7 +19,7 @@ test('Export แยกแผ่นตามประเภท เรียงต
     asset('C-1', 'ครุภัณฑ์คอมพิวเตอร์', 'วิศวกรรมคอมพิวเตอร์ (วค)'),
     asset('S-1', 'ครุภัณฑ์สำนักงาน', 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)'),
   ], { fiscalYear: 2569 });
-  assert.deepEqual(wb.worksheets.map((s: any) => s.name), ['ครุภัณฑ์สำนักงาน', 'ครุภัณฑ์คอมพิวเตอร์']);
+  assert.deepEqual(wb.worksheets.map((s: any) => s.name), ['สำนักงาน', 'คอม']);   // ชื่อแผ่นสั้นแบบไฟล์ต้นฉบับ
   const [office, computer] = wb.worksheets;
   assert.equal(office.getCell('A1').font.name, 'TH Sarabun New');
   assert.equal(office.getCell('A3').value, 'ประจำปีงบประมาณ 2569');
@@ -29,7 +29,7 @@ test('Export แยกแผ่นตามประเภท เรียงต
   assert.equal(computer.getCell('J2').value, 2);
   assert.equal(office.getCell('H6').value, 'สนง');
   assert.equal(computer.getCell('H6').value, 'วค');
-  assert.equal(computer.getCell('I6').value, 'โต๊ะ');
+  assert.equal(computer.getCell('I6').value, 'คอม');   // หมวด = ชื่อแผ่นงานของประเภท
   assert.equal(computer.getCell('J6').value, 'ครุภัณฑ์คอมพิวเตอร์');
 });
 
@@ -90,7 +90,7 @@ test('หน้าส่งออก: เลือกสาขา วค ได�
   assert.equal(sel.remainingSatang, 200000);       // 2 × 1,000.00 บาท
   assert.equal(reportFileName(r), 'รายงานครุภัณฑ์คงเหลือและชำรุด-วค-ปีงบ2569.xlsx');
   const wb = await createReportWorkbook(all, r);
-  assert.deepEqual(wb.worksheets.map((s: any) => s.name), ['ครุภัณฑ์สำนักงาน', 'ครุภัณฑ์คอมพิวเตอร์', 'พัสดุชำรุด']);
+  assert.deepEqual(wb.worksheets.map((s: any) => s.name), ['สำนักงาน', 'คอม', 'พัสดุชำรุด']);
   assert.equal(wb.worksheets[0].getCell('A5').value, 'คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม   ครุภัณฑ์สำนักงาน');
   const damagedSheet = wb.worksheets[2];
   assert.equal(damagedSheet.getCell('G2').value, 'แนบท้ายหน้า 3');
