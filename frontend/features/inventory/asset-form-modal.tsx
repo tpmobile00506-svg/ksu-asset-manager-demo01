@@ -24,7 +24,7 @@ import {
   AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Asset, conditions, satang, assetTypes, assetGroupOfType, academicBranches, officeBranches, isStandardBranch } from '@/shared/domain';
+import { Asset, conditions, satang, assetTypes, assetTypeOf, assetGroupOfType, academicBranches, officeBranches, isStandardBranch } from '@/shared/domain';
 import {
   Any,
   api,
@@ -222,7 +222,9 @@ export default function AssetFormModal({
   useEffect(() => {
     if (modal && ['create', 'edit', 'import'].includes(modal.kind)) {
       const b = modal.asset?.branch || 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
-      const c = modal.asset?.category || '';
+      // ประเภทแบบสั้นในข้อมูลเก่า (เช่น "คอมพิวเตอร์") แปลงเป็นชื่อเต็มในรายการ
+      const raw = modal.asset?.category || '';
+      const c = assetTypeOf(raw) || assetTypeOf('ครุภัณฑ์' + raw) || raw;
       setBranchInput(b);
       setCategoryInput(c);
 
@@ -487,19 +489,20 @@ export default function AssetFormModal({
                   />
                   <label>
                     <span>ประเภทครุภัณฑ์ (สำนักงาน) *</span>
-                    <Input
+                    {/* เลือกจาก 11 ประเภทเท่านั้น พิมพ์ผิดแล้วของจะตกไป "รอจัดหมวด" (ผู้ใช้ขอ 17 ต.ค. 2569)
+                        ค่าเดิมที่ไม่อยู่ในรายการ (ข้อมูลเก่า) ยังเลือกค้างไว้ได้ ไม่บังคับเปลี่ยนตอนแก้ช่องอื่น */}
+                    <select
                       name="category"
                       value={categoryInput}
                       onChange={e => setCategoryInput(e.target.value)}
-                      list="asset-category-options"
-                      placeholder="เช่น ครุภัณฑ์คอมพิวเตอร์"
                       required
-                    />
-                    <datalist id="asset-category-options">
-                      {assetTypes.map(cat => (
-                        <option key={cat} value={cat} />
-                      ))}
-                    </datalist>
+                      className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="" disabled>เลือกประเภทครุภัณฑ์</option>
+                      {assetTypes.map(cat => <option key={cat} value={cat}>{cat} ({assetGroupOfType(cat)})</option>)}
+                      {categoryInput && !(assetTypes as readonly string[]).includes(categoryInput) &&
+                        <option value={categoryInput}>{categoryInput} (ค่าเดิม ไม่อยู่ในรายการ)</option>}
+                    </select>
                   </label>
                   {/* หมวด = ชื่อแผ่นงานของประเภท (สำนักงาน คอม ไฟฟ้า ...) ระบบตั้งให้จากประเภท แก้เองไม่ได้ */}
                   <label>

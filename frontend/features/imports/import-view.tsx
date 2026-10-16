@@ -5,9 +5,10 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Checkbox} from '@/components/ui/checkbox';
 import {Table,TableHeader,TableBody,TableRow,TableHead,TableCell} from '@/components/ui/table';
+import SourceSheetGrid from './source-sheet-grid';
 import {Skeleton} from '@/components/ui/skeleton';
 import {toast} from 'sonner';
-import {Candidate,money,setRoles} from '@/shared/domain';
+import {Candidate,money,setRoles,rowOverrideLabels,academicBranches,officeBranches,type RowOverride} from '@/shared/domain';
 import type {BatchImportInput,SourceViewResponse} from '@/shared/imports';
 import {createBatchImporter,sourceResponse} from './import-requests';
 import {api,Metric,Pick,Pager,Empty} from '@/frontend/components/common';
@@ -91,14 +92,19 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
     [busy,setBusy]=useState(false),
     [error,setError]=useState(''),
     [selectedKeys,setSelectedKeys]=useState<Set<string>>(new Set()),
+    [mode,setMode]=useState<'excel'|'list'>('excel'),
     [confirmState,setConfirmState]=useState<{
       isOpen: boolean;
       title: string;
       description: string;
       summary?: string;
+      pickBranch?: boolean;
       confirmLabel: string;
       onConfirm: () => Promise<boolean>;
     } | null>(null);
+  // สาขาที่เลือกในหน้าต่างยืนยัน ('' = ตามไฟล์) เก็บใน ref เพราะ onConfirm ถูกสร้างไว้ก่อนผู้ใช้เลือก
+  const [importBranch,setImportBranch]=useState('');
+  const importBranchRef=useRef('');
   const ref=useRef<HTMLInputElement>(null);
   const mutationBusy=useRef(false);
   const lifetime=useRef<AbortController|null>(null);
@@ -181,7 +187,9 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
       const response=await batchImport(input);
       if(signal?.aborted)return false;
       setDirty(true);setSelectedKeys(new Set());
-      toast.success(message(response.count));
+      toast.success(message(response.count)+(response.linked?` · ผูกเข้าทุน ${response.linked} รายการ`:''));
+      // แถวที่ข้าม (เช่น รหัสซ้ำ) แจ้งให้รู้ว่าแถวไหนและเพราะอะไร
+      if(response.skipped?.length)toast.warning(`ข้าม ${response.skipped.length} รายการ`,{description:response.skipped.slice(0,5).map(x=>`${x.sheet} แถว ${x.row}: ${x.reason}`).join(' · ')+(response.skipped.length>5?` · และอีก ${response.skipped.length-5} รายการ`:''),duration:12000});
       await reload();
       return true;
     }catch(error:unknown){
@@ -204,6 +212,37 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
       confirmLabel: `ยืนยันนำเข้า ${count} รายการ`,
       onConfirm:()=>runImport({sourceId,keys},count=>`นำเข้ารายการที่เลือกสำเร็จแล้ว ${count} รายการ`)
     });
+  }
+
+  // นำเข้าจากมุมมองแบบ Excel (รายการที่ติ๊กหรือลากครอบ)
+  function handleImportKeys(keys: string[], count: number, linking: number) {
+    if (!keys.length || busy) return;
+    const sourceId=id;
+    setImportBranch('');importBranchRef.current='';
+    setConfirmState({
+      isOpen: true,
+      title: 'ยืนยันการนำเข้าข้อมูลครุภัณฑ์',
+      description: `ระบบกำลังจะนำเข้ารายการที่คุณเลือกจำนวน ${count} รายการ เข้าสู่ทะเบียนกลางของคณะ`,
+      summary: `รายการที่เลือกจำนวน ${count} รายการจะถูกเพิ่มลงทะเบียนกลางและสร้างประวัติการนำเข้าทันที`+(linking?` · ${linking} รายการจะผูกเข้ากับหัวทุนที่ติ๊กไว้`:''),
+      pickBranch: true,
+      confirmLabel: `ยืนยันนำเข้า ${count} รายการ`,
+      onConfirm:()=>runImport({sourceId,keys,includeIssues:true,...(importBranchRef.current?{branch:importBranchRef.current}:{})},count=>`นำเข้ารายการที่เลือกสำเร็จแล้ว ${count} รายการ`)
+    });
+  }
+
+  // เปลี่ยนประเภทแถวต้นฉบับที่เลือก (หัวทุน / บรรทัดต่อ / ครุภัณฑ์ / ข้าม / กลับเป็นค่าที่ระบบเดา)
+  async function handleOverride(keys:string[], as:RowOverride|'auto'):Promise<boolean>{
+    if(mutationBusy.current||!keys.length)return false;
+    mutationBusy.current=true;setBusy(true);
+    try{
+      await api('',{action:'rowOverride',sourceId:id,keys,as,token:crypto.randomUUID()},{signal:lifetime.current?.signal});
+      toast.success(as==='auto'?`คืนค่าที่ระบบเดาให้ ${keys.length} แถว`:`เปลี่ยน ${keys.length} แถวเป็น "${rowOverrideLabels[as]}" แล้ว`);
+      await reload();
+      return true;
+    }catch(error:unknown){
+      if(!aborted(error))toast.error(errorMessage(error,'เปลี่ยนประเภทแถวไม่สำเร็จ'));
+      return false;
+    }finally{mutationBusy.current=false;setBusy(false);}
   }
 
   function handleImportAllReady() {
@@ -302,6 +341,18 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
             </div>
           </div>
 
+          {/* สลับมุมมอง: แบบ Excel (เลือกด้วยการติ๊ก/ลากครอบ) หรือแบบรายการเดิม (มีตัวกรองปัญหา) */}
+          <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-t border-slate-200">
+            <span className="text-xs font-semibold text-slate-600">มุมมอง:</span>
+            <Button size="sm" variant={mode==='excel'?'default':'outline'} onClick={()=>setMode('excel')}>แบบ Excel</Button>
+            <Button size="sm" variant={mode==='list'?'default':'outline'} onClick={()=>setMode('list')}>แบบรายการ (ตัวกรองปัญหา)</Button>
+          </div>
+          {mode==='excel'?(
+            <SourceSheetGrid sourceId={id} sheets={source.sheets} revision={revision} canImport={editable&&!busy}
+              onImport={handleImportKeys}
+              onReview={row=>open('import',{row,asset:row.asset,sourceId:id})}
+              onOverride={handleOverride}/>
+          ):(<>
           <div className="toolbar flex flex-wrap gap-2 items-center">
             <div className="searchbox flex-1 min-w-[200px]">
               <Search/>
@@ -505,6 +556,7 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
 
               <Pager page={page} total={source.total} onChange={setPage}/>
           </div>
+          </>)}
         </>}
         {!sourceIsCurrent&&(id?<div className="p-6">{error?<p role="alert">{error}</p>:<Skeleton className="h-52"/>}</div>:<Empty title="ยังไม่มีไฟล์ต้นฉบับ"><p>อัปโหลดไฟล์ Excel เพื่อเริ่มตรวจทานก่อนนำเข้าทะเบียน</p></Empty>)}
       </div>
@@ -523,6 +575,18 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
             <div className="bg-blue-50 border border-blue-200/80 rounded-lg p-3 text-xs text-blue-900 my-2">
               {confirmState.summary}
             </div>
+          )}
+          {confirmState?.pickBranch && (
+            <label className="block text-sm text-slate-700 my-2">
+              <span className="font-medium">นำเข้าไปที่สาขา</span>
+              <select value={importBranch} disabled={busy} onChange={e=>{setImportBranch(e.target.value);importBranchRef.current=e.target.value;}}
+                className="mt-1 h-10 w-full rounded-md border border-input bg-white px-3 text-sm">
+                <option value="">ตามไฟล์ (สาขาที่ระบบอ่านได้ของแต่ละแถว)</option>
+                <optgroup label="สาขาวิชา">{academicBranches.map(b=><option key={b} value={b}>{b}</option>)}</optgroup>
+                <optgroup label="หน่วยงาน">{officeBranches.map(b=><option key={b} value={b}>{b}</option>)}</optgroup>
+              </select>
+              {importBranch&&<span className="mt-1 block text-xs text-amber-700">ทุกแถวที่เลือกจะเข้าสาขานี้ ไม่ใช้สาขาในไฟล์</span>}
+            </label>
           )}
           <AlertDialogFooter className="mt-4 flex gap-2 justify-end">
             <AlertDialogCancel disabled={busy} className="rounded-lg border-slate-200">

@@ -13,13 +13,14 @@ import {
   History,
   QrCode,
   CheckCircle2,
-  Calendar
+  Calendar,
+  FolderOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge, Activity, api } from '@/frontend/components/common';
-import { Asset, money, conditions, groupFor, setRoles, type SetRole } from '@/shared/domain';
+import { Asset, money, conditions, groupFor, setRoles, officeBranches, type SetRole } from '@/shared/domain';
 import type { RepairRecord } from '@/shared/models';
 import AssetPhoto from './asset-photo';
 import QRCode from 'qrcode';
@@ -37,6 +38,7 @@ interface AssetDetailViewProps {
   onPhotoChanged: () => Promise<void>;
   rounds?: any[];
   onCheckRound?: (roundId: string) => void;
+  funds?: Array<{ id: string; name: string }>;
 }
 
 export default function AssetDetailView({
@@ -50,8 +52,14 @@ export default function AssetDetailView({
   onSelectAsset,
   onPhotoChanged,
   rounds = [],
-  onCheckRound
+  onCheckRound,
+  funds = []
 }: AssetDetailViewProps) {
+  // ทุนที่ยืนยันแล้ว (fundId) หรือทุนที่แนะนำจากไฟล์ต้นฉบับ (fundHintId) แสดงเป็นแถบเต็มความกว้าง ชื่อยาวไม่ถูกตัด
+  const hintName = !asset.fundId && asset.fundHintId ? funds.find(f => f.id === asset.fundHintId)?.name : undefined;
+  const fundLabel = asset.fundName || hintName;
+  // ช่องเดียวในฐานข้อมูล แสดงแยก: ของสาขาวิชา → หน่วยงาน = คณะ, ของหน่วยงาน → สาขาวิชา = —
+  const isOffice = (officeBranches as readonly string[]).includes(asset.branch);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [history, setHistory] = useState<any | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -295,6 +303,18 @@ export default function AssetDetailView({
               </div>
             </div>
 
+            {fundLabel && (
+              <div className={`rounded-lg border px-4 py-3 flex gap-3 items-start ${asset.fundName ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200 border-dashed'}`}>
+                <FolderOpen size={20} className={asset.fundName ? 'text-blue-700 mt-0.5 shrink-0' : 'text-slate-500 mt-0.5 shrink-0'} aria-hidden="true" />
+                <div className="min-w-0">
+                  <div className={`text-xs font-bold ${asset.fundName ? 'text-blue-700' : 'text-slate-500'}`}>
+                    ทุน / โครงการ · {asset.fundName ? 'ยืนยันแล้ว' : 'แนะนำจากไฟล์ต้นฉบับ (ยังไม่ยืนยัน)'}
+                  </div>
+                  <div className={`text-sm leading-relaxed break-words ${asset.fundName ? 'text-blue-900' : 'text-slate-700'}`}>{fundLabel}</div>
+                </div>
+              </div>
+            )}
+
             {/* Row 1: Code & Serial */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -347,10 +367,26 @@ export default function AssetDetailView({
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  สาขาวิชา / หน่วยงานที่รับผิดชอบ
+                  หมวด (กลุ่มต่างๆ)
+                </label>
+                <Input value={groupFor(asset)} readOnly className="text-sm bg-white border-slate-200 text-slate-800" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  สาขาวิชา
                 </label>
                 <Input
-                  value={asset.branch || '—'}
+                  value={isOffice ? '— (ไม่ใช่ของสาขาวิชา)' : asset.branch || '—'}
+                  readOnly
+                  className={`text-sm bg-white border-slate-200 ${isOffice ? 'text-slate-400' : 'text-slate-800'}`}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  หน่วยงานที่รับผิดชอบ
+                </label>
+                <Input
+                  value={isOffice ? asset.branch : 'คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม'}
                   readOnly
                   className="text-sm bg-white border-slate-200 text-slate-800"
                 />
@@ -378,18 +414,6 @@ export default function AssetDetailView({
                   readOnly
                   className="text-sm bg-white border-slate-200 text-slate-800"
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  หมวด (กลุ่มต่างๆ)
-                </label>
-                <Input value={groupFor(asset)} readOnly className="text-sm bg-white border-slate-200 text-slate-800" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  ทุน / โครงการ
-                </label>
-                <Input value={asset.fundName || '— ไม่ได้ระบุทุน'} readOnly title={asset.fundName || ''} className="text-sm bg-white border-slate-200 text-slate-800" />
               </div>
               {asset.setId && (
                 <div className="col-span-full">

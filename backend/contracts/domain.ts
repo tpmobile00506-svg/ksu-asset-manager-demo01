@@ -12,7 +12,11 @@ export const setRoles: Record<SetRole, string> = { header: 'หัวชุด',
 export type CandidateSet = { key: string; name: string; kind: SetKind; role?: SetRole };
 // fund = หัวทุนที่อยู่เหนือแถวนี้ในไฟล์ต้นฉบับ: เป็นแค่ "รายการแนะนำ" เจ้าหน้าที่ต้องยืนยันเองว่ามาจากทุนนั้นจริง
 export type CandidateFund = { key: string; name: string };
-export type Candidate = {key:string;sheet:string;row:number;kind:string;issue:string;issueType?:string;groupName:string;values:unknown[];asset:Partial<Asset>;set?:CandidateSet;fund?:CandidateFund};
+// เจ้าหน้าที่เปลี่ยนประเภทแถวต้นฉบับเองในหน้านำเข้าแบบ Excel (ระบบเดาผิด): หัวทุน / บรรทัดต่อของหัวด้านบน / ครุภัณฑ์ / ข้าม
+export type RowOverride = 'fund' | 'continue' | 'asset' | 'skip';
+export const rowOverrideLabels: Record<RowOverride, string> = { fund: 'หัวทุน', continue: 'บรรทัดต่อของหัวด้านบน', asset: 'ครุภัณฑ์', skip: 'ไม่ใช่ครุภัณฑ์ (ข้าม)' };
+export const isRowOverride = (value: unknown): value is RowOverride => typeof value === 'string' && Object.hasOwn(rowOverrideLabels, value);
+export type Candidate = {key:string;sheet:string;row:number;kind:string;issue:string;issueType?:string;groupName:string;values:unknown[];asset:Partial<Asset>;set?:CandidateSet;fund?:CandidateFund;override?:RowOverride};
 export type Source = {id:string;name:string;hash:string;sheets:{name:string;rows:{row:number;values:unknown[]}[]}[]};
 export function satang(value: unknown): number {
   const text = String(value ?? '').replace(/,/g,'').trim();
@@ -304,7 +308,7 @@ export function awaitsApprovalBy(r: { status: string; chain: string; stage: numb
   return !!me.branch && !!assetBranch && normalizeBranch(me.branch, '', '') === normalizeBranch(assetBranch, '', '');
 }
 export const codeKey = (code: string) => (code || '').normalize('NFC').toUpperCase().replace(/\s+/g, '').replace(/[–—]/g, '-');
-export function classify(source:Source):Candidate[]{
+export function classify(source:Source, overrides: Record<string, RowOverride> = {}):Candidate[]{
  const out:Candidate[]=[];
  const codeCounts = new Map<string, number>();
  const codeHistorical = new Set<string>();
@@ -349,6 +353,10 @@ export function classify(source:Source):Candidate[]{
    // บรรทัดราคาของชุดที่ไม่มีรหัส (มีชื่อ จำนวน และราคา) เช่น "โต๊ะประชุมมีบังตา | 2 | 5,900 | 11,800" แล้วตามด้วยรายชิ้นที่ไม่มีราคา
    // ต้องไม่ถูกทิ้งเป็นหมายเหตุ ไม่งั้นยอดเงินหายและรายชิ้นไปเข้าชุดก่อนหน้า → ส่งต่อให้ detectSets ทำเป็นหัวชุด
    else if(!code&&name&&Number(amount(v[3]))>0&&Number(String(amount(v[4])??'').replace(/,/g,''))>0){kind='group';}
+   const override = overrides[sheet.name+':'+r.row];
+   if(override==='skip'||override==='continue'){kind='note';issue='';}
+   else if(override==='fund'){kind='group';group=text;}
+   else if(override==='asset'&&kind!=='asset'){kind='asset';issue='เจ้าหน้าที่เปลี่ยนเป็นครุภัณฑ์ ต้องตรวจรหัส ชื่อ จำนวน และราคา';issueType='name';}
    let qty=Number(amount(v[3])),unit=0,total=0;
    let explicitCat = '';
    let memo = '';
@@ -397,7 +405,7 @@ export function classify(source:Source):Candidate[]{
     if(branches.length>1){const note=`ระบุไว้หลายสาขา (${branches.map(branchAbbr).join(' / ')}) ต้องเลือกสาขาก่อนนำเข้า`;if(issue)issue+=' · '+note;else{issue=note;issueType='branch';}}
     if(!issue)issueType='ready';
    }
-   out.push({key:sheet.name+':'+r.row,sheet:sheet.name,row:r.row,kind,issue,issueType,groupName,values:v,asset:{code,name,quantity:qty||0,unitSatang:unit,totalSatang:total,notes,location:columns&&columns.location>=0?str(v[columns.location]):str(v[6]),branch,groupName:assetGroup,category,condition:'normal'}});
+   out.push({key:sheet.name+':'+r.row,sheet:sheet.name,row:r.row,kind,issue,issueType,groupName,values:v,...(override?{override}:{}),asset:{code,name:name||(override==='asset'?v.map(str).filter(Boolean).join(' '):''),quantity:qty||0,unitSatang:unit,totalSatang:total,notes,location:columns&&columns.location>=0?str(v[columns.location]):str(v[6]),branch,groupName:assetGroup,category,condition:'normal'}});
   }
  }return detectSets(out);
 }
@@ -426,12 +434,22 @@ function detectSets(rows: Candidate[]): Candidate[] {
     const packages: Array<{ header: Candidate; parts: Candidate[] }> = [];
     let currentPackage: { header: Candidate; parts: Candidate[] } | null = null;
     for (const row of sheetRows) {
+      if (row.override === 'continue') {
+        // บรรทัดต่อ (เจ้าหน้าที่ระบุ): ข้อความต่อท้ายหัวทุน/หัวชุด/ชื่อรายการด้านบน
+        const more = row.values.map(str).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+        if (more && lastCounted?.kind === 'group' && heading) heading.name += ' ' + more;
+        else if (more && lastCounted?.kind === 'asset') {
+          if (lastCounted.set?.role === 'header') lastCounted.set.name += ' ' + more;
+          lastCounted.asset = { ...lastCounted.asset, name: ((lastCounted.asset.name || '') + ' ' + more).trim() };
+        }
+        continue;
+      }
       if (row.kind === 'header' || row.kind === 'subtotal' || row.kind === 'note') continue;   // หัวกระดาษแต่ละหน้าไม่ตัดชุด
       const v = row.values, seq = Number(cell(v[0]));
       const hasSeq = Number.isInteger(seq) && seq > 0 && String(cell(v[0]) ?? '').trim() !== '';
       if (row.kind === 'group') {
-        const text = str(v[1]) || str(v[2]) || row.groupName;
-        if (!priceIsBlank(v[4]) && Number(amount(v[3])) > 0) {
+        const text = row.override === 'fund' ? v.map(str).filter(Boolean).join(' ').replace(/\s+/g, ' ') : str(v[1]) || str(v[2]) || row.groupName;
+        if (row.override !== 'fund' && !priceIsBlank(v[4]) && Number(amount(v[3])) > 0) {
           // หัวชุด package: มีราคา ไม่มีลำดับ → เป็นครุภัณฑ์ที่ถือมูลค่าของทั้งชุด
           const set: CandidateSet = { key: row.key, name: text, kind: 'package', role: 'header' };
           let unit = 0, total = 0;

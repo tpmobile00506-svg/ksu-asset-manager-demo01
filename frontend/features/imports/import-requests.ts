@@ -26,7 +26,7 @@ export function createBatchImporter(send: (body: BatchImportRequest) => Promise<
   return async (input: BatchImportInput): Promise<BatchImportResponse> => {
     const payload: BatchImportInput = input.allReady
       ? { sourceId: input.sourceId, allReady: true }
-      : { sourceId: input.sourceId, keys: [...new Set(input.keys)].sort() };
+      : { sourceId: input.sourceId, keys: [...new Set(input.keys)].sort(), ...(input.includeIssues ? { includeIssues: true } : {}), ...(input.branch ? { branch: input.branch } : {}) };
     const key = JSON.stringify(payload);
     let operation = requests.get(key);
     if (!operation) {
