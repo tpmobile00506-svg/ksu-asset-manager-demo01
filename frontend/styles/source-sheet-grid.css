@@ -1,0 +1,42 @@
+/* นำเข้าแบบ Excel (source-sheet-grid.tsx): ตารางเหมือนหน้า Excel เลือกแถวด้วยการติ๊ก/ลากครอบ */
+.xls { display: flex; flex-direction: column; border-top: 1px solid #e2e8f0; }
+.xls-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+.xls-count b { color: #047857; font-size: 15px; }
+.xls-hint { color: #64748b; font-size: 12px; }
+.xls-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px; }
+.xls-error { color: #b91c1c; padding: 8px 16px; font-size: 13px; }
+.xls-scroll { overflow: auto; max-height: 62vh; background: #fff; }
+.xls-scroll.is-loading { opacity: .6; }
+.xls-grid { border-collapse: collapse; font-size: 12.5px; font-family: "TH Sarabun New", "Sarabun", "Tahoma", sans-serif; min-width: 100%; }
+.xls-grid thead th { position: sticky; top: 0; z-index: 2; background: #e9eef4; color: #475569; font-weight: 600; text-align: center; padding: 4px 8px; border: 1px solid #cbd5e1; }
+.xls-grid th.xls-corner { left: 0; z-index: 3; min-width: 64px; }
+.xls-grid td { border: 1px solid #e2e8f0; padding: 3px 8px; white-space: nowrap; max-width: 340px; overflow: hidden; text-overflow: ellipsis; color: #0f172a; font-size: 15px; line-height: 1.35; }
+.xls-grid td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.xls-rowhead { position: sticky; left: 0; z-index: 1; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 2px 6px; font-weight: 500; color: #64748b; user-select: none; text-align: left; white-space: nowrap; }
+.xls-rowhead.can { cursor: pointer; }
+.xls-rowhead input { margin-right: 6px; vertical-align: middle; pointer-events: none; }
+.xls-rowhead span { font-variant-numeric: tabular-nums; }
+.xls-grid tr.tone-meta td { color: #94a3b8; background: #fafafa; }
+.xls-grid tr.tone-heading td { font-weight: 700; color: #1e3a8a; background: #eff6ff; }
+.xls-grid tr.tone-issue td { background: #fffbeb; }
+.xls-grid tr.tone-done td { background: #f0fdf4; color: #64748b; }
+.xls-grid tr.is-on td { background: #dbeafe; }
+.xls-grid tr.is-on .xls-rowhead { background: #bfdbfe; color: #1e40af; }
+.xls-state-h, .xls-state { position: sticky; right: 0; background: #f8fafc; text-align: center; }
+.xls-grid tr td.xls-state { background: #f8fafc; }
+.xls-chip { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 999px; border: 1px solid #e2e8f0; color: #475569; background: #fff; font-family: system-ui, sans-serif; }
+.xls-chip.ready { color: #047857; border-color: #a7f3d0; background: #ecfdf5; }
+.xls-chip.done { color: #15803d; border-color: #bbf7d0; }
+.xls-chip.issue { color: #b45309; border-color: #fcd34d; background: #fffbeb; cursor: pointer; }
+.xls-chip.heading { color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff; }
+.xls-empty { padding: 24px; text-align: center; color: #94a3b8; }
+.xls-tabs { display: flex; gap: 2px; overflow-x: auto; padding: 6px 8px 0; background: #1f2937; }
+.xls-tabs button { flex: none; padding: 6px 14px; font-size: 13px; color: #e5e7eb; background: #374151; border-radius: 6px 6px 0 0; border: none; cursor: pointer; }
+.xls-tabs button.on { background: #fff; color: #065f46; font-weight: 700; box-shadow: inset 0 -3px 0 #059669; }
+.xls-tabs button:focus-visible { outline: 2px solid #34d399; outline-offset: -2px; }
+.xls-grid td.span { max-width: none; overflow: visible; }
+.xls-grid td .cell { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* คอลัมน์ A (ลำดับ) แคบแบบ Excel ข้อความยาวดูได้จาก tooltip */
+.xls-grid td:nth-child(2) .cell { max-width: 72px; }
+.xls-change { height: 32px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 8px; font-size: 13px; background: #fff; }
+.xls-edited { margin-left: 4px; font-size: 10.5px; padding: 0 5px; border-radius: 4px; background: #7c3aed; color: #fff; font-family: system-ui, sans-serif; }

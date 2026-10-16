@@ -242,3 +242,113 @@ test('request action with splitQuantity does NOT split at request time (split ha
     restore();
   }
 });
+
+test('นำเข้าจากมุมมองแบบ Excel: แถว "ต้องตรวจ" นำเข้าได้พร้อมหมายเหตุ ไม่มีจำนวนใส่ 1 ส่วนรหัสซ้ำข้ามและแจ้งกลับ', async () => {
+  const source = { id: 'source', name: 'fixture.xlsx', hash: 'fixture', sheets: [{ name: 'S', rows: [
+    { row: 1, values: [1, 'OK-1', 'ปกติ', 1, 100, 100] },
+    { row: 2, values: [2, 'BAD-1', 'ยอดไม่ตรงสูตร', 2, 100, 300] },        // 2 × 1.00 ≠ 3.00 บาท
+    { row: 3, values: [3, 'EXIST-1', 'รหัสมีในทะเบียนแล้ว', 1, 100, 100] },
+    { row: 4, values: [4, 'ZERO-1', 'จำนวนศูนย์', 0, 100, 0] },
+  ] }] };
+  let insertedAssets: Array<{ code: string; notes: string }> = [];
+  const dimensions = { createMany: async () => ({ count: 1 }) };
+  const tx = {
+    user: { findUnique: async () => staff },
+    operation: { findUnique: async () => null, create: async () => ({}) },
+    sourceRow: { findMany: async () => [], createMany: async ({ data }: { data: unknown[] }) => ({ count: data.length }) },
+    asset: {
+      findMany: async () => [{ code: 'EXIST-1', name: 'ของเดิม', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', lifecycle: 'active' }],
+      createMany: async ({ data }: { data: typeof insertedAssets }) => { insertedAssets = data; return { count: data.length }; },
+    },
+    location: dimensions, branch: dimensions, category: dimensions, assetGroup: dimensions,
+    audit: { create: async () => ({}) },
+  };
+  const restore = useMemoryDatabase({
+    user: { findUnique: async () => staff },
+    importFile: { findUnique: async () => ({ objectKey: 'imports/source' }) },
+    storedFile: { findUnique: async () => ({ body: Buffer.from(JSON.stringify(source)) }) },
+    $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+  });
+  try {
+    const keys = ['S:1', 'S:2', 'S:3', 'S:4'];
+    // ไม่ได้ขอรวมแถวต้องตรวจ: ปฏิเสธเหมือนเดิม
+    await assert.rejects(mutate(staff, { action: 'batchImport', sourceId: source.id, keys }), /ต้องตรวจทาน/);
+    const result = await mutate(staff, { action: 'batchImport', sourceId: source.id, keys, includeIssues: true });
+    assert.equal(result.count, 3);
+    assert.deepEqual(insertedAssets.map(a => a.code), ['OK-1', 'BAD-1', 'ZERO-1']);
+    assert.match(insertedAssets[1].notes, /ต้องตรวจ:/);
+    // ไม่มีจำนวน: นำเข้าเป็นจำนวน 1 พร้อมหมายเหตุ (ผู้ใช้อนุมัติ 16 ต.ค. 2569)
+    assert.equal((insertedAssets[2] as unknown as { quantity: number }).quantity, 1);
+    assert.match(insertedAssets[2].notes, /ไม่ระบุจำนวนในไฟล์/);
+    assert.deepEqual(result.skipped.map((x: { row: number }) => x.row), [3]);
+    assert.match(result.skipped[0].reason, /รหัสซ้ำกับรายการในทะเบียน: EXIST-1/);
+  } finally { restore(); }
+});
+
+test('เลือกสาขาตอนนำเข้า: ทุกแถวเข้าสาขาที่เลือก แถว "หลายสาขา" ไม่ต้องตรวจอีก สาขานอกรายการถูกปฏิเสธ', async () => {
+  const source = { id: 'source', name: 'fixture.xlsx', hash: 'fixture', sheets: [{ name: 'S', rows: [
+    { row: 1, values: [1, 'A-1', 'โต๊ะ', 1, 100, 100, 'ห้อง 1', 'วค'] },
+    { row: 2, values: [2, 'A-2', 'เก้าอี้', 1, 100, 100, 'ห้อง 1', 'วอ /คจก'] },   // ระบุ 2 สาขา
+  ] }] };
+  let insertedAssets: Array<{ code: string; branch: string; notes: string }> = [];
+  const dimensions = { createMany: async () => ({ count: 1 }) };
+  const tx = {
+    user: { findUnique: async () => staff },
+    operation: { findUnique: async () => null, create: async () => ({}) },
+    sourceRow: { findMany: async () => [], createMany: async ({ data }: { data: unknown[] }) => ({ count: data.length }) },
+    asset: { findMany: async () => [], createMany: async ({ data }: { data: typeof insertedAssets }) => { insertedAssets = data; return { count: data.length }; } },
+    location: dimensions, branch: dimensions, category: dimensions, assetGroup: dimensions,
+    audit: { create: async () => ({}) },
+  };
+  const restore = useMemoryDatabase({
+    user: { findUnique: async () => staff },
+    importFile: { findUnique: async () => ({ objectKey: 'imports/source' }) },
+    storedFile: { findUnique: async () => ({ body: Buffer.from(JSON.stringify(source)) }) },
+    $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+  });
+  try {
+    const keys = ['S:1', 'S:2'];
+    await assert.rejects(mutate(staff, { action: 'batchImport', sourceId: source.id, keys, includeIssues: true, branch: 'สาขามั่ว' }), /สาขาไม่ถูกต้อง/);
+    const picked = 'วิศวกรรมไฟฟ้า (วฟ)';
+    const result = await mutate(staff, { action: 'batchImport', sourceId: source.id, keys, includeIssues: true, branch: picked });
+    assert.equal(result.count, 2);
+    assert.deepEqual(insertedAssets.map(a => a.branch), [picked, picked]);
+    assert.doesNotMatch(insertedAssets[1].notes, /ต้องตรวจ/);
+  } finally { restore(); }
+});
+
+test('ติ๊กหัวทุนพร้อมรายการข้างล่างแล้วนำเข้า: รายการที่เลือกผูกเข้าทุนทันที ไม่ติ๊กหัวทุน = แค่แนะนำ', async () => {
+  const source = { id: 'source', name: 'fixture.xlsx', hash: 'fixture', sheets: [{ name: 'S', rows: [
+    { row: 1, values: [null, null, 'นำเข้าคอมพิวเตอร์ 10 เครื่อง งบประมาณ 2568'] },   // หัวทุน
+    { row: 2, values: [1, 'PC-1', 'คอมพิวเตอร์ เครื่องที่ 1', 1, 20000, 20000] },
+    { row: 3, values: [2, 'PC-2', 'คอมพิวเตอร์ เครื่องที่ 2', 1, 20000, 20000] },
+  ] }] };
+  const run = async (keys: string[]) => {
+    let inserted: Array<{ code: string; fundId?: string; fundHintId?: string }> = [];
+    const dimensions = { createMany: async () => ({ count: 1 }) };
+    const tx = {
+      user: { findUnique: async () => staff },
+      operation: { findUnique: async () => null, create: async () => ({}) },
+      sourceRow: { findMany: async () => [], createMany: async ({ data }: { data: unknown[] }) => ({ count: data.length }) },
+      asset: { findMany: async () => [], createMany: async ({ data }: { data: typeof inserted }) => { inserted = data; return { count: data.length }; } },
+      assetSet: { findMany: async () => [], createMany: async () => ({ count: 1 }) },
+      location: dimensions, branch: dimensions, category: dimensions, assetGroup: dimensions,
+      audit: { create: async () => ({}) },
+    };
+    const restore = useMemoryDatabase({
+      user: { findUnique: async () => staff },
+      importFile: { findUnique: async () => ({ objectKey: 'imports/source' }) },
+      storedFile: { findUnique: async () => ({ body: Buffer.from(JSON.stringify(source)) }) },
+      $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+    });
+    try { return { result: await mutate(staff, { action: 'batchImport', sourceId: source.id, keys, includeIssues: true }), inserted }; }
+    finally { restore(); }
+  };
+  const withFund = await run(['S:1', 'S:2', 'S:3']);
+  assert.equal(withFund.result.count, 2);
+  assert.equal(withFund.result.linked, 2);
+  assert.ok(withFund.inserted.every(a => a.fundId && a.fundId === a.fundHintId));
+  const withoutFund = await run(['S:2', 'S:3']);
+  assert.equal(withoutFund.result.linked, undefined);
+  assert.ok(withoutFund.inserted.every(a => !a.fundId && a.fundHintId));   // ยังเป็นแค่รายการแนะนำ
+});

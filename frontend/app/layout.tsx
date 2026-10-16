@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "@/frontend/styles/globals.css";
+import "@/frontend/styles/source-sheet-grid.css";
 
 export const metadata: Metadata = {
   title: "ทะเบียนครุภัณฑ์ · คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม",

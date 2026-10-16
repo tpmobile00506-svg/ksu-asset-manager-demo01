@@ -5,7 +5,7 @@ import { ApiError } from './errors';
 import { parseWorkbook } from '../imports/workbook';
 import { readFileBytes, putFile } from '../storage/files';
 import { withAssetImages } from '../storage/asset-image-metadata';
-import { type Asset, type Source, classify, conditions, normalizeBranch, UNKNOWN_ASSET_TYPE, assetGroupOfType, codeKey, markExistingCodes, branchAbbr } from '../contracts/domain';
+import { type Asset, type Source, type RowOverride, isRowOverride, classify, conditions, normalizeBranch, UNKNOWN_ASSET_TYPE, assetGroupOfType, codeKey, markExistingCodes, branchAbbr } from '../contracts/domain';
 import type { SourceViewResponse } from '../contracts/imports';
 import type { StocktakeResponse, WorkspaceData } from '../contracts/models';
 
@@ -78,6 +78,17 @@ export async function registeredCodes(db: Pick<Transaction, 'asset'>) {
   const list = await db.asset.findMany({ select: { code: true, name: true, branch: true, lifecycle: true } });
   return new Map(list.map(a => [codeKey(a.code), `${a.code} · ${a.name} · ${branchAbbr(a.branch)}${a.lifecycle === 'disposed' ? ' (จำหน่ายแล้ว)' : ''}`]));
 }
+// ประเภทแถวที่เจ้าหน้าที่เปลี่ยนเอง เก็บเป็นไฟล์คู่กับไฟล์ต้นฉบับ (ไม่ต้องเพิ่มตาราง)
+export const overridesKey = (sourceId: string) => `imports/${sourceId}-overrides.json`;
+export async function loadOverrides(sourceId: string, db: Pick<Transaction, 'storedFile'> = prisma): Promise<Record<string, RowOverride>> {
+  if (!/^[a-zA-Z0-9-]+$/.test(sourceId)) return {};
+  const file = await db.storedFile.findUnique({ where: { key: overridesKey(sourceId) } });
+  if (!file) return {};
+  try {
+    const parsed = JSON.parse(Buffer.from(file.body).toString('utf8')) as Record<string, unknown>;
+    return Object.fromEntries(Object.entries(parsed).filter((e): e is [string, RowOverride] => isRowOverride(e[1])));
+  } catch { return {}; }
+}
 export async function getSource(sourceId: string): Promise<Source> {
   const file = await prisma.importFile.findUnique({ where: { id: sourceId } });
   if (!file) throw new ApiError('ไม่พบไฟล์', 404);
@@ -89,7 +100,7 @@ export async function getData(m: Member, url: URL) {
     const s = await getSource(url.searchParams.get('source') || 'provided-2569');
     const decisions = await prisma.sourceRow.findMany({ where: { sourceId: s.id }, select: { sourceRow: true } });
     const done = new Set(decisions.map(x => x.sourceRow));
-    let rows = markExistingCodes(classify(s), await registeredCodes(prisma), done);
+    let rows = markExistingCodes(classify(s, await loadOverrides(s.id)), await registeredCodes(prisma), done);
     const assetRows = rows.filter(x => x.kind === 'asset');
     const stats = {
       rows: rows.length,
@@ -118,7 +129,9 @@ export async function getData(m: Member, url: URL) {
     else if (kind === 'issue-duplicate') rows = rows.filter(x => x.kind === 'asset' && x.issueType === 'duplicate' && !done.has(x.key));
     else if (kind === 'review') rows = rows.filter(x => x.kind === 'asset' && !!x.issue && !done.has(x.key));
     else if (kind === 'annotations') rows = rows.filter(x => x.kind !== 'asset');
-    const page = Math.max(0, Math.floor(Number(url.searchParams.get('page')) || 0)), size = 40;
+    // grid=1: หน้านำเข้าแบบ Excel โหลดทีละ 500 แถวของแผ่นเดียว (มุมมองรายการเดิมทีละ 40)
+    const size = url.searchParams.get('grid') === '1' ? 500 : 40;
+    const page = Math.max(0, Math.floor(Number(url.searchParams.get('page')) || 0));
     const activeSheets = s.sheets.filter(x => x.rows.length > 0).map(x => x.name);
     return { id: s.id, name: s.name, hash: s.hash, sheets: activeSheets, stats, total: rows.length, rows: rows.slice(page * size, (page + 1) * size).map(x => ({ ...x, done: done.has(x.key) })) } satisfies SourceViewResponse;
   }
