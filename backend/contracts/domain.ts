@@ -1,4 +1,4 @@
-export const roles = {staff:'เจ้าหน้าที่พัสดุ (Staff)',head:'หัวหน้าสาขา (Head)',deputy:'รองคณบดี (Deputy)',dean:'คณบดี (Dean)',admin:'ผู้ดูแลระบบ (Admin)'} as const;
+export const roles = {staff:'เจ้าหน้าที่พัสดุ (Staff)',head:'หัวหน้าสาขา (Head)',deputy:'รองคณบดี (Deputy)',dean:'คณบดี (Dean)',admin:'ผู้ดูแลระบบ (Admin)',tester:'ผู้ทดสอบระบบ (Tester)'} as const;
 export type Role = keyof typeof roles;
 export const conditions = {normal:'ปกติ',damaged:'ชำรุด',repair:'กำลังซ่อม',missing:'ไม่พบ'} as const;
 export const requestTypes = {transfer:'โอนย้าย',repair:'ซ่อมบำรุง',disposal:'จำหน่าย / ตัดบัญชี'} as const;
@@ -294,10 +294,34 @@ export function approvalChainOf(value?: string | null): { chain: string[]; valid
   } catch { /* ค่าที่ไม่ใช่ JSON ใช้ค่าเริ่มต้น */ }
   return { chain: [...DEFAULT_APPROVAL_CHAIN], valid: false };
 }
+// ป้าย "รออนุมัติ…" ของครุภัณฑ์ที่มีคำขอค้างอยู่ (ผู้ใช้เลือก 18 ต.ค. 2569) แสดงแทนสภาพระหว่างรออนุมัติเท่านั้น
+// สภาพในฐานข้อมูลไม่เปลี่ยนจนกว่าจะอนุมัติครบ ถ้าไม่อนุมัติ ป้ายหายเองและกลับเป็นสภาพเดิม
+export const awaitingLabels: Record<string, string> = { repair: 'รออนุมัติซ่อม', transfer: 'รออนุมัติโอนย้าย', disposal: 'รออนุมัติจำหน่าย' };
+export type AwaitingApproval = { label: string; detail: string };
+export function awaitingApprovalByAsset(
+  requests: readonly { assetId: string; kind: string; status: string; stage: number; chain: string; payload: string; requestNo?: string }[],
+  assets: readonly { id: string; setId?: string | null }[]
+): Map<string, AwaitingApproval> {
+  const out = new Map<string, AwaitingApproval>();
+  for (const r of requests) {
+    if (r.status !== 'pending') continue;
+    let chain: string[] = [...DEFAULT_APPROVAL_CHAIN], payload: { setId?: unknown } = {};
+    try { chain = JSON.parse(r.chain); } catch { /* ใช้สายอนุมัติเริ่มต้น */ }
+    try { payload = JSON.parse(r.payload || '{}'); } catch { /* ไม่มีรายละเอียด */ }
+    const waiting = (roles[chain[r.stage] as Role] ?? chain[r.stage] ?? '').replace(/ \(.*\)$/, '');
+    const info = { label: awaitingLabels[r.kind] ?? 'รออนุมัติ', detail: [r.requestNo, `รอ${waiting} (ขั้น ${r.stage + 1}/${chain.length})`].filter(Boolean).join(' · ') };
+    // โอนย้าย/จำหน่ายของชุดมีผลทั้งชุดเมื่ออนุมัติ จึงติดป้ายทุกรายการในชุด
+    const members = payload.setId && (r.kind === 'transfer' || r.kind === 'disposal') ? assets.filter(a => a.setId === payload.setId).map(a => a.id) : [];
+    for (const id of [r.assetId, ...members]) if (!out.has(id)) out.set(id, info);
+  }
+  return out;
+}
 // คำขอนี้รอผู้ใช้คนนี้อนุมัติอยู่หรือไม่ (ใช้ทั้งหน้าคำขอและกระดิ่งแจ้งเตือน ให้นับตรงกัน)
 // ขั้นของหัวหน้าสาขา: ต้องเป็นสาขาเดียวกับครุภัณฑ์ · ห้ามอนุมัติคำขอของตัวเอง
 export function awaitsApprovalBy(r: { status: string; chain: string; stage: number; actor: string }, me: { id: string; role: string; branch?: string | null }, assetBranch?: string | null): boolean {
   if (r.status !== 'pending' || r.actor === me.id) return false;
+  // บัญชีผู้ทดสอบ (ผู้ใช้ตัดสินใจ 18 ต.ค. 2569): อนุมัติได้ทุกคำขอทุกสาขา กดครั้งเดียวจบทุกขั้นที่เหลือ
+  if (me.role === 'tester') return true;
   let chain: string[] = ['head', 'deputy', 'dean'];
   try { chain = JSON.parse(r.chain); } catch { /* ใช้สายอนุมัติเริ่มต้น */ }
   const stageRole = chain[r.stage];

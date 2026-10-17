@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge, Activity, api } from '@/frontend/components/common';
+import { Badge, ConditionBadge, Activity, api } from '@/frontend/components/common';
 import { Asset, money, conditions, groupFor, setRoles, officeBranches, type SetRole } from '@/shared/domain';
 import type { RepairRecord } from '@/shared/models';
 import AssetPhoto from './asset-photo';
@@ -28,6 +28,8 @@ import { toast } from 'sonner';
 
 interface AssetDetailViewProps {
   asset: Asset;
+  // ป้าย "รออนุมัติ…" ถ้ารายการนี้มีคำขอค้างอยู่ (awaitingApprovalByAsset)
+  awaiting?: { label: string; detail: string };
   onBack: () => void;
   editable: boolean;
   onEdit: () => void;
@@ -43,6 +45,7 @@ interface AssetDetailViewProps {
 
 export default function AssetDetailView({
   asset,
+  awaiting,
   onBack,
   editable,
   onEdit,
@@ -298,7 +301,7 @@ export default function AssetDetailView({
                 ข้อมูลทั่วไปของครุภัณฑ์ (Asset Specification)
               </h2>
               <div className="flex items-center gap-1.5">
-                <Badge value={asset.condition} />
+                <ConditionBadge condition={asset.condition} awaiting={awaiting} />
                 {asset.lifecycle !== 'active' && <Badge value={asset.lifecycle} />}
               </div>
             </div>
@@ -476,9 +479,11 @@ export default function AssetDetailView({
                   สถานะสภาพการใช้งาน
                 </label>
                 <Input
-                  value={conditions[asset.condition as keyof typeof conditions] || asset.condition}
+                  value={awaiting
+                    ? `${awaiting.label} · ${awaiting.detail} (สภาพปัจจุบัน: ${conditions[asset.condition as keyof typeof conditions] || asset.condition})`
+                    : conditions[asset.condition as keyof typeof conditions] || asset.condition}
                   readOnly
-                  className="text-sm font-medium bg-white border-slate-200 text-slate-800"
+                  className={`text-sm font-medium bg-white ${awaiting ? 'border-orange-300 text-orange-700' : 'border-slate-200 text-slate-800'}`}
                 />
               </div>
             </div>
