@@ -19,6 +19,7 @@
     "test:integration": "node backend/tests/run-integration.mjs",
     "db:push": "prisma db push",
     "db:seed": "tsx backend/prisma/seed.ts",
+    "db:seed:tester": "tsx backend/scripts/seed-tester.ts",
     "source:seed": "tsx backend/scripts/seed-source.ts"
   },
   "dependencies": {
