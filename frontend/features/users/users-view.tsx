@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ShieldCheck, Plus, Search, UserCheck, Shield, Award, Crown, Settings } from 'lucide-react';
+import { ShieldCheck, Plus, Search, UserCheck, Shield, Award, Crown, Settings, FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -59,6 +59,14 @@ const roleMeta: Record<
     bg: 'bg-rose-50',
     border: 'border-rose-200',
     icon: Settings
+  },
+  tester: {
+    label: 'ผู้ทดสอบระบบ (Tester)',
+    desc: 'บัญชีทดลอง อนุมัติข้ามขั้นได้',
+    color: 'text-teal-700',
+    bg: 'bg-teal-50',
+    border: 'border-teal-200',
+    icon: FlaskConical
   }
 };
 
@@ -89,7 +97,7 @@ export default function UsersView({
   }, [data.users, data.invites]);
 
   const roleCounts = useMemo(() => {
-    const counts: Record<string, number> = { staff: 0, head: 0, deputy: 0, dean: 0, admin: 0 };
+    const counts: Record<string, number> = Object.fromEntries(Object.keys(roles).map(r => [r, 0]));
     for (const u of combinedUsers) {
       if (counts[u.role] !== undefined) counts[u.role]++;
     }
@@ -113,7 +121,7 @@ export default function UsersView({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* 5 Role Summary Cards matching desktop_7_users.svg */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
         {(Object.keys(roleMeta) as Role[]).map(r => {
           const meta = roleMeta[r];
           const Icon = meta.icon;

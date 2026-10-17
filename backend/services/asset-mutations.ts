@@ -545,12 +545,14 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     const { id: reqId, version: reqVersion, reason } = validatedApproval;
     const r = await tx.assetRequest.findUnique({ where: { id: reqId } });
     if (!r || r.status !== 'pending' || r.version !== reqVersion) throw new ApiError('คำขอเปลี่ยนแล้ว กรุณาโหลดใหม่', 409);
-    const chain = JSON.parse(r.chain); allow(m, [chain[r.stage]]);
+    // บัญชีผู้ทดสอบ (tester) ใช้ทดลอง/สาธิต: ข้ามการตรวจบทบาทและสาขาของขั้น แต่ยังห้ามอนุมัติคำขอของตัวเอง
+    const chain = JSON.parse(r.chain), tester = m.role === 'tester';
+    if (!tester) allow(m, [chain[r.stage]]);
     if (r.actor === m.id) throw new ApiError('ไม่สามารถอนุมัติคำขอตนเอง');
     const a = await asset(tx, r.assetId);
     if (a.version !== r.assetVersion || a.lifecycle !== 'active') throw new ApiError('ข้อมูลครุภัณฑ์เปลี่ยนแล้ว คำขอเดิมใช้ไม่ได้', 409);
 
-    if (chain[r.stage] === 'head') {
+    if (!tester && chain[r.stage] === 'head') {
       const userBranch = m.branch ? normalizeBranch(m.branch, '', '') : null;
       const assetBranch = a.branch ? normalizeBranch(a.branch, '', '') : null;
       if (!userBranch || !assetBranch || userBranch !== assetBranch) {
@@ -560,10 +562,14 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
 
     const note = clean(reason ?? '');
     if (action === 'reject' && !note) throw new ApiError('กรุณาระบุเหตุผลส่งกลับ');
-    const final = action === 'approve' && r.stage === chain.length - 1;
-    await tx.approval.create({ data: { id: id(), requestId: r.id, stage: r.stage, decision: action, actor: m.id, note, createdAt: now() } });
-    await tx.assetRequest.update({ where: { id: r.id }, data: { stage: r.stage + (action === 'approve' ? 1 : 0), status: action === 'reject' ? 'rejected' : final ? 'approved' : 'pending', version: { increment: 1 } } });
-    await audit(tx, m, action === 'reject' ? 'ส่งคำขอกลับ' : 'อนุมัติคำขอ', a.id, r, { stage: r.stage + 1, final }, note);
+    // ผู้ทดสอบกดอนุมัติ = ลงนามทุกขั้นที่เหลือในครั้งเดียว และระบุในหมายเหตุว่าข้ามขั้น ไม่ปนกับลายเซ็นจริงของผู้บริหาร
+    const skipAll = tester && action === 'approve';
+    const stages: number[] = skipAll ? chain.map((_: string, i: number) => i).slice(r.stage) : [r.stage];
+    const last = stages[stages.length - 1], final = action === 'approve' && last === chain.length - 1;
+    const signedNote = skipAll ? ['อนุมัติข้ามขั้นโดยบัญชีทดลอง (ผู้ทดสอบระบบ)', note].filter(Boolean).join(' · ') : note;
+    for (const stage of stages) await tx.approval.create({ data: { id: id(), requestId: r.id, stage, decision: action, actor: m.id, note: signedNote, createdAt: now() } });
+    await tx.assetRequest.update({ where: { id: r.id }, data: { stage: action === 'approve' ? last + 1 : r.stage, status: action === 'reject' ? 'rejected' : final ? 'approved' : 'pending', version: { increment: 1 } } });
+    await audit(tx, m, action === 'reject' ? 'ส่งคำขอกลับ' : skipAll ? 'อนุมัติคำขอ (ข้ามขั้น · บัญชีทดลอง)' : 'อนุมัติคำขอ', a.id, r, { stage: last + 1, final }, note);
     if (final) {
       const payload = JSON.parse(r.payload);
       let target: Asset = a;

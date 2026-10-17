@@ -806,6 +806,13 @@ button:focus-visible, a:focus-visible {
   color: #926d24;
 }
 
+.badge.awaiting {
+  background: #fff7ed;
+  color: #c2410c;
+  outline: 1px dashed #fdba74;
+  outline-offset: -1px;
+}
+
 .badge.split {
   background: #eaf0ff;
   color: #244fd7;
