@@ -162,6 +162,10 @@ export default function Workspace(){
         throw new Error(result.error || (res.status === 401 ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : 'ระบบยังไม่พร้อมใช้งาน กรุณาลองใหม่หรือติดต่อผู้ดูแลระบบ'));
       }
       setPassword('');
+      // เข้าสู่ระบบใหม่เริ่มที่หน้าภาพรวมเสมอ: ล้าง ?view= ที่ค้างจากรอบก่อน/ผู้ใช้ก่อน (เดิมออกจากระบบที่หน้าประวัติ ล็อกอินกลับมาก็ไปหน้าประวัติ)
+      // เก็บ ?asset= ไว้ ลิงก์จาก QR ที่ต้องล็อกอินก่อนยังเปิดรายการนั้นได้ ส่วนการรีเฟรชระหว่างใช้งานไม่ผ่านตรงนี้ จึงยังอยู่หน้าเดิม
+      const url = new URL(location.href);
+      if (url.searchParams.has('view')) { url.searchParams.delete('view'); history.replaceState(null, '', url); }
       await reload();
     } catch (err: any) {
       setError(err.message || 'เข้าสู่ระบบไม่สำเร็จ');
@@ -170,7 +174,7 @@ export default function Workspace(){
     }
   };
   const handleLogout = async () => {
-    try { await readApiResponse(await fetch('/api/auth/logout', { method: 'POST' }));clearSession();setError(''); } catch { toast.error('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่'); }
+    try { await readApiResponse(await fetch('/api/auth/logout', { method: 'POST' }));clearSession();setError('');history.replaceState(null, '', location.pathname); } catch { toast.error('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่'); }
   };
  useEffect(()=>{reload();},[reload]);useEffect(()=>{setPage(0);setSelectedAssetIds([]);},[search,branch,condition,category,lifecycle,view]);
  useEffect(()=>{if(data){const a=new URL(location.href).searchParams.get('asset');if(a){const found=data.assets.find((x:Asset)=>x.id===a);if(found){setView('registry');setSelected(found);}}}},[!!data]);
