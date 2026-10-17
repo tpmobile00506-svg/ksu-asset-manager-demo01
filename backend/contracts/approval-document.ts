@@ -23,6 +23,19 @@ const thaiDate = (iso: string) => {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
+type Place = { location: string; branch: string; custodian: string };
+// ต้นทางของคำขอโอนย้าย: คำขอใหม่เก็บไว้ใน payload.from ตอนยื่น
+// คำขอเก่าที่ไม่มี from: ถ้ายังไม่อนุมัติ ทะเบียนยังไม่เปลี่ยน ต้นทาง = ข้อมูลปัจจุบัน แต่ถ้าอนุมัติแล้วทะเบียนเป็นปลายทางไปแล้ว จึงไม่รู้ต้นทาง
+export function transferOrigin(input: Pick<ApprovalDocumentInput, 'payload' | 'status' | 'asset'>): Place | null {
+  const from = input.payload.from;
+  if (from && typeof from === 'object') {
+    const f = from as Partial<Record<keyof Place, unknown>>;
+    return { location: String(f.location ?? ''), branch: String(f.branch ?? ''), custodian: String(f.custodian ?? '') };
+  }
+  if (input.status !== 'approved' && input.asset) return { location: input.asset.location, branch: input.asset.branch, custodian: input.asset.custodian };
+  return null;
+}
+
 const kindLabel = (kind: string) => requestTypes[(kind === 'dispose' ? 'disposal' : kind) as keyof typeof requestTypes] ?? kind;
 const roleLabel = (role: string) => roles[role as Role] ?? role;
 
@@ -30,9 +43,12 @@ export function buildApprovalDocumentHtml(input: ApprovalDocumentInput): string 
   const kind = kindLabel(input.kind);
   const a = input.asset;
   const detailRows: string[] = [];
-  if (input.kind === 'transfer') {
-    detailRows.push(`<tr><th>สถานที่/สาขาปลายทาง</th><td>${esc(input.payload.location)} (${esc(input.payload.branch)})</td></tr>`);
-    if (input.payload.custodian) detailRows.push(`<tr><th>ผู้รับผิดชอบใหม่</th><td>${esc(input.payload.custodian)}</td></tr>`);
+  const isTransfer = input.kind === 'transfer', origin = isTransfer ? transferOrigin(input) : null;
+  if (isTransfer) {
+    detailRows.push(`<tr><th>ย้ายจาก (ต้นทาง)</th><td>${origin ? `${esc(origin.location)} (${esc(origin.branch)})` : 'ไม่มีข้อมูลต้นทาง (คำขอที่ยื่นก่อนระบบบันทึกต้นทาง)'}</td></tr>`);
+    detailRows.push(`<tr><th>ย้ายไป (ปลายทาง)</th><td>${esc(input.payload.location)} (${esc(input.payload.branch)})</td></tr>`);
+    if (input.payload.custodian) detailRows.push(`<tr><th>ผู้รับผิดชอบ</th><td>${esc(origin?.custodian) || '—'} → ${esc(input.payload.custodian)}</td></tr>`);
+    else detailRows.push(`<tr><th>ผู้รับผิดชอบ</th><td>${esc(origin?.custodian) || '—'} (ไม่เปลี่ยน)</td></tr>`);
   }
   if (Number(input.payload.splitQuantity) > 0) {
     detailRows.push(`<tr><th>จำนวนที่ขอดำเนินการ</th><td>${esc(input.payload.splitQuantity)} ชิ้น (แบ่งล็อตเมื่ออนุมัติขั้นสุดท้าย)</td></tr>`);
@@ -43,7 +59,8 @@ export function buildApprovalDocumentHtml(input: ApprovalDocumentInput): string 
 
   const stages = input.chain.map((role, stage) => {
     const done = input.approvals.find(x => x.stage === stage);
-    const result = !done ? 'รอดำเนินการ' : done.decision === 'approve' ? 'อนุมัติ' : 'ส่งกลับแก้ไข';
+    // ไม่อนุมัติ = คำขอสิ้นสุดทันที (ไม่ได้ส่งกลับไปแก้) ขั้นที่เหลือจึงไม่ต้องดำเนินการ
+    const result = done ? (done.decision === 'approve' ? 'อนุมัติ' : 'ไม่อนุมัติ') : input.status === 'rejected' ? '—' : 'รอดำเนินการ';
     return `<tr>
       <td>${stage + 1}. ${esc(roleLabel(role))}</td>
       <td>${esc(done?.actorName || '')}</td>
@@ -83,8 +100,8 @@ export function buildApprovalDocumentHtml(input: ApprovalDocumentInput): string 
     <tr><th>หมายเลขครุภัณฑ์</th><td>${esc(a?.code)}</td></tr>
     <tr><th>รายการ</th><td>${esc(a?.name)}</td></tr>
     <tr><th>จำนวน / มูลค่ารวม</th><td>${a ? `${a.quantity} ชิ้น · ${money(a.totalSatang)} บาท` : '—'}</td></tr>
-    <tr><th>สังกัด / สถานที่ตั้ง</th><td>${esc(a?.branch)} · ${esc(a?.location)}</td></tr>
-    <tr><th>ผู้รับผิดชอบ</th><td>${esc(a?.custodian) || '—'}</td></tr>
+    ${isTransfer ? '' : `<tr><th>สังกัด / สถานที่ตั้ง</th><td>${esc(a?.branch)} · ${esc(a?.location)}</td></tr>
+    <tr><th>ผู้รับผิดชอบ</th><td>${esc(a?.custodian) || '—'}</td></tr>`}
     <tr><th>ประเภทคำขอ</th><td>${esc(kind)}</td></tr>
     <tr><th>เหตุผล</th><td>${esc(input.reason)}</td></tr>
     ${detailRows.join('\n    ')}

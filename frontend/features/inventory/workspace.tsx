@@ -2,7 +2,7 @@
 import {useState,useEffect,useCallback,useRef} from 'react';import {Package,LayoutDashboard,Upload,ArrowLeftRight,QrCode,BarChart3,Users,History,Plus,Search,Download,ChevronRight,ArrowUpDown,FileSpreadsheet,Coins,TriangleAlert,FileCheck2,ArrowRight,LogOut,Pencil,X,Bell,Lock,Eye,EyeOff,Check,Eye as ViewIcon,ScanLine,Wrench,CheckCircle2,ClipboardCheck,Clock} from 'lucide-react';
 import {Button} from '@/components/ui/button';import {Input} from '@/components/ui/input';import {Table,TableHeader,TableBody,TableRow,TableHead,TableCell} from '@/components/ui/table';import {SidebarProvider,Sidebar,SidebarContent,SidebarHeader,SidebarFooter,SidebarMenu,SidebarMenuItem,SidebarMenuButton,SidebarInset,SidebarTrigger,useSidebar} from '@/components/ui/sidebar';import {Skeleton} from '@/components/ui/skeleton';
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription} from '@/components/ui/dialog';import {Toaster,toast} from 'sonner';
-import {Asset,Role,roles,conditions,headers11,money,standardBranches,thaiDateOnly,fiscalYearOf,awaitsApprovalBy,groupFor,assetGroups,branchAbbr} from '@/shared/domain';import {reportHeaders} from '@/frontend/services/excel-export';import {Any,api,Badge,Pick,Empty,Metric,Pager,Activity,getInitials,SESSION_EXPIRED_EVENT,readApiResponse,cancelApiRequests} from '@/frontend/components/common';import {useAssetTools} from '@/frontend/hooks/use-asset-tools';import Editor from './editor';import AssetThumbnail from './asset-thumbnail';import ImportView from '@/frontend/features/imports/import-view';import ExportView from '@/frontend/features/exports/export-view';import Operations from '@/frontend/features/operations/operations';import OverviewCharts from './overview-charts';import AssetDetailView from './asset-detail-view';
+import {Asset,Role,roles,conditions,headers11,money,standardBranches,thaiDateOnly,fiscalYearOf,awaitsApprovalBy,groupFor,assetGroups,branchAbbr,conditionSummary} from '@/shared/domain';import {reportHeaders} from '@/frontend/services/excel-export';import {Any,api,Badge,Pick,Empty,Metric,Pager,Activity,getInitials,SESSION_EXPIRED_EVENT,readApiResponse,cancelApiRequests} from '@/frontend/components/common';import {useAssetTools} from '@/frontend/hooks/use-asset-tools';import Editor from './editor';import AssetThumbnail from './asset-thumbnail';import ImportView from '@/frontend/features/imports/import-view';import ExportView from '@/frontend/features/exports/export-view';import Operations from '@/frontend/features/operations/operations';import OverviewCharts from './overview-charts';import AssetDetailView from './asset-detail-view';
 import QrScannerModal from '@/frontend/components/qr-scanner-modal';
 import BulkEditModal from './bulk-edit-modal';
 import {RowActions} from './row-actions';
@@ -101,7 +101,7 @@ export default function Workspace(){
  const [scannerOpen, setScannerOpen] = useState(false);
  const [exportOpen, setExportOpen] = useState(false);
  const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [loggingIn, setLoggingIn] = useState(false);
- const [showPassword, setShowPassword] = useState(false), [rememberMe, setRememberMe] = useState(false);
+ const [showPassword, setShowPassword] = useState(false);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
  const [notifOpen, setNotifOpen] = useState(false);
  const notifRef = useRef<HTMLDivElement>(null);
@@ -190,7 +190,7 @@ export default function Workspace(){
  useAssetTools(data?.assets||[],open);
  const switchView=(v:string)=>{setSelected(null);setView(v);setSearch('');void reload();};
  const assets:Asset[]=data?.assets||[],active=assets.filter(a=>a.lifecycle==='active');
- const total=active.reduce((s,a)=>s+a.totalSatang,0),quantity=active.reduce((s,a)=>s+a.quantity,0),damaged=active.filter(a=>a.condition==='damaged').reduce((s,a)=>s+a.quantity,0),pending=data?.requests.filter((r:Any)=>r.status==='pending')||[];
+ const total=active.reduce((s,a)=>s+a.totalSatang,0),quantity=active.reduce((s,a)=>s+a.quantity,0),damaged=active.filter(a=>a.condition==='damaged').reduce((s,a)=>s+a.quantity,0),pending=data?.requests.filter((r:Any)=>r.status==='pending')||[],conditionCount=conditionSummary(assets);
  const editable=data&&['staff','admin'].includes(data.me.role);
  const filtered=assets.filter(a=>(lifecycle==='all'||a.lifecycle===lifecycle)&&(branch==='all'||a.branch===branch)&&(category==='all'||groupFor(a)===category)&&(condition==='all'||a.condition===condition)&&[a.code,a.name,a.serial,a.location,a.branch,a.groupName].join(' ').toLowerCase().includes(search.trim().toLowerCase())).sort((a,b)=>{const av=a[sort.key]??'',bv=b[sort.key]??'';const main=(typeof av==='number'&&typeof bv==='number'?av-bv:String(av).localeCompare(String(bv),'th',{numeric:true}))*sort.dir;
    // ค่าเท่ากัน (เช่น แยกรายชิ้นพร้อมกัน วันที่นำเข้าเดียวกัน) เรียงตามรหัสแบบตัวเลข: (1), (2), … (10) ไม่ใช่ (1), (10), (2)
@@ -336,16 +336,7 @@ export default function Workspace(){
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-sm pt-1">
-            <label className="flex items-center gap-2 py-2 text-slate-600 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={e => setRememberMe(e.target.checked)}
-                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-5 h-5 shrink-0"
-              />
-              <span>จดจำการเข้าสู่ระบบ</span>
-            </label>
+          <div className="flex items-center justify-end text-sm pt-1">
             <button
               type="button"
               onClick={() => setForgotPasswordOpen(true)}
@@ -370,6 +361,16 @@ export default function Workspace(){
           </div>
         </form>
       </div>
+
+      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Lock size={18} className="text-[#2563eb]" />ลืมรหัสผ่าน</DialogTitle>
+            <DialogDescription>กรุณาติดต่อผู้ดูแลระบบ (Admin) เพื่อตั้งรหัสผ่านใหม่</DialogDescription>
+          </DialogHeader>
+          <Button type="button" onClick={() => setForgotPasswordOpen(false)} className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold">รับทราบ</Button>
+        </DialogContent>
+      </Dialog>
 
       <footer className="relative z-10 text-center text-xs text-slate-400 py-3 mt-4">
         © 2026 ระบบบริหารจัดการครุภัณฑ์ คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม มหาวิทยาลัยกาฬสินธุ์
@@ -749,12 +750,12 @@ export default function Workspace(){
                 <TriangleAlert size={22} />
               </div>
               <div className="min-w-0 flex-1">
-                <span className="text-xs text-slate-500 font-medium block">ชำรุด / ส่งซ่อม / รอจำหน่าย</span>
+                <span className="text-xs text-slate-500 font-medium block">ชำรุด / ส่งซ่อม</span>
                 <strong className="text-xl font-bold text-rose-600 block leading-tight">
-                  {assets.filter(a=>a.condition==='damaged'||a.condition==='repair'||a.lifecycle==='disposed').length.toLocaleString('th-TH')} รายการ
+                  {(conditionCount.damaged+conditionCount.repair).toLocaleString('th-TH')} รายการ
                 </strong>
                 <span className="text-[11px] text-rose-700 block mt-0.5">
-                  ส่งซ่อม {assets.filter(a=>a.condition==='repair').length} · จำหน่าย {assets.filter(a=>a.lifecycle==='disposed'||a.condition==='damaged').length}
+                  ชำรุด {conditionCount.damaged.toLocaleString('th-TH')} · กำลังซ่อม {conditionCount.repair.toLocaleString('th-TH')} · จำหน่ายแล้ว {conditionCount.disposed.toLocaleString('th-TH')}
                 </span>
               </div>
             </div>
@@ -820,7 +821,7 @@ export default function Workspace(){
                       }}
                     >
                       <TableCell className="font-mono text-xs font-bold text-blue-600">
-                        {`REQ-69-${req.id.replace(/-/g,'').slice(0,4).toUpperCase()}`}
+                        {req.requestNo}
                       </TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
@@ -836,7 +837,7 @@ export default function Workspace(){
                         <div className="font-mono text-[11px] text-slate-500">{req.code || '—'}</div>
                       </TableCell>
                       <TableCell className="text-xs text-slate-700">
-                        {req.requesterName || req.actorName || 'ผู้ใช้ในระบบ'}
+                        {req.requesterName || 'ไม่พบชื่อผู้ยื่น'}
                       </TableCell>
                       <TableCell>
                         <Badge value={req.status} />

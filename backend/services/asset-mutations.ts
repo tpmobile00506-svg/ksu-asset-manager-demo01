@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { prisma, json, plain, type Transaction, Prisma } from '../db/client';
-import { freshMember, publicUserFields, hashPassword, type Member } from '../auth/sessions';
-import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, assetTypes, assetGroupOfType, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride } from '../contracts/domain';
+import { freshMember, publicUserFields, hashPassword, passwordFingerprint, type Member } from '../auth/sessions';
+import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, assetTypes, assetGroupOfType, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride, thaiFiscalYear, nextRequestSeq } from '../contracts/domain';
 import { ApiError, clean, allow, now, id, asset, audit, dimensions, financialData, insertAsset, validated, getSource, registeredCodes, loadOverrides, overridesKey } from './asset-service';
 import { assetImageKey } from '../storage/asset-image-metadata';
+import { importFileAction, isImportFileAction } from './import-files';
 import { validate, userMutationSchema, workflowMutationSchema, assetRequestSchema, approvalMutationSchema } from '../validation';
 
 type Input = Record<string, any>;
@@ -81,8 +82,16 @@ async function splitLotForRequest(tx: Transaction, m: Member, a: Asset, take: nu
 export async function mutate(member: Member, input: Input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new ApiError('รูปแบบคำขอไม่ถูกต้อง');
   const action = clean(input.action, 50), token = clean(input.token || id(), 100);
-  const requestHash = createHash('sha256').update(json(input)).digest('hex');
-  const passwordHash = action === 'user' && input.password ? await hashPassword(input.password) : undefined;
+  let passwordHash: string | undefined, fingerprint: string | undefined;
+  if (action === 'user' && input.password) {
+    // ตรวจสิทธิ์ก่อนคำนวณ scrypt (ใช้ CPU มาก) ไม่ให้ผู้ใช้ที่ไม่ใช่ Admin ส่งรหัสผ่านมาให้เซิร์ฟเวอร์คำนวณได้ฟรี
+    allow(member, ['admin']);
+    passwordHash = await hashPassword(input.password);
+    fingerprint = await passwordFingerprint(input.password, token);
+  }
+  // รหัสผ่านจริงไม่เข้า requestHash: แทนด้วยลายนิ้วมือ scrypt จึงยังแยกได้ว่าส่งซ้ำด้วยรหัสผ่านเดิมหรือไม่
+  const { password: _password, ...hashedInput } = input;
+  const requestHash = createHash('sha256').update(json(fingerprint ? { ...hashedInput, password: fingerprint } : hashedInput)).digest('hex');
   const replay = (existing: { actor: string; requestHash: string; response: string }) => {
     if (existing.actor !== member.id || (existing.requestHash && existing.requestHash !== requestHash)) throw new ApiError('รหัสคำขอนี้ใช้กับข้อมูลอื่นแล้ว กรุณาเปิดฟอร์มใหม่', 409);
     return { ...JSON.parse(existing.response), ok: true, replayed: true };
@@ -122,6 +131,7 @@ export async function mutate(member: Member, input: Input) {
 }
 
 async function perform(tx: Transaction, m: Member, action: string, b: Input, passwordHash?: string, sourceRows?: Candidate[]): Promise<Input> {
+  if (isImportFileAction(action)) return importFileAction(tx, m, action, b);
   if (action === 'user') {
     allow(m, ['admin']);
     const validatedUser = validate(userMutationSchema, b);
@@ -134,6 +144,8 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     const userBranch = branch !== undefined ? branch : (target?.branch ?? existingInvite?.branch ?? null);
     // หัวหน้าสาขาที่ไม่มีสาขาอนุมัติคำขอใดไม่ได้เลย (ถูกปฏิเสธทุกครั้ง) จึงต้องระบุสาขาตั้งแต่สร้าง/แก้บัญชี
     if (role === 'head' && !userBranch) throw new ApiError('หัวหน้าสาขาต้องระบุสาขาที่รับผิดชอบ');
+    // users.branch อ้างอิงตาราง branches (FK): ฐานข้อมูลใหม่ที่ยังไม่มีแถวสาขานี้ต้องสร้างก่อน
+    if (userBranch) await tx.branch.createMany({ data: [{ name: userBranch }], skipDuplicates: true });
     if (target) {
       await tx.user.update({ where: { id: target.id }, data: { role, name, branch: userBranch, active, ...(passwordHash ? { passwordHash } : {}) } });
       if (passwordHash || !active || role !== target.role) await tx.session.deleteMany({ where: { userId: target.id } });
@@ -472,6 +484,8 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
         throw new ApiError('สถานที่ สาขา และผู้รับผิดชอบปลายทางเหมือนเดิม กรุณาแก้ปลายทางก่อนยื่นคำขอโอนย้าย');
       }
       if (kind === 'transfer' && !isStandardBranch(payload.branch)) throw new ApiError('สาขาปลายทางไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน');
+      // เก็บต้นทาง ณ วันยื่นไว้ในคำขอ: หลังอนุมัติทะเบียนเปลี่ยนเป็นปลายทางแล้ว เอกสารอนุมัติยังแสดง "จาก … → ไป …" ได้ถูก
+      if (kind === 'transfer') payload.from = { location: a.location, branch: a.branch, custodian: a.custodian };
       if (kind === 'repair' && a.condition === 'repair') throw new ApiError('รายการนี้อยู่ระหว่างซ่อมแล้ว กรุณาบันทึกผลการซ่อมก่อนยื่นคำขอซ่อมใหม่');
       if (kind === 'repair') {
         payload.estimateSatang = validatedReq.payload?.estimateSatang ?? 0;
@@ -502,7 +516,11 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
         }
       }
 
-      const req = await tx.assetRequest.create({ data: { id: id(), assetId: a.id, assetVersion: a.version + 1, kind, payload: json(payload), reason, chain, actor: m.id, createdAt: now() } });
+      // เลขที่คำขอรันตามปีงบประมาณ: อ่านคำขอทั้งหมดใน transaction เดียวกัน (Serializable) ยื่นพร้อมกันจึงไม่ได้เลขซ้ำ
+      const createdAt = now(), year = thaiFiscalYear(createdAt);
+      const sameYear = (await tx.assetRequest.findMany({ select: { createdAt: true, payload: true } })).filter(r => thaiFiscalYear(r.createdAt) === year);
+      payload.seq = nextRequestSeq(sameYear);
+      const req = await tx.assetRequest.create({ data: { id: id(), assetId: a.id, assetVersion: a.version + 1, kind, payload: json(payload), reason, chain, actor: m.id, createdAt } });
       await tx.asset.update({ where: { id: a.id }, data: { version: { increment: 1 } } });
       await audit(tx, m, 'ส่งคำขอ ' + requestTypes[kind as keyof typeof requestTypes], a.id, a, req, reason);
       return { ok: true, id: req.id, assetId: a.id };

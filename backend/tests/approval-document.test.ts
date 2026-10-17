@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildApprovalDocumentHtml, type ApprovalDocumentInput } from '../contracts/approval-document';
+import { buildApprovalDocumentHtml, transferOrigin, type ApprovalDocumentInput } from '../contracts/approval-document';
 
 const base: ApprovalDocumentInput = {
-  requestCode: 'REQ-69-E0F4',
+  requestCode: 'REQ-2569-0001',
   kind: 'disposal',
   status: 'approved',
   reason: 'ชำรุดเกินซ่อม ไม่คุ้มค่า',
@@ -24,7 +24,7 @@ const count = (text: string, part: string) => text.split(part).length - 1;
 test('เอกสารจำหน่าย: แสดงประเภท เลขที่คำขอ มูลค่า และเหตุผล', () => {
   const html = buildApprovalDocumentHtml(base);
   assert.ok(html.includes('เอกสารอนุมัติจำหน่าย / ตัดบัญชีครุภัณฑ์'));
-  assert.ok(html.includes('REQ-69-E0F4'));
+  assert.ok(html.includes('REQ-2569-0001'));
   assert.ok(html.includes('50 ชิ้น · 62,500.00 บาท'));   // 6,250,000 สตางค์ ÷ 100 = 62,500.00 บาท
   assert.ok(html.includes('ชำรุดเกินซ่อม ไม่คุ้มค่า'));
 });
@@ -43,10 +43,14 @@ test('ขั้นที่ยังไม่อนุมัติแสดง "
   assert.ok(html.includes('เห็นควร'));
 });
 
-test('ส่งกลับแก้ไข: แสดงผล "ส่งกลับแก้ไข"', () => {
-  const html = buildApprovalDocumentHtml({ ...base, approvals: [{ ...base.approvals[0], decision: 'reject', note: 'ข้อมูลไม่ครบ' }] });
-  assert.ok(html.includes('ส่งกลับแก้ไข'));
+// ไม่อนุมัติ = คำขอสิ้นสุด (สถานะ rejected) ไม่ได้ส่งกลับไปแก้ จึงต้องไม่ใช้คำว่า "ส่งกลับแก้ไข" (ผู้ใช้ยืนยัน 18 ต.ค. 2569)
+test('ไม่อนุมัติที่ขั้น 1: แสดง "ไม่อนุมัติ" ขั้น 2–3 แสดง "—" ไม่ใช่ "รอดำเนินการ"', () => {
+  const html = buildApprovalDocumentHtml({ ...base, status: 'rejected', approvals: [{ ...base.approvals[0], decision: 'reject', note: 'ข้อมูลไม่ครบ' }] });
+  assert.ok(html.includes('<td>ไม่อนุมัติ</td>'));
+  assert.ok(!html.includes('ส่งกลับแก้ไข'));
   assert.ok(html.includes('ข้อมูลไม่ครบ'));
+  assert.equal(count(html, 'รอดำเนินการ'), 0);
+  assert.equal(count(html, '<td>—</td>'), 2);              // ขั้น 2 และ 3
 });
 
 test('โอนย้าย: แสดงปลายทางและผู้รับผิดชอบใหม่ ส่วนซ่อมแสดงประมาณการ (125,050 สตางค์ = 1,250.50 บาท)', () => {
@@ -55,6 +59,34 @@ test('โอนย้าย: แสดงปลายทางและผู้
   assert.ok(transfer.includes('นางสาวบี'));
   const repair = buildApprovalDocumentHtml({ ...base, kind: 'repair', payload: { estimateSatang: 125_050 } });
   assert.ok(repair.includes('1,250.50 บาท'));
+});
+
+// ---------- โอนย้าย: ต้นทางมาจากข้อมูลที่เก็บไว้ตอนยื่นคำขอ ไม่ใช่ทะเบียนปัจจุบัน ----------
+const moved = { ...base.asset!, location: 'ห้อง 202', branch: 'วิศวกรรมไฟฟ้า (วฟ)', custodian: 'นางสาวบี' }; // ทะเบียนหลังอนุมัติ = ปลายทาง
+const transferPayload = { location: 'ห้อง 202', branch: 'วิศวกรรมไฟฟ้า (วฟ)', custodian: 'นางสาวบี' };
+
+test('โอนย้ายที่อนุมัติแล้ว: แสดง "จาก ห้อง 201 → ไป ห้อง 202" จากต้นทางที่เก็บไว้ แม้ทะเบียนจะเป็นปลายทางแล้ว', () => {
+  const html = buildApprovalDocumentHtml({ ...base, kind: 'transfer', asset: moved,
+    payload: { ...transferPayload, from: { location: 'ห้อง 201', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', custodian: 'นายเอ' } } });
+  assert.ok(html.includes('<tr><th>ย้ายจาก (ต้นทาง)</th><td>ห้อง 201 (วิศวกรรมคอมพิวเตอร์ (วค))</td></tr>'));
+  assert.ok(html.includes('<tr><th>ย้ายไป (ปลายทาง)</th><td>ห้อง 202 (วิศวกรรมไฟฟ้า (วฟ))</td></tr>'));
+  assert.ok(html.includes('<tr><th>ผู้รับผิดชอบ</th><td>นายเอ → นางสาวบี</td></tr>'));
+  assert.ok(!html.includes('สังกัด / สถานที่ตั้ง'));          // ไม่แสดงทะเบียนปัจจุบันซ้ำ (จะเป็นปลายทาง ทำให้สับสน)
+});
+
+test('โอนย้ายคำขอเก่าที่ไม่มีต้นทาง: ยังไม่อนุมัติใช้ทะเบียนปัจจุบัน · อนุมัติแล้วแจ้งว่าไม่มีข้อมูลต้นทาง', () => {
+  assert.deepEqual(transferOrigin({ payload: transferPayload, status: 'pending', asset: base.asset }),
+    { location: 'ห้อง 201', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', custodian: 'นายเอ' });
+  assert.equal(transferOrigin({ payload: transferPayload, status: 'approved', asset: moved }), null);
+  const html = buildApprovalDocumentHtml({ ...base, kind: 'transfer', asset: moved, payload: transferPayload });
+  assert.ok(html.includes('ไม่มีข้อมูลต้นทาง'));
+  assert.ok(!html.includes('<tr><th>ย้ายจาก (ต้นทาง)</th><td>ห้อง 202'));   // ไม่เอาทะเบียนปัจจุบัน (ปลายทาง) มาแสดงเป็นต้นทาง
+});
+
+test('โอนย้ายที่ไม่เปลี่ยนผู้รับผิดชอบ: แสดงผู้รับผิดชอบเดิมพร้อม "(ไม่เปลี่ยน)"', () => {
+  const html = buildApprovalDocumentHtml({ ...base, kind: 'transfer', asset: moved,
+    payload: { location: 'ห้อง 202', branch: 'วิศวกรรมไฟฟ้า (วฟ)', from: { location: 'ห้อง 201', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', custodian: 'นายเอ' } } });
+  assert.ok(html.includes('<tr><th>ผู้รับผิดชอบ</th><td>นายเอ (ไม่เปลี่ยน)</td></tr>'));
 });
 
 test('ข้อความจากผู้ใช้ถูก escape กัน HTML แทรก', () => {

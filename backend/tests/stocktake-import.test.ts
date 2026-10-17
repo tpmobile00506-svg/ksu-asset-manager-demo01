@@ -175,6 +175,7 @@ test('request action with splitQuantity does NOT split at request time (split ha
     },
     assetRequest: {
       findFirst: async () => null,
+      findMany: async () => [],
       create: async ({ data }: { data: any }) => {
         createdRequest = data;
         return data;

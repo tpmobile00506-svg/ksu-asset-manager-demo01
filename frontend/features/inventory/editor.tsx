@@ -545,6 +545,7 @@ export default function Editor({
                       {requestTypes[modal.request.kind as keyof typeof requestTypes]} ·{' '}
                       {modal.request.name}
                       <p className="mono">{modal.request.code}</p>
+                      {modal.request.requesterName && <p className="mt-1">ผู้ยื่นคำขอ: <b>{modal.request.requesterName}</b></p>}
                       <p className="mt-1">เหตุผลของผู้ขอ: {modal.request.reason}</p>
                       {/* สิ่งที่จะเกิดขึ้นเมื่ออนุมัติ: ผู้อนุมัติต้องเห็นปลายทาง/จำนวนก่อนตัดสินใจ */}
                       {(() => {
@@ -553,7 +554,10 @@ export default function Editor({
                         return (
                           <>
                             {modal.request.kind === 'transfer' && (
-                              <p className="mt-1">ย้ายไป: <b>{p.location || '—'}</b> · {p.branch || '—'}{p.custodian ? ` · ผู้รับผิดชอบใหม่: ${p.custodian}` : ''}</p>
+                              <>
+                                {p.from?.location && <p className="mt-1">จาก: <b>{p.from.location}</b> · {p.from.branch || '—'}{p.from.custodian ? ` · ผู้รับผิดชอบเดิม: ${p.from.custodian}` : ''}</p>}
+                                <p className="mt-1">ย้ายไป: <b>{p.location || '—'}</b> · {p.branch || '—'}{p.custodian ? ` · ผู้รับผิดชอบใหม่: ${p.custodian}` : ''}</p>
+                              </>
                             )}
                             {modal.request.kind === 'repair' && (
                               <p className="mt-1">ประมาณการค่าซ่อม: <b>฿{money(Number(p.estimateSatang) || 0)}</b></p>
@@ -577,7 +581,7 @@ export default function Editor({
                         required={modal.kind === 'reject'}
                         placeholder={
                           modal.kind === 'reject'
-                            ? 'ระบุเหตุผลในการส่งกลับคำขอ (จำเป็น เพื่อให้ผู้ยื่นแก้ไข)'
+                            ? 'ระบุเหตุผลที่ไม่อนุมัติ (จำเป็น) คำขอนี้จะสิ้นสุด ผู้ยื่นต้องยื่นคำขอใหม่หากต้องการ'
                             : 'ระบุความเห็นหรือข้อเสนอแนะเพิ่มเติม (ถ้ามี)'
                         }
                         rows={3}
@@ -647,7 +651,7 @@ export default function Editor({
                       <Textarea
                         name="reason"
                         placeholder="เช่น ชำรุดจอแตก หรือ อยู่ระหว่างยืมใช้งาน"
-                        defaultValue={modal.item.reason ?? ''}
+                        defaultValue={modal.item.notes ?? ''}
                         rows={2}
                         className="text-xs"
                       />

@@ -5,7 +5,7 @@ import { ApiError } from './errors';
 import { parseWorkbook } from '../imports/workbook';
 import { readFileBytes, putFile } from '../storage/files';
 import { withAssetImages } from '../storage/asset-image-metadata';
-import { type Asset, type Source, type RowOverride, isRowOverride, classify, conditions, normalizeBranch, UNKNOWN_ASSET_TYPE, assetGroupOfType, codeKey, markExistingCodes, branchAbbr } from '../contracts/domain';
+import { type Asset, type Source, type RowOverride, isRowOverride, classify, conditions, normalizeBranch, UNKNOWN_ASSET_TYPE, assetGroupOfType, codeKey, markExistingCodes, branchAbbr, requestNumbers } from '../contracts/domain';
 import type { SourceViewResponse } from '../contracts/imports';
 import type { StocktakeResponse, WorkspaceData } from '../contracts/models';
 
@@ -80,6 +80,9 @@ export async function registeredCodes(db: Pick<Transaction, 'asset'>) {
 }
 // ประเภทแถวที่เจ้าหน้าที่เปลี่ยนเอง เก็บเป็นไฟล์คู่กับไฟล์ต้นฉบับ (ไม่ต้องเพิ่มตาราง)
 export const overridesKey = (sourceId: string) => `imports/${sourceId}-overrides.json`;
+// เครื่องหมาย "เก็บไฟล์ต้นฉบับเข้าคลัง" (มีไฟล์นี้ = อยู่ในคลัง) ไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล
+export const ARCHIVED_SUFFIX = '-archived.json';
+export const archivedKey = (sourceId: string) => `imports/${sourceId}${ARCHIVED_SUFFIX}`;
 export async function loadOverrides(sourceId: string, db: Pick<Transaction, 'storedFile'> = prisma): Promise<Record<string, RowOverride>> {
   if (!/^[a-zA-Z0-9-]+$/.test(sourceId)) return {};
   const file = await db.storedFile.findUnique({ where: { key: overridesKey(sourceId) } });
@@ -167,22 +170,34 @@ export async function getData(m: Member, url: URL) {
     prisma.stocktake.findMany({ include: { items: { select: { result: true } } }, orderBy: { createdAt: 'desc' } }),
     m.role === 'admin' ? prisma.user.findMany({ select: publicUserFields }) : [],
     m.role === 'admin' ? prisma.invite.findMany() : [],
-    prisma.audit.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100 }), prisma.importFile.findMany(),
+    prisma.audit.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100 }), importFilesWithStatus(),
     prisma.setting.findMany({ where: { key: { not: 'bootstrap' } } }),
     prisma.approval.findMany({ orderBy: { createdAt: 'asc' } }), prisma.user.findMany({ select: { id: true, name: true } }),
     m.role === 'admin' ? prisma.session.findMany({ where: { expiresAt: { gt: new Date() } }, select: { userId: true } }) : [],
     prisma.assetSet.findMany({ where: { kind: 'fund' }, select: { id: true, name: true }, orderBy: [{ createdAt: 'asc' }, { name: 'asc' }] }),
   ]);
   const actorNames = new Map(names.map(u => [u.id, u.name]));
+  const requestNos = requestNumbers(requests);
   const onlineUserIds = new Set(sessions.map(s => s.userId));
   onlineUserIds.add(m.id);
   const usersWithOnline = users.map(u => ({ ...u, isOnline: onlineUserIds.has(u.id) }));
   return {
-    me: m, assets: await withAssetImages(assets.map(({ setRef, fundRef, ...a }) => ({ ...a, branch: normalizeBranch(a.branch || '', '', ''), setName: setRef?.name ?? null, setKind: setRef?.kind ?? null, fundName: fundRef?.name ?? null }))), requests: requests.map(({ asset, ...r }) => ({ ...r, ...asset })),
+    me: m, assets: await withAssetImages(assets.map(({ setRef, fundRef, ...a }) => ({ ...a, branch: normalizeBranch(a.branch || '', '', ''), setName: setRef?.name ?? null, setKind: setRef?.kind ?? null, fundName: fundRef?.name ?? null }))), requests: requests.map(({ asset, ...r }) => ({ ...r, ...asset, requestNo: requestNos.get(r.id) || '', requesterName: actorNames.get(r.actor) || '' })),
     rounds: rounds.map(({ items, ...r }) => ({ ...r, total: items.length, checked: items.filter(i => i.result !== 'pending').length })),
     users: usersWithOnline, invites, events, imports, funds,
     settings: Object.fromEntries(settings.map(s => [s.key, s.value])), approvals: approvals.map(a => ({ ...a, actorName: actorNames.get(a.actor) || '' })),
   } satisfies WorkspaceDatabaseData;
+}
+// ไฟล์ต้นฉบับพร้อมสถานะ: อยู่ในคลังไหม และนำเข้าทะเบียนไปแล้วกี่แถว (หน้าเว็บใช้ตัดสินว่าให้ลบหรือเก็บเข้าคลัง)
+async function importFilesWithStatus() {
+  const [files, archived, decided] = await Promise.all([
+    prisma.importFile.findMany({ orderBy: { createdAt: 'desc' } }),
+    prisma.storedFile.findMany({ where: { key: { startsWith: 'imports/', endsWith: ARCHIVED_SUFFIX } }, select: { key: true } }),
+    prisma.sourceRow.groupBy({ by: ['sourceId'], _count: { _all: true } }),
+  ]);
+  const archivedIds = new Set(archived.map(f => f.key.slice('imports/'.length, -ARCHIVED_SUFFIX.length)));
+  const imported = new Map(decided.map(d => [d.sourceId, d._count._all]));
+  return files.map(f => ({ ...f, archived: archivedIds.has(f.id), importedCount: imported.get(f.id) ?? 0 }));
 }
 export async function upload(m: Member, form: FormData) {
   allow(m, ['staff', 'admin']);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { QrCode, Search, Plus, CheckCircle2, Clock, AlertTriangle, XCircle, Check, ScanLine, Download } from 'lucide-react';
+import { QrCode, Search, Plus, CheckCircle2, Clock, AlertTriangle, XCircle, ScanLine, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -19,6 +19,20 @@ import type { StocktakeItem, StocktakeResponse, WorkspaceData } from '@/shared/m
 import QrScannerModal from '@/frontend/components/qr-scanner-modal';
 import { codeKey } from '@/shared/domain';
 import { exportStocktakeWorkbook } from '@/frontend/services/excel-export';
+
+// ป้ายผลตรวจนับ: สีเดียวกันทั้งตารางบนคอมและการ์ดบนมือถือ (ค่าเก่า matched = ตรงตามทะเบียน)
+const checkResults: Record<string, { label: string; style: string }> = {
+  normal: { label: 'ตรงตามทะเบียน', style: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  matched: { label: 'ตรงตามทะเบียน', style: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  damaged: { label: 'พบแต่ชำรุด', style: 'bg-orange-50 text-orange-700 border-orange-200' },
+  missing: { label: 'ไม่พบ', style: 'bg-rose-50 text-rose-700 border-rose-200' },
+  mismatch: { label: 'ข้อมูลไม่ตรง', style: 'bg-purple-50 text-purple-700 border-purple-200' },
+  pending: { label: 'ยังไม่ตรวจ', style: 'bg-slate-100 text-slate-600 border-slate-200' }
+};
+function CheckResultBadge({ result, className = 'text-xs' }: { result: string; className?: string }) {
+  const r = checkResults[result] || checkResults.pending;
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-bold border ${r.style} ${className}`}>{r.label}</span>;
+}
 
 export default function StocktakesView({
   data,
@@ -82,7 +96,7 @@ export default function StocktakesView({
 
   const filtered = useMemo(() => {
     return (loadedRound === roundId ? items : []).filter(i =>
-      (i.code + ' ' + i.name).toLowerCase().includes(search.trim().toLowerCase())
+      (i.code + ' ' + i.name + ' ' + (i.notes || '')).toLowerCase().includes(search.trim().toLowerCase())
     );
   }, [items, loadedRound, roundId, search]);
 
@@ -357,7 +371,7 @@ export default function StocktakesView({
                       <TableHead className="font-bold">รายการครุภัณฑ์</TableHead>
                       <TableHead className="font-bold text-center">จำนวนในระบบ</TableHead>
                       <TableHead className="font-bold text-center">พบจริง</TableHead>
-                      <TableHead className="font-bold text-center">สถานะการตรวจ</TableHead>
+                      <TableHead className="font-bold text-center">ผลการตรวจ</TableHead>
                       <TableHead className="font-bold">วันที่และเวลาบันทึก</TableHead>
                       <TableHead className="font-bold text-center w-[120px]">จัดการ</TableHead>
                     </TableRow>
@@ -383,15 +397,7 @@ export default function StocktakesView({
                             {i.quantity ?? '—'}
                           </TableCell>
                           <TableCell className="text-center whitespace-nowrap">
-                            {isChecked ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <Check size={11} className="stroke-[3]" /> ตรวจแล้ว
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                                ⏱ ยังไม่ตรวจ
-                              </span>
-                            )}
+                            <CheckResultBadge result={i.result} />
                           </TableCell>
                           <TableCell className="text-xs text-slate-500 whitespace-nowrap">
                             {i.checkedAt ? date(i.checkedAt) : '—'}
@@ -431,15 +437,7 @@ export default function StocktakesView({
                         <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50/80 px-2 py-0.5 rounded border border-blue-100 select-all">
                           {i.code}
                         </span>
-                        {isChecked ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <Check size={11} className="stroke-[3]" /> ตรวจแล้ว
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                            ⏱ ยังไม่ตรวจ
-                          </span>
-                        )}
+                        <CheckResultBadge result={i.result} className="text-[11px]" />
                       </div>
 
                       <div className="font-bold text-sm text-slate-900 leading-snug">{i.name}</div>
@@ -453,12 +451,9 @@ export default function StocktakesView({
                           </span>
                         </div>
                         <div>
-                          <span className="text-slate-400 text-[10.5px] block">ผลตรวจ</span>
+                          <span className="text-slate-400 text-[10.5px] block">หมายเหตุ</span>
                           <span className="font-semibold text-slate-800">
-                            {i.result === 'normal' ? '✅ ตรงตามทะเบียน' :
-                             i.result === 'damaged' ? '⚠️ ชำรุด/ส่งซ่อม' :
-                             i.result === 'missing' ? '❌ ไม่พบ' :
-                             i.result === 'mismatch' ? '🔄 ข้อมูลไม่ตรง' : '—'}
+                            {isChecked ? (i.notes || '—') : '—'}
                           </span>
                         </div>
                       </div>

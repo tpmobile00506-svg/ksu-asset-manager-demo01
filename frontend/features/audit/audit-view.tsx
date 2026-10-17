@@ -339,7 +339,9 @@ const technicalKeys = new Set([
   'costSatang',
   'requested',
   'count',
-  'snapshot'
+  'snapshot',
+  'from',
+  'seq'
 ]);
 
 function formatValue(key: string, val: unknown): string {

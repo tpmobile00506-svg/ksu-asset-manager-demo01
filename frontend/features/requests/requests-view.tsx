@@ -65,17 +65,6 @@ function formatThaiDateTime(isoStr: string): string {
   }
 }
 
-function formatReqCode(id: string, dateStr: string): string {
-  try {
-    const d = new Date(dateStr);
-    const yr = isNaN(d.getTime()) ? 69 : (d.getFullYear() + 543) % 100;
-    const short = id.replace(/-/g, '').slice(0, 4).toUpperCase();
-    return `REQ-${yr}-${short}`;
-  } catch {
-    return `REQ-69-${id.slice(0, 4).toUpperCase()}`;
-  }
-}
-
 function RequestKindBadge({ kind }: { kind: string }) {
   switch (kind) {
     case 'transfer':
@@ -211,11 +200,12 @@ export default function RequestsView({
     try { payload = JSON.parse(r.payload || '{}'); } catch { /* ใช้ค่าว่าง */ }
     try { chain = JSON.parse(r.chain || '[]'); } catch { /* ใช้ค่าว่าง */ }
     const html = buildApprovalDocumentHtml({
-      requestCode: formatReqCode(r.id, r.createdAt),
+      requestCode: r.requestNo,
       kind: r.kind,
       status: r.status,
       reason: r.reason,
       createdAt: r.createdAt,
+      requesterName: r.requesterName || undefined,
       payload,
       chain,
       asset: asset
@@ -275,7 +265,7 @@ export default function RequestsView({
       if (search.trim()) {
         const q = search.trim().toLowerCase();
         const asset = assets.find(a => a.id === r.assetId || a.code === r.code);
-        const text = [r.id, r.code, r.name, r.reason, asset?.name, asset?.branch].join(' ').toLowerCase();
+        const text = [r.id, r.requestNo, r.code, r.name, r.reason, asset?.name, asset?.branch].join(' ').toLowerCase();
         if (!text.includes(q)) return false;
       }
       return true;
@@ -418,7 +408,7 @@ export default function RequestsView({
                           className="font-mono text-xs font-bold text-blue-600 tracking-tight select-all cursor-pointer"
                           title={r.id}
                         >
-                          {formatReqCode(r.id, r.createdAt)}
+                          {r.requestNo}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
                           <Calendar size={11} className="text-slate-400" />
@@ -442,6 +432,7 @@ export default function RequestsView({
                           ) : null}
                           {r.kind === 'transfer' && payload.location && (
                             <span className="text-blue-600">
+                              {payload.from?.location ? <span className="block text-slate-500">จาก: {payload.from.location} {payload.from.branch ? `(${payload.from.branch})` : ''}</span> : null}
                               ย้ายไป: {payload.location} {payload.branch ? `(${payload.branch})` : ''}
                               {payload.custodian ? ` · ผู้รับผิดชอบใหม่: ${payload.custodian}` : ''}
                             </span>
@@ -465,7 +456,7 @@ export default function RequestsView({
                       {/* ผู้ยื่นคำขอ / สังกัด */}
                       <TableCell className="align-top py-3.5">
                         <div className="text-xs font-medium text-slate-800">
-                          {r.actor === data.me.id ? data.me.name : 'เจ้าหน้าที่ผู้ยื่น'}
+                          {r.requesterName || (r.actor === data.me.id ? data.me.name : 'ไม่พบชื่อผู้ยื่น')}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
                           <Building size={11} className="text-slate-400 shrink-0" />
@@ -518,7 +509,7 @@ export default function RequestsView({
                         ) : r.status === 'rejected' ? (
                           <div className="flex items-center justify-end gap-1">
                             <span className="badge rejected">
-                              ส่งกลับแล้ว ✗
+                              ไม่อนุมัติ ✗
                             </span>
                             <Button
                               variant="ghost"
@@ -769,7 +760,7 @@ export default function RequestsView({
               <div className="flex items-center gap-2 mb-1">
                 <RequestKindBadge kind={viewingRequest.kind} />
                 <span className="font-mono text-xs font-bold text-slate-500">
-                  {formatReqCode(viewingRequest.id, viewingRequest.createdAt)}
+                  {viewingRequest.requestNo}
                 </span>
               </div>
               <DialogTitle className="text-base font-bold text-slate-900">
@@ -793,6 +784,15 @@ export default function RequestsView({
                       <span className="text-slate-500 shrink-0">เหตุผลที่ระบุ:</span>
                       <span className="font-medium text-slate-800 text-right">{viewingRequest.reason || '—'}</span>
                     </div>
+
+                    {viewingRequest.kind === 'transfer' && p.from?.location && (
+                      <div className="flex justify-between items-start gap-2 pt-1.5 border-t border-slate-200/70">
+                        <span className="text-slate-500 shrink-0">สถานที่ต้นทาง:</span>
+                        <span className="font-semibold text-slate-700 text-right">
+                          {p.from.location} {p.from.branch ? `(${p.from.branch})` : ''}
+                        </span>
+                      </div>
+                    )}
 
                     {viewingRequest.kind === 'transfer' && (p.location || p.branch) && (
                       <div className="flex justify-between items-start gap-2 pt-1.5 border-t border-slate-200/70">
@@ -845,7 +845,7 @@ export default function RequestsView({
                                 a.decision === 'approve' ? 'text-emerald-600' : 'text-rose-600'
                               }`}
                             >
-                              {a.decision === 'approve' ? 'อนุมัติเรียบร้อย' : 'ส่งกลับแก้ไข'}
+                              {a.decision === 'approve' ? 'อนุมัติเรียบร้อย' : 'ไม่อนุมัติ (คำขอสิ้นสุด)'}
                             </span>
                           </div>
                           {a.note && <p className="text-slate-600 mt-1">{a.note}</p>}

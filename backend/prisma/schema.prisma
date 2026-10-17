@@ -31,6 +31,8 @@ model User {
   passwordHash String @default("")
   createdAt    String
   sessions     Session[]
+  // สาขาของผู้ใช้ต้องเป็นสาขามาตรฐานในตาราง branches (หัวหน้าสาขาใช้ตรวจสิทธิ์อนุมัติ) · เปลี่ยนชื่อสาขาแล้วตามไปด้วย ลบสาขาที่ยังมีผู้ใช้ไม่ได้
+  branchRef    Branch? @relation(fields: [branch], references: [name], onUpdate: Cascade, onDelete: Restrict)
   @@map("users")
 }
 
@@ -70,6 +72,7 @@ model Category {
 model Branch {
   name   String @id
   assets Asset[]
+  users  User[]
   @@map("branches")
 }
 
