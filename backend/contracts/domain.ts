@@ -51,6 +51,35 @@ export function fiscalYearAsOfDate(fiscalYear: number | string): Date {
 export function fiscalYearOf(date: Date): number {
   return date.getFullYear() + 543 + (date.getMonth() >= 9 ? 1 : 0);
 }
+// ปีงบประมาณตามเวลาประเทศไทย (UTC+7) ไม่ขึ้นกับ timezone ของเซิร์ฟเวอร์ (Vercel เป็น UTC) เช่น 1 ต.ค. 2569 07:00 น. → 2570
+export function thaiFiscalYear(iso: string): number {
+  const t = new Date(new Date(iso).getTime() + 7 * 3_600_000);
+  return t.getUTCFullYear() + 543 + (t.getUTCMonth() >= 9 ? 1 : 0);
+}
+// เลขที่คำขอ REQ-<ปีงบ>-<ลำดับ 4 หลัก> รันใหม่ทุกปีงบประมาณ
+export const formatRequestNo = (fiscalYear: number, seq: number) => `REQ-${fiscalYear}-${String(seq).padStart(4, '0')}`;
+type NumberedRequest = { id: string; createdAt: string; payload: string };
+const storedSeq = (payload: string) => {
+  try { const seq = (JSON.parse(payload || '{}') as { seq?: unknown }).seq; return Number.isSafeInteger(seq) && (seq as number) > 0 ? seq as number : null; }
+  catch { return null; }
+};
+// ลำดับถัดไปของปีงบ: คำขอใหม่เก็บลำดับไว้ใน payload.seq ตอนยื่น (ใน transaction แบบ Serializable)
+// คำขอเก่าที่ไม่มี seq นับตามลำดับเวลายื่น จึงใช้ค่ามากสุดระหว่าง "จำนวนคำขอในปี" กับ "seq มากสุด" กันเลขซ้ำ
+export function nextRequestSeq(sameYear: readonly Pick<NumberedRequest, 'payload'>[]): number {
+  return Math.max(sameYear.length, ...sameYear.map(r => storedSeq(r.payload) ?? 0)) + 1;
+}
+// เลขที่คำขอของทุกรายการ (id → REQ-2570-0001): ใช้ seq ที่บันทึกไว้ ถ้าเป็นคำขอเก่าใช้ลำดับตามเวลายื่นในปีงบเดียวกัน
+export function requestNumbers(requests: readonly NumberedRequest[]): Map<string, string> {
+  const out = new Map<string, string>(), rank = new Map<number, number>();
+  const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+  const ordered = [...requests].sort((a, b) => cmp(a.createdAt, b.createdAt) || cmp(a.id, b.id));
+  for (const r of ordered) {
+    const year = thaiFiscalYear(r.createdAt), n = (rank.get(year) ?? 0) + 1;
+    rank.set(year, n);
+    out.set(r.id, formatRequestNo(year, storedSeq(r.payload) ?? n));
+  }
+  return out;
+}
 export const money=(n:number)=>new Intl.NumberFormat('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n/100);
 function cell(v:unknown):unknown {if(v&&typeof v==='object'&&'cached' in v)return (v as {cached:unknown}).cached;return v;}
 function str(v:unknown){return String(cell(v)??'').trim();}
@@ -488,6 +517,19 @@ export function stocktakeDifference(expected: number, found: number | null | und
   if (!Number.isSafeInteger(expected) || !Number.isSafeInteger(found) || expected < 0 || found < 0) throw Error('จำนวนตรวจนับต้องเป็นจำนวนเต็มไม่ติดลบ');
   if (found === expected) return { kind: 'match', amount: 0 };
   return found < expected ? { kind: 'short', amount: expected - found } : { kind: 'over', amount: found - expected };
+}
+
+// การ์ดแดชบอร์ด "ชำรุด / ส่งซ่อม": นับเฉพาะรายการที่ยังใช้งาน (active) จึงไม่นับแม่ที่แบ่งล็อตแล้ว (split) ซ้ำกับลูก
+// รายการที่จำหน่ายแล้วนับแยก ไม่ปนกับของที่ยังชำรุดอยู่
+export type ConditionSummary = { damaged: number; repair: number; disposed: number };
+export function conditionSummary(assets: readonly Pick<Asset, 'condition' | 'lifecycle'>[]): ConditionSummary {
+  const out: ConditionSummary = { damaged: 0, repair: 0, disposed: 0 };
+  for (const a of assets) {
+    if (a.lifecycle === 'disposed') out.disposed++;
+    else if (a.lifecycle === 'active' && a.condition === 'damaged') out.damaged++;
+    else if (a.lifecycle === 'active' && a.condition === 'repair') out.repair++;
+  }
+  return out;
 }
 
 // อายุการใช้งานคงเหลือ (ปี) ใช้ฐานวันเดียวกับ bookValue (1 ปี = 365.25 วัน) คืน null ถ้าไม่มีวันรับหรืออายุใช้งาน

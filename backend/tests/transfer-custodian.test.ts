@@ -125,7 +125,7 @@ test('สร้างคำขอโอนย้าย: payload ที่เก�
   const tx = {
     user: { findUnique: async () => staff },
     asset: { findUnique: async () => ({ ...asset }), update: async () => asset },
-    assetRequest: { findFirst: async () => null, create: async ({ data }: { data: Record<string, any> }) => { stored.push(data); return { id: 'req-new', ...data }; } },
+    assetRequest: { findFirst: async () => null, findMany: async () => [], create: async ({ data }: { data: Record<string, any> }) => { stored.push(data); return { id: 'req-new', ...data }; } },
     setting: { findUnique: async () => null },
     operation: { findUnique: async () => null, create: async () => ({}) },
     audit: { create: async () => ({}) },
@@ -135,5 +135,67 @@ test('สร้างคำขอโอนย้าย: payload ที่เก�
     await mutate(staff, { action: 'request', id: 'asset-1', version: 2, kind: 'transfer', reason: 'ย้ายห้อง', payload: { location: 'ห้อง 202', branch: 'วิศวกรรมไฟฟ้า' } });
     assert.equal(stored.length, 1);
     assert.equal(JSON.parse(stored[0].payload).branch, 'วิศวกรรมไฟฟ้า (วฟ)');
+  } finally { restore(); }
+});
+
+// ---------- เก็บต้นทางไว้ในคำขอ เพื่อให้เอกสารอนุมัติแสดง "จาก … → ไป …" ได้หลังทะเบียนเปลี่ยนแล้ว ----------
+test('สร้างคำขอโอนย้าย: payload เก็บต้นทาง (สถานที่ สาขา ผู้รับผิดชอบ) ณ วันยื่น', async () => {
+  const stored: Array<Record<string, any>> = [];
+  const asset = { id: 'asset-1', code: 'PC-001', name: 'คอมพิวเตอร์', quantity: 1, unitSatang: 3000000, totalSatang: 3000000, salvageSatang: 0,
+    branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', location: 'ห้อง 101', custodian: 'นายเอ', condition: 'normal', lifecycle: 'active', version: 2 };
+  const tx = {
+    user: { findUnique: async () => staff },
+    asset: { findUnique: async () => ({ ...asset }), update: async () => asset },
+    assetRequest: { findFirst: async () => null, findMany: async () => [], create: async ({ data }: { data: Record<string, any> }) => { stored.push(data); return { id: 'req-new', ...data }; } },
+    setting: { findUnique: async () => null },
+    operation: { findUnique: async () => null, create: async () => ({}) },
+    audit: { create: async () => ({}) },
+  };
+  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  try {
+    await mutate(staff, { action: 'request', id: 'asset-1', version: 2, kind: 'transfer', reason: 'ย้ายห้อง', payload: { location: 'ห้อง 202', branch: 'วิศวกรรมไฟฟ้า (วฟ)', custodian: 'นางสาวบี' } });
+    assert.deepEqual(JSON.parse(stored[0].payload), {
+      location: 'ห้อง 202', branch: 'วิศวกรรมไฟฟ้า (วฟ)', custodian: 'นางสาวบี',
+      from: { location: 'ห้อง 101', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', custodian: 'นายเอ' },
+      seq: 1,                                        // ยังไม่มีคำขอในปีงบนี้ → ลำดับ 1
+    });
+  } finally { restore(); }
+});
+
+test('อนุมัติคำขอที่มีต้นทาง (from): ทะเบียนเปลี่ยนเป็นปลายทาง ไม่ได้เขียน from ลงครุภัณฑ์', async () => {
+  const { tx, asset } = createEnvironment({ location: 'ห้อง 202', branch: 'วิศวกรรมไฟฟ้า (วฟ)', from: { location: 'ห้อง 101', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', custodian: 'นายเอ' } });
+  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  try {
+    await mutate(dean, approveFinal);
+    assert.equal(asset.location, 'ห้อง 202');
+    assert.equal(asset.branch, 'วิศวกรรมไฟฟ้า (วฟ)');
+    assert.equal(asset.custodian, 'นายเอ');
+    assert.equal('from' in asset, false);
+  } finally { restore(); }
+});
+
+// ---------- เลขที่คำขอรันตามปีงบ: ลำดับถัดไปคำนวณใน transaction ตอนยื่น ----------
+test('สร้างคำขอ: มีคำขอในปีงบนี้แล้ว 2 รายการ (อีก 1 รายการเป็นปีงบ 2563) → seq = 3', async () => {
+  const stored: Array<Record<string, any>> = [];
+  const asset = { id: 'asset-1', code: 'PC-001', name: 'คอมพิวเตอร์', quantity: 1, unitSatang: 3000000, totalSatang: 3000000, salvageSatang: 0,
+    branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', location: 'ห้อง 101', custodian: '', condition: 'normal', lifecycle: 'active', version: 2 };
+  const justNow = new Date(Date.now() - 1000).toISOString();
+  const existing = [
+    { createdAt: '2020-01-01T00:00:00.000Z', payload: '{"seq":9}' },   // ปีงบ 2563 ไม่นับ
+    { createdAt: justNow, payload: '{}' },
+    { createdAt: justNow, payload: '{"seq":2}' },
+  ];
+  const tx = {
+    user: { findUnique: async () => staff },
+    asset: { findUnique: async () => ({ ...asset }), update: async () => asset },
+    assetRequest: { findFirst: async () => null, findMany: async () => existing, create: async ({ data }: { data: Record<string, any> }) => { stored.push(data); return { id: 'req-new', ...data }; } },
+    setting: { findUnique: async () => null },
+    operation: { findUnique: async () => null, create: async () => ({}) },
+    audit: { create: async () => ({}) },
+  };
+  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  try {
+    await mutate(staff, { action: 'request', id: 'asset-1', version: 2, kind: 'disposal', reason: 'ชำรุด' });
+    assert.equal(JSON.parse(stored[0].payload).seq, 3);       // max(2 รายการ, seq 2) + 1
   } finally { restore(); }
 });

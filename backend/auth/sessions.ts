@@ -21,6 +21,11 @@ export async function hashPassword(password: string) {
   const key = await scrypt(password, salt, 64) as Buffer;
   return `scrypt:${salt}:${key.toString('hex')}`;
 }
+// ลายนิ้วมือรหัสผ่านสำหรับเทียบคำขอซ้ำ (requestHash ในตาราง operations): ใช้ scrypt ที่ช้าเท่ากับรหัสผ่านในตาราง users
+// ไม่ใช้ sha256 ของรหัสผ่านตรง ๆ เพราะเดาย้อนได้เร็วมากถ้าตาราง operations รั่ว
+export async function passwordFingerprint(password: string, salt: string) {
+  return (await scrypt(password, 'operation:' + salt, 64) as Buffer).toString('hex');
+}
 async function verifyPassword(password: string, hash: string) {
   const parts = hash.split(':');
   if (parts.length !== 3 || parts[0] !== 'scrypt' || !/^[a-f0-9]{32}$/.test(parts[1]) || !/^[a-f0-9]{128}$/.test(parts[2])) return false;
@@ -72,6 +77,15 @@ export function checkOrigin(request: Request) {
   if (!allowed.has(origin)) throw new ApiError('ต้นทางคำขอไม่ถูกต้อง', 403);
 }
 
+// IP ของผู้ล็อกอิน: Vercel และ Nginx (proxy_set_header X-Real-IP $remote_addr) ใส่ x-real-ip ให้
+// ถ้าไม่มีใช้ค่าขวาสุดของ x-forwarded-for ซึ่ง proxy ตัวสุดท้ายเป็นผู้เติม (ค่าซ้ายสุดผู้ใช้ปลอมมาเองได้)
+export function clientIp(request: Request): string {
+  const real = request.headers.get('x-real-ip')?.trim();
+  if (real) return real;
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',').map(x => x.trim()).filter(Boolean);
+  return forwarded?.at(-1) || 'unknown';
+}
+
 async function takeLoginAttempt(key: string, limit: number, windowMs: number) {
   const now = new Date(), expired = new Date(now.getTime() - windowMs);
   // One atomic statement shares the limit across processes and concurrent requests.
@@ -106,9 +120,13 @@ export async function login(request: Request) {
 
   await checkDatabase();
 
-  await takeLoginAttempt('global', 120, 60_000);
-  const attemptKey = `email:${digest(email)}`;
-  await takeLoginAttempt(attemptKey, 10, 15 * 60_000);
+  // นับแยกตาม IP แทนตัวนับรวมทั้งระบบ (เดิมคนเดียวยิงล็อกอินผิด 120 ครั้งก็ทำให้ทุกคนเข้าไม่ได้ 1 นาที)
+  // ล็อกผิดซ้ำ 10 ครั้งนับต่ออีเมล + IP คนอื่นจึงล็อกบัญชีเราจากเครื่องอื่นไม่ได้ ส่วนตัวนับต่ออีเมลตั้งสูงไว้กันการเดารหัสจากหลาย IP
+  const ip = clientIp(request);
+  const attemptKeys = [`email-ip:${digest(`${email} ${ip}`)}`, `email:${digest(email)}`];
+  await takeLoginAttempt(`ip:${digest(ip)}`, 120, 60_000);
+  await takeLoginAttempt(attemptKeys[0], 10, 15 * 60_000);
+  await takeLoginAttempt(attemptKeys[1], 50, 15 * 60_000);
   const user = await prisma.user.findUnique({ where: { email } });
   const valid = await verifyPassword(password, user?.passwordHash || await dummyHash);
   if (!user?.active || !valid) throw new ApiError('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 401);
@@ -118,7 +136,7 @@ export async function login(request: Request) {
     const current = await tx.user.findUnique({ where: { id: user.id } });
     if (!current?.active || current.passwordHash !== user.passwordHash) throw new ApiError('กรุณาเข้าสู่ระบบอีกครั้ง', 401);
     await tx.session.create({ data: { tokenHash: digest(token), userId: user.id, expiresAt: new Date(Date.now() + duration * 1000) } });
-    await tx.loginAttempt.deleteMany({ where: { key: attemptKey } });
+    await tx.loginAttempt.deleteMany({ where: { key: { in: attemptKeys } } });
   }, { isolationLevel: 'Serializable' });
   // ล้างเซสชันหมดอายุนอก transaction เพื่อไม่ให้ชนกันตอนมีคนล็อกอินพร้อมกัน ล้มเหลวได้โดยไม่กระทบการล็อกอิน
   try { await purgeExpiredSessions(prisma); } catch (error) { console.error('Expired session cleanup failed', { code: (error as { code?: string }).code }); }

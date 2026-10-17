@@ -6,6 +6,8 @@ import {Input} from '@/components/ui/input';
 import {Checkbox} from '@/components/ui/checkbox';
 import {Table,TableHeader,TableBody,TableRow,TableHead,TableCell} from '@/components/ui/table';
 import SourceSheetGrid from './source-sheet-grid';
+import SourceFileList from './source-file-list';
+import type {ImportFileRecord} from '@/shared/models';
 import {Skeleton} from '@/components/ui/skeleton';
 import {toast} from 'sonner';
 import {Candidate,money,setRoles,rowOverrideLabels,academicBranches,officeBranches,type RowOverride} from '@/shared/domain';
@@ -67,7 +69,7 @@ const kindOptions: [string, string][] = [
 ];
 
 type ImportViewProps = {
-  data: { me: { role: string }; imports: Array<{ id: string; name: string }> };
+  data: { me: { role: string }; imports: ImportFileRecord[] };
   open: (kind: string, value?: Record<string, unknown>) => void;
   revision: number;
   reload: () => Promise<void>;
@@ -76,7 +78,8 @@ const errorMessage = (error: unknown, fallback: string) => error instanceof Erro
 const aborted = (error: unknown) => error instanceof Error && error.name === 'AbortError';
 
 export default function ImportView({data,open,revision,reload}:ImportViewProps){
-  const [id,setId]=useState(data.imports[0]?.id || ''),
+  const firstActive=()=>data.imports.find(f=>!f.archived)?.id||'';
+  const [id,setId]=useState(firstActive),
     [source,setSource]=useState<SourceViewResponse|null>(null),
     [loadedQuery,setLoadedQuery]=useState(''),
     [loadedRevision,setLoadedRevision]=useState(-1),
@@ -97,6 +100,7 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
       description: string;
       summary?: string;
       pickBranch?: boolean;
+      danger?: boolean;
       confirmLabel: string;
       onConfirm: () => Promise<boolean>;
     } | null>(null);
@@ -121,7 +125,8 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
   },[]);
 
   useEffect(()=>{
-    if(!id && data.imports[0]?.id) setId(data.imports[0].id);
+    // ไฟล์ที่เลือกถูกลบไปแล้ว หรือยังไม่ได้เลือก → เลือกไฟล์แรกในรายการหลัก
+    if(!id || !data.imports.some(f=>f.id===id)) setId(firstActive());
   },[data.imports,id]);
 
   useEffect(()=>{
@@ -228,6 +233,42 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
     });
   }
 
+  // ลบไฟล์ที่ยังไม่ได้นำเข้า / เก็บไฟล์ที่นำเข้าแล้วเข้าคลัง (ครุภัณฑ์ในทะเบียนไม่ถูกแตะ)
+  async function fileAction(body:Record<string,unknown>, done:string):Promise<boolean>{
+    if(mutationBusy.current)return false;
+    mutationBusy.current=true;setBusy(true);
+    try{
+      await api('',{...body,token:crypto.randomUUID()},{signal:lifetime.current?.signal});
+      toast.success(done);
+      await reload();
+      return true;
+    }catch(error:unknown){
+      if(!aborted(error))toast.error(errorMessage(error,'ทำรายการไม่สำเร็จ'));
+      return false;
+    }finally{mutationBusy.current=false;setBusy(false);}
+  }
+  function handleDeleteFile(file:ImportFileRecord){
+    setConfirmState({
+      isOpen:true, danger:true,
+      title:'ลบไฟล์ต้นฉบับนี้?',
+      description:file.name,
+      summary:'ไฟล์นี้ยังไม่ได้นำเข้าแถวไหน ลบแล้วกู้คืนไม่ได้ ทะเบียนครุภัณฑ์ไม่ได้รับผลกระทบ',
+      confirmLabel:'ลบไฟล์',
+      onConfirm:()=>fileAction({action:'sourceDelete',sourceId:file.id},'ลบไฟล์แล้ว'),
+    });
+  }
+  function handleArchiveFile(file:ImportFileRecord, archived:boolean){
+    if(!archived){void fileAction({action:'sourceArchive',sourceId:file.id,archived:false},'นำไฟล์กลับมาที่รายการหลักแล้ว');return;}
+    setConfirmState({
+      isOpen:true,
+      title:'เก็บไฟล์เข้าคลัง?',
+      description:file.name,
+      summary:`นำเข้าไปแล้ว ${file.importedCount.toLocaleString('th-TH')} แถว จึงลบไม่ได้ เพื่อให้ตรวจย้อนกลับไปแถวต้นฉบับได้ ไฟล์จะหายจากรายการหลัก แต่ดูหรือนำกลับมาได้จาก "คลังไฟล์"`,
+      confirmLabel:'เก็บเข้าคลัง',
+      onConfirm:async()=>{const ok=await fileAction({action:'sourceArchive',sourceId:file.id,archived:true},'เก็บไฟล์เข้าคลังแล้ว');if(ok&&file.id===id)setId('');return ok;},
+    });
+  }
+
   // เปลี่ยนประเภทแถวต้นฉบับที่เลือก (หัวทุน / บรรทัดต่อ / ครุภัณฑ์ / ข้าม / กลับเป็นค่าที่ระบบเดา)
   async function handleOverride(keys:string[], as:RowOverride|'auto'):Promise<boolean>{
     if(mutationBusy.current||!keys.length)return false;
@@ -317,7 +358,7 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
         </div>
 
         <div className="toolbar">
-          <Pick label="ไฟล์ต้นฉบับ" value={id} onChange={setId} options={data.imports.map(s=>[s.id,s.name])}/>
+          <SourceFileList files={data.imports} selectedId={id} editable={editable} busy={busy} onSelect={setId} onDelete={handleDeleteFile} onArchive={handleArchiveFile}/>
         </div>
 
         {sourceIsCurrent&&<>
@@ -592,7 +633,7 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={busy}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg px-4"
+              className={`${confirmState?.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'} text-white font-medium rounded-lg px-4`}
               onClick={async e => {
                 e.preventDefault();
                 if (confirmState?.onConfirm) {
@@ -600,7 +641,7 @@ export default function ImportView({data,open,revision,reload}:ImportViewProps){
                 }
               }}
             >
-              {busy ? 'กำลังนำเข้า…' : confirmState?.confirmLabel || 'ยืนยัน'}
+              {busy ? 'กำลังดำเนินการ…' : confirmState?.confirmLabel || 'ยืนยัน'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -17,6 +17,10 @@ export interface RequestRecord {
   createdAt: string;
   code: string;
   name: string;
+  // ชื่อผู้ยื่นคำขอ (จากตาราง users) ให้ผู้อนุมัติเห็นว่าใครยื่น
+  requesterName: string;
+  // เลขที่คำขอ REQ-<ปีงบ>-<ลำดับ> (คำนวณใน getData จาก requestNumbers)
+  requestNo: string;
 }
 
 export interface ApprovalRecord {
@@ -99,6 +103,9 @@ export interface ImportFileRecord {
   rowCount: number;
   createdAt: string;
   actor: string;
+  // อยู่ในคลังไฟล์ (ซ่อนจากรายการหลัก) · จำนวนแถวที่นำเข้าทะเบียนแล้ว (0 = ลบไฟล์ได้)
+  archived: boolean;
+  importedCount: number;
 }
 
 export interface RepairRecord {
