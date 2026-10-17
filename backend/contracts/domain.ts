@@ -152,103 +152,72 @@ const legacyGroupNames = new Set(['อุปกรณ์เครือข่า
   'เครื่องพิมพ์และสแกนเนอร์', 'คอมพิวเตอร์และโน้ตบุ๊ก', 'จอภาพ โปรเจคเตอร์ และจอรับภาพ', 'เครื่องเสียงและไมโครโฟน',
   'เครื่องปรับอากาศและพัดลม', 'อุปกรณ์ไฟฟ้าและเครื่องสำรองไฟ', 'ม่าน พาร์ติชั่น และอุปกรณ์อาคาร', 'อุปกรณ์ความปลอดภัย', 'อุปกรณ์การเกษตร']);
 
+// สาขาวิชา / หน่วยงาน ตามไฟล์ "ตัวย่อของสาขาวิชา" ที่เจ้าหน้าที่พัสดุส่งให้ (17 ต.ค. 2569)
+// เครื่องกลกับเมคคาทรอนิกส์เป็นสาขาเดียว · ไม่มีโยธา · ไม่มี "ส่วนกลาง / การศึกษา" (รวมเข้าสำนักงานคณบดี)
 export const standardBranches = [
   'วิศวกรรมคอมพิวเตอร์ (วค)',
   'วิศวกรรมไฟฟ้า (วฟ)',
-  'เทคโนโลยีเครื่องจักรกลเกษตร (คจก)',
-  'วิศวกรรมเครื่องกล (วคม/วศค)',
+  'วิศวกรรมเครื่องจักรกลเกษตร (คจก)',
+  'วิศวกรรมเครื่องกลและเมคคาทรอนิกส์ (วคม/วศค)',
   'วิศวกรรมอุตสาหการ (วอ)',
-  'วิศวกรรมโยธา/โลจิสติกส์ (วย/วล)',
-  'วิศวกรรมเมคคาทรอนิกส์ (มค)',
-  'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ/นอส)',
+  'วิศวกรรมโลจิสติกส์และเทคโนโลยีขนส่ง (วล)',
+  'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ)',
   'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)',
-  'ส่วนกลาง / การศึกษา'
 ] as const;
 
 export type StandardBranch = typeof standardBranches[number];
+export const OFFICE_BRANCH: StandardBranch = 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
 // หน่วยงานที่ไม่ใช่สาขาวิชา (ฟอร์มแยกเป็นกลุ่ม "หน่วยงาน" ในรายการเลือก) ที่เหลือคือสาขาวิชา
-export const officeBranches: readonly StandardBranch[] = ['สำนักงานคณะฯ / คณบดี (สนง.ควอ.)', 'ส่วนกลาง / การศึกษา'];
+export const officeBranches: readonly StandardBranch[] = [OFFICE_BRANCH];
 export const academicBranches = standardBranches.filter(b => !officeBranches.includes(b));
 export const isStandardBranch = (value: string): value is StandardBranch => (standardBranches as readonly string[]).includes(value);
 
-// หมวดหมู่ของสาขามาตรฐานทั้ง 10 (จับคู่ตรงตัว กันกรณีตัวย่อซ้อนกัน เช่น "ควอ" มี "วอ", "วคม" มี "วค")
-const categoryByStandardBranch: Record<(typeof standardBranches)[number], (typeof standardCategories)[number]> = {
+// หมวดหมู่ตามสาขา (รุ่นก่อนที่หมวด = แผ่นงาน) ยังใช้อ่านไฟล์ที่ส่งออกจากเว็บรุ่นเก่า
+const categoryByStandardBranch: Record<StandardBranch, (typeof standardCategories)[number]> = {
   'วิศวกรรมคอมพิวเตอร์ (วค)': 'คอมพิวเตอร์',
   'วิศวกรรมไฟฟ้า (วฟ)': 'ไฟฟ้า',
-  'เทคโนโลยีเครื่องจักรกลเกษตร (คจก)': 'เครื่องจักรกลเกษตร',
-  'วิศวกรรมเครื่องกล (วคม/วศค)': 'เครื่องกล',
+  'วิศวกรรมเครื่องจักรกลเกษตร (คจก)': 'เครื่องจักรกลเกษตร',
+  'วิศวกรรมเครื่องกลและเมคคาทรอนิกส์ (วคม/วศค)': 'เครื่องกล',
   'วิศวกรรมอุตสาหการ (วอ)': 'อุตสาหการ',
-  'วิศวกรรมโยธา/โลจิสติกส์ (วย/วล)': 'โลจิสติกส์และโยธา',
-  'วิศวกรรมเมคคาทรอนิกส์ (มค)': 'เมคคาทรอนิกส์',
-  'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ/นอส)': 'ออกแบบและสถาปัตย์',
+  'วิศวกรรมโลจิสติกส์และเทคโนโลยีขนส่ง (วล)': 'โลจิสติกส์และโยธา',
+  'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ)': 'ออกแบบและสถาปัตย์',
   'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)': 'สำนักงานส่วนกลาง',
-  'ส่วนกลาง / การศึกษา': 'สำนักงานส่วนกลาง'
 };
 
-export function resolveCategory(branch: string, rawOffice?: string): string {
-  const exact = categoryByStandardBranch[(branch || '').trim() as (typeof standardBranches)[number]];
-  if (exact) return exact;
-  const b = (branch || '').toLowerCase();
-  if (b.includes('คอม') || b.includes('วค') || b.includes('it') || b.includes('computer')) return 'คอมพิวเตอร์';
-  if (b.includes('ไฟฟ้า') || b.includes('วฟ') || b.includes('อิเล็ก') || b.includes('electrical')) return 'ไฟฟ้า';
-  if (b.includes('เกษตร') || b.includes('คจก') || b.includes('จักรกลเกษตร')) return 'เครื่องจักรกลเกษตร';
-  if (b.includes('เครื่องกล') || b.includes('วคม') || b.includes('วศค') || b.includes('ช่างกล') || b.includes('mechanical')) return 'เครื่องกล';
-  if (b.includes('อุตสาหการ') || b.includes('วอ') || b.includes('การผลิต') || b.includes('โรงงาน') || b.includes('industrial')) return 'อุตสาหการ';
-  if (b.includes('โลจิสติก') || b.includes('โยธา') || b.includes('วย') || b.includes('วล') || b.includes('civil') || b.includes('logistics')) return 'โลจิสติกส์และโยธา';
-  if (b.includes('เมคคา') || b.includes('มค') || b.includes('หุ่นยนต์') || b.includes('mechatronics')) return 'เมคคาทรอนิกส์';
-  if (b.includes('ออกแบบ') || b.includes('นอส') || b.includes('สถาปัตย์') || b.includes('design') || b.includes('arch')) return 'ออกแบบและสถาปัตย์';
-  if (b.includes('สำนักงาน') || b.includes('ควอ') || b.includes('คณบดี') || b.includes('สนง') || b.includes('ส่วนกลาง') || b.includes('บริหาร')) return 'สำนักงานส่วนกลาง';
-
-  if (rawOffice) {
-    const o = rawOffice.toLowerCase();
-    if (o.includes('คอม')) return 'คอมพิวเตอร์';
-    if (o.includes('ไฟฟ้า')) return 'ไฟฟ้า';
-    if (o.includes('เกษตร')) return 'เครื่องจักรกลเกษตร';
-    if (o.includes('เครื่องกล') || o.includes('วศค')) return 'เครื่องกล';
-    if (o.includes('อุตสาหการ')) return 'อุตสาหการ';
-  }
-  return 'สำนักงานส่วนกลาง';
+export function resolveCategory(branch: string): string {
+  return categoryByStandardBranch[normalizeBranch(branch || '', '', '') as StandardBranch] ?? 'สำนักงานส่วนกลาง';
 }
 
-export function normalizeBranch(raw: string, note: string, sheet: string): string {
+// แปลงข้อความสาขาในไฟล์ (ตัวย่อ ชื่อเต็ม หรือชื่อสาขารุ่นเก่าในฐานข้อมูล) เป็นสาขามาตรฐาน
+// ไม่เดาสาขาจากชื่อแผ่นงาน เพราะแผ่นงานคือประเภทครุภัณฑ์ (แผ่น "คอม" มีคอมพิวเตอร์ของทุกสาขา)
+export function normalizeBranch(raw: string, note: string, _sheet: string): string {
   // Prefer an explicit department over incidental department names in the notes.
   const identify = (text: string): string | undefined => {
     const alias = (codes: string) => new RegExp('(^|[^\\p{L}\\p{N}])(' + codes + ')(?=$|[^\\p{L}\\p{N}])', 'u').test(text);
-    if (alias('วคม|วศค') || /เครื่องกล/.test(text)) return 'วิศวกรรมเครื่องกล (วคม/วศค)';
-    if (alias('สนง|สนอ|ควอ') || /สโมสร|คณบดี/.test(text)) return 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
+    if (alias('วคม|วศค|มค') || /เครื่องกล|เมคคา|หุ่นยนต์/.test(text)) return 'วิศวกรรมเครื่องกลและเมคคาทรอนิกส์ (วคม/วศค)';
+    if (alias('สนง|สนอ|ควอ') || /สโมสร|คณบดี|ส่วนกลาง/.test(text)) return OFFICE_BRANCH;
     if (alias('วฟ') || /ไฟฟ้า/.test(text)) return 'วิศวกรรมไฟฟ้า (วฟ)';
     if (alias('วค') || /คอม/.test(text)) return 'วิศวกรรมคอมพิวเตอร์ (วค)';
     if (alias('วอ') || /อุตสาหการ|การผลิต|ช่างกล/.test(text)) return 'วิศวกรรมอุตสาหการ (วอ)';
-    if (alias('วย|วล') || /โลจิสติก|โยธา/.test(text)) return 'วิศวกรรมโยธา/โลจิสติกส์ (วย/วล)';
-    if (alias('คจก') || /เกษตร/.test(text)) return 'เทคโนโลยีเครื่องจักรกลเกษตร (คจก)';
-    if (alias('มค') || /เมคคา|หุ่นยนต์/.test(text)) return 'วิศวกรรมเมคคาทรอนิกส์ (มค)';
-    if (alias('นอส') || /ออกแบบ|ออบแบบ|สถาปัตย์/.test(text)) return 'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ/นอส)';
+    if (alias('วล|วย') || /โลจิส|ขนส่ง|โยธา/.test(text)) return 'วิศวกรรมโลจิสติกส์และเทคโนโลยีขนส่ง (วล)';
+    if (alias('คจก') || /เกษตร/.test(text)) return 'วิศวกรรมเครื่องจักรกลเกษตร (คจก)';
+    if (alias('นอส') || /ออกแบบ|ออบแบบ|สถาปัตย์/.test(text)) return 'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ)';
   };
   const explicit = raw.trim();
   if (explicit) return identify(explicit) || explicit;
-  const inferred = identify(note);
-  if (inferred) return inferred;
-  if (sheet === 'คอม') return 'วิศวกรรมคอมพิวเตอร์ (วค)';
-  if (sheet === 'ไฟฟ้า') return 'วิศวกรรมไฟฟ้า (วฟ)';
-  if (sheet === 'เกษตร') return 'เทคโนโลยีเครื่องจักรกลเกษตร (คจก)';
-  if (sheet === 'โรงงาน') return 'วิศวกรรมอุตสาหการ (วอ)';
-  if (sheet === 'สำนักงาน') return 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
-  if (sheet === 'สำรวจ' || sheet === 'ยานพาหนะ') return 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
-  return 'ส่วนกลาง / การศึกษา';
+  return identify(note) || OFFICE_BRANCH;
 }
 
-// ชื่อย่อสาขาที่ใช้ในรายงาน ตามที่เจ้าหน้าที่พัสดุเขียนในไฟล์ต้นฉบับ (ผู้ใช้ยืนยัน 13 ต.ค. 2569: นอส = ออกแบบ)
+// ชื่อย่อสาขาที่ใช้ในรายงาน ตามไฟล์ "ตัวย่อของสาขาวิชา" ของเจ้าหน้าที่พัสดุ (17 ต.ค. 2569)
 const branchAbbreviation: Record<StandardBranch, string> = {
   'วิศวกรรมคอมพิวเตอร์ (วค)': 'วค',
   'วิศวกรรมไฟฟ้า (วฟ)': 'วฟ',
-  'เทคโนโลยีเครื่องจักรกลเกษตร (คจก)': 'คจก',
-  'วิศวกรรมเครื่องกล (วคม/วศค)': 'วคม',
+  'วิศวกรรมเครื่องจักรกลเกษตร (คจก)': 'คจก',
+  'วิศวกรรมเครื่องกลและเมคคาทรอนิกส์ (วคม/วศค)': 'วคม',
   'วิศวกรรมอุตสาหการ (วอ)': 'วอ',
-  'วิศวกรรมโยธา/โลจิสติกส์ (วย/วล)': 'วล',
-  'วิศวกรรมเมคคาทรอนิกส์ (มค)': 'มค',
-  'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ/นอส)': 'นอส',
+  'วิศวกรรมโลจิสติกส์และเทคโนโลยีขนส่ง (วล)': 'วล',
+  'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ)': 'ออกแบบ',
   'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)': 'สนง',
-  'ส่วนกลาง / การศึกษา': 'ส่วนกลาง',
 };
 
 export function branchAbbr(branch: string): string {

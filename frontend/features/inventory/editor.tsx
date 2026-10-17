@@ -231,7 +231,7 @@ export default function Editor({
       {/* 4. หน้าต่างการดำเนินงานอื่นๆ (แบ่งล็อต, คำขอ, ตรวจนับ, ผู้ใช้, ซ่อมเสร็จ, ข้อมูลต้นฉบับ) */}
       <Dialog
         open={
-          !!currentModal && !['create', 'edit', 'import', 'qr'].includes(currentModal.kind)
+          !!currentModal && !['create', 'edit', 'import', 'qr', 'bulkEdit'].includes(currentModal.kind)
         }
         onOpenChange={v => {
           if (!v && !busy) {
