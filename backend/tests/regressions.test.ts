@@ -4,14 +4,26 @@ import { classify, normalizeBranch, splitAmounts, type Asset } from '../contract
 import { createAssetWorkbook } from '../../frontend/services/excel-export';
 
 test('explicit branch wins over notes and overlapping abbreviations', () => {
-  assert.equal(normalizeBranch('วคม', 'ห้องคอม', 'สำนักงาน'), 'วิศวกรรมเครื่องกล (วคม/วศค)');
-  assert.equal(normalizeBranch('วิศวกรรมเครื่องกล (วคม)', '', 'คอม'), 'วิศวกรรมเครื่องกล (วคม/วศค)');
+  assert.equal(normalizeBranch('วคม', 'ห้องคอม', 'สำนักงาน'), 'วิศวกรรมเครื่องกลและเมคคาทรอนิกส์ (วคม/วศค)');
+  assert.equal(normalizeBranch('วิศวกรรมเครื่องกล (วคม)', '', 'คอม'), 'วิศวกรรมเครื่องกลและเมคคาทรอนิกส์ (วคม/วศค)');
   assert.equal(normalizeBranch('ควอ.', 'ไฟฟ้า', 'สำนักงาน'), 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)');
   assert.equal(normalizeBranch('วอ.', '', ''), 'วิศวกรรมอุตสาหการ (วอ)');
   assert.equal(normalizeBranch('วค.', '', ''), 'วิศวกรรมคอมพิวเตอร์ (วค)');
-  assert.equal(normalizeBranch('วศค.', 'คอม', 'คอม'), 'วิศวกรรมเครื่องกล (วคม/วศค)');
-  assert.equal(normalizeBranch('นอส', '', ''), 'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ/นอส)');
+  assert.equal(normalizeBranch('วศค.', 'คอม', 'คอม'), 'วิศวกรรมเครื่องกลและเมคคาทรอนิกส์ (วคม/วศค)');
+  assert.equal(normalizeBranch('นอส', '', ''), 'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ)');
   assert.equal(normalizeBranch('', 'สาขาวิศวกรรมไฟฟ้า', ''), 'วิศวกรรมไฟฟ้า (วฟ)');
+});
+
+// ไฟล์ "ตัวย่อของสาขาวิชา" ของเจ้าหน้าที่ (17 ต.ค. 2569): ชื่อสาขารุ่นก่อนที่ยังอยู่ในฐานข้อมูลต้องแปลงเป็นชื่อใหม่
+test('ชื่อสาขารุ่นก่อนแปลงเป็นสาขาตามไฟล์ตัวย่อของเจ้าหน้าที่ และไม่เดาสาขาจากชื่อแผ่นงาน', () => {
+  assert.equal(normalizeBranch('เทคโนโลยีเครื่องจักรกลเกษตร (คจก)', '', ''), 'วิศวกรรมเครื่องจักรกลเกษตร (คจก)');
+  assert.equal(normalizeBranch('วิศวกรรมเครื่องกล (วคม/วศค)', '', ''), 'วิศวกรรมเครื่องกลและเมคคาทรอนิกส์ (วคม/วศค)');
+  assert.equal(normalizeBranch('วิศวกรรมเมคคาทรอนิกส์ (มค)', '', ''), 'วิศวกรรมเครื่องกลและเมคคาทรอนิกส์ (วคม/วศค)');
+  assert.equal(normalizeBranch('วิศวกรรมโยธา/โลจิสติกส์ (วย/วล)', '', ''), 'วิศวกรรมโลจิสติกส์และเทคโนโลยีขนส่ง (วล)');
+  assert.equal(normalizeBranch('นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ/นอส)', '', ''), 'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ)');
+  assert.equal(normalizeBranch('ส่วนกลาง / การศึกษา', '', ''), 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)');
+  // แผ่น "คอม" คือประเภทครุภัณฑ์ ไม่ใช่สาขา: ไม่ระบุสาขา → สำนักงานคณบดี (ไม่ใช่ วค)
+  assert.equal(normalizeBranch('', '', 'คอม'), 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)');
 });
 
 test('Excel preserves registered amounts after splitting and XLSX round-trip', async () => {

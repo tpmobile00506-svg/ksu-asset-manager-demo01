@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { prisma, json, plain, type Transaction, Prisma } from '../db/client';
 import { freshMember, publicUserFields, hashPassword, type Member } from '../auth/sessions';
-import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride } from '../contracts/domain';
+import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, assetTypes, assetGroupOfType, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride } from '../contracts/domain';
 import { ApiError, clean, allow, now, id, asset, audit, dimensions, financialData, insertAsset, validated, getSource, registeredCodes, loadOverrides, overridesKey } from './asset-service';
 import { assetImageKey } from '../storage/asset-image-metadata';
 import { validate, userMutationSchema, workflowMutationSchema, assetRequestSchema, approvalMutationSchema } from '../validation';
@@ -373,6 +373,54 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     if (remove.length) await tx.asset.updateMany({ where: { id: { in: remove.map(x => x.id) } }, data: { fundId: null, version: { increment: 1 } } });
     await audit(tx, m, 'เอาครุภัณฑ์ออกจากทุน', null, remove.map(x => ({ id: x.id, code: x.code, fundId: x.fundId })), null);
     return { ok: true, count: remove.length };
+  }
+  // แก้ไขหลายรายการพร้อมกัน (ผู้ใช้ขอ 17 ต.ค. 2569): ใช้แก้ข้อมูลที่กรอกผิด ไม่ใช่โอนย้ายของจริง
+  // แก้ได้เฉพาะ สาขา ประเภท สถานที่ สภาพ (ปกติ/ชำรุด) — ยอดเงินยังต้องแก้ผ่านแบ่งล็อต ทุกชิ้นสำเร็จหรือไม่มีชิ้นไหนเปลี่ยนเลย
+  if (action === 'bulkEdit') {
+    allow(m, ['staff', 'admin']);
+    const ids: string[] = Array.isArray(b.ids) ? [...new Set<string>(b.ids.filter((x: unknown) => typeof x === 'string').map((x: string) => clean(x)))] : [];
+    if (!ids.length || ids.length > 1000) throw new ApiError('เลือกครุภัณฑ์ 1–1,000 รายการ');
+    const reason = clean(b.reason ?? '');
+    if (!reason) throw new ApiError('กรุณาระบุเหตุผลการแก้ไข');
+    const ch = b.changes && typeof b.changes === 'object' ? b.changes : {};
+    const changes: { branch?: string; category?: string; groupName?: string; location?: string; condition?: string } = {};
+    if (ch.branch !== undefined) {
+      if (typeof ch.branch !== 'string' || !isStandardBranch(ch.branch)) throw new ApiError('สาขาไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน');
+      changes.branch = ch.branch;
+    }
+    if (ch.category !== undefined) {
+      if (typeof ch.category !== 'string' || !(assetTypes as readonly string[]).includes(ch.category)) throw new ApiError('ประเภทครุภัณฑ์ไม่ถูกต้อง');
+      changes.category = ch.category;
+      changes.groupName = assetGroupOfType(ch.category);
+    }
+    if (ch.location !== undefined) {
+      const location = typeof ch.location === 'string' ? clean(ch.location) : '';
+      if (!location) throw new ApiError('กรุณาระบุสถานที่');
+      changes.location = location;
+    }
+    if (ch.condition !== undefined) {
+      if (ch.condition !== 'normal' && ch.condition !== 'damaged') throw new ApiError('สภาพแก้แบบกลุ่มได้เฉพาะ ปกติ หรือ ชำรุด');
+      changes.condition = ch.condition;
+    }
+    if (!Object.keys(changes).length) throw new ApiError('เลือกช่องที่จะแก้อย่างน้อย 1 ช่อง');
+    const rows = await tx.asset.findMany({ where: { id: { in: ids } } });
+    if (rows.length !== ids.length) throw new ApiError('บางรายการไม่พบแล้ว กรุณาโหลดใหม่', 409);
+    const versions = b.versions && typeof b.versions === 'object' ? b.versions as Record<string, unknown> : {};
+    for (const r of rows) {
+      if (r.lifecycle !== 'active') throw new ApiError('รายการ ' + r.code + ' ถูกแบ่งยอดหรือปิดบัญชีแล้ว');
+      if (versions[r.id] !== r.version) throw new ApiError('ข้อมูลเปลี่ยนแล้ว กรุณาโหลดใหม่', 409);
+      if (changes.condition && r.condition === 'repair') throw new ApiError('รายการ ' + r.code + ' อยู่ระหว่างซ่อม ต้องบันทึกซ่อมเสร็จก่อน');
+    }
+    const pending = await tx.assetRequest.findFirst({ where: { assetId: { in: ids }, status: 'pending' } });
+    if (pending) throw new ApiError('รายการ ' + (rows.find(r => r.id === pending.assetId)?.code ?? '') + ' มีคำขอรออนุมัติ กรุณาดำเนินการคำขอให้เสร็จก่อน');
+    await dimensions(tx, { ...plain(rows[0]), ...changes } as Partial<Asset>);
+    await tx.asset.updateMany({ where: { id: { in: ids } }, data: { ...changes, version: { increment: 1 } } });
+    const keys = Object.keys(changes) as Array<keyof typeof changes>;
+    for (const r of rows) {
+      const before = Object.fromEntries(keys.map(k => [k, (r as Record<string, unknown>)[k]]));
+      await audit(tx, m, 'แก้ไขครุภัณฑ์ (หลายรายการ)', r.id, before, changes, reason);
+    }
+    return { ok: true, count: rows.length };
   }
   if (['edit', 'split', 'request', 'repairComplete'].includes(action)) {
     allow(m, ['staff', 'admin']);

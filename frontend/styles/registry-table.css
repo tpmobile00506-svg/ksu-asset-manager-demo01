@@ -1,0 +1,19 @@
+/* ตารางทะเบียนครุภัณฑ์: พอดีจอ บรรทัดเดียวต่อแถว ข้อความยาวตัดเป็น … (ชื่อเต็มอยู่ใน title) */
+.registry-scroll { overflow-x: hidden !important; }
+.registry-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.registry-table th {
+  background: #f8fafd; height: 40px; padding: 8px 10px; font-size: 12.5px; font-weight: 600; color: #475569;
+  border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
+}
+.registry-table th button { font-size: 12.5px; font-weight: 600; color: #475569; }
+.registry-table th button:hover { color: #1e40af; }
+.registry-table td {
+  padding: 8px 10px; font-size: 13px; line-height: 1.4; vertical-align: middle; border-bottom: 1px solid #edf0f5;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.registry-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.registry-table th.num button { justify-content: flex-end; width: 100%; }
+.registry-table th.text-center button { justify-content: center; width: 100%; }
+.registry-table tbody tr:nth-child(even) { background: #fbfcfe; }
+.registry-table tbody tr:hover { background: #f1f5fb; }
+.registry-table tbody tr.is-selected { background: #eaf2ff; box-shadow: inset 3px 0 0 #2563eb; }
