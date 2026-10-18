@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { prisma, json, plain, type Transaction, Prisma } from '../db/client';
 import { freshMember, publicUserFields, hashPassword, passwordFingerprint, type Member } from '../auth/sessions';
-import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, assetTypes, assetGroupOfType, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride, thaiFiscalYear, nextRequestSeq, ADMIN_APPROVES_ALL } from '../contracts/domain';
+import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, assetTypes, assetGroupOfType, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride, thaiFiscalYear, nextRequestSeq, ADMIN_APPROVES_ALL, voidBlockReason, voidedCode } from '../contracts/domain';
 import { ApiError, clean, allow, now, id, asset, audit, dimensions, financialData, insertAsset, validated, getSource, registeredCodes, loadOverrides, overridesKey } from './asset-service';
 import { assetImageKey } from '../storage/asset-image-metadata';
 import { importFileAction, isImportFileAction } from './import-files';
@@ -434,7 +434,7 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     }
     return { ok: true, count: rows.length };
   }
-  if (['edit', 'split', 'request', 'repairComplete'].includes(action)) {
+  if (['edit', 'split', 'request', 'repairComplete', 'void'].includes(action)) {
     allow(m, ['staff', 'admin']);
     const a = await asset(tx, clean(b.id));
     if (a.lifecycle !== 'active') throw new ApiError('รายการนี้ถูกแบ่งยอดหรือปิดบัญชีแล้ว');
@@ -537,6 +537,24 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
       await tx.asset.update({ where: { id: a.id }, data: { condition: 'normal', version: { increment: 1 } } });
       await tx.repairRecord.create({ data: { id: id(), assetId: a.id, requestId: approved?.id ?? null, repairedBy, costSatang: BigInt(cost), result: reason, actor: m.id, createdAt: now() } });
       await audit(tx, m, 'ซ่อมเสร็จ', a.id, a, { condition: 'normal', costSatang: cost, repairedBy }, reason);
+    }
+    if (action === 'void') {
+      if (!reason) throw new ApiError('กรุณาระบุเหตุผลที่ยกเลิกรายการ');
+      const requests = await tx.assetRequest.count({ where: { assetId: a.id } });
+      const counted = await tx.stocktakeItem.count({ where: { assetId: a.id, result: { not: 'pending' } } });
+      const blocked = voidBlockReason(a, { requests, counted });
+      if (blocked) throw new ApiError(blocked);
+      // ยังไม่ได้นับในรอบที่เปิดอยู่ → เอาออกจากรอบ (ไม่ต้องนับของที่ไม่มีจริง และไม่ค้างตอนปิดรอบ)
+      await tx.stocktakeItem.deleteMany({ where: { assetId: a.id, result: 'pending' } });
+      // มาจากไฟล์ Excel: เปิดแถวต้นฉบับให้นำเข้าใหม่ได้ ถ้าไม่มีรายการอื่นจากแถวเดียวกันค้างอยู่ (แถวช่วงรหัสสร้างได้หลายรายการ)
+      let sourceRowReopened = false;
+      if (a.sourceId && a.sourceRow) {
+        const siblings = await tx.asset.count({ where: { sourceId: a.sourceId, sourceRow: a.sourceRow, id: { not: a.id }, lifecycle: { not: 'voided' } } });
+        if (!siblings) sourceRowReopened = (await tx.sourceRow.deleteMany({ where: { sourceId: a.sourceId, sourceRow: a.sourceRow } })).count > 0;
+      }
+      const code = voidedCode(a.code, a.id);
+      await tx.asset.update({ where: { id: a.id }, data: { lifecycle: 'voided', code, version: { increment: 1 } } });
+      await audit(tx, m, 'ยกเลิกรายการ (ข้อมูลผิดพลาด)', a.id, a, { lifecycle: 'voided', code, sourceRowReopened }, reason);
     }
     return { ok: true };
   }

@@ -2,7 +2,7 @@
 import {ReactNode} from 'react';import {ClipboardList,History} from 'lucide-react';import {Button} from '@/components/ui/button';import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';import {Pagination,PaginationContent,PaginationItem} from '@/components/ui/pagination';import {conditions} from '@/shared/domain';
 export type Any=Record<string,any>;
 export const date=(s:string)=>new Date(s).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
-export const statusLabel=(s:string)=>({...conditions,active:'ใช้งาน',split:'แบ่งรายการแล้ว',disposed:'จำหน่ายแล้ว',pending:'รออนุมัติ',approved:'อนุมัติแล้ว',rejected:'ส่งกลับ',mismatch:'ข้อมูลไม่ตรง',open:'เปิดตรวจนับ',closed:'ปิดรอบแล้ว'} as Any)[s]||s;
+export const statusLabel=(s:string)=>({...conditions,active:'ใช้งาน',split:'แบ่งรายการแล้ว',disposed:'จำหน่ายแล้ว',voided:'ข้อมูลผิดพลาด',pending:'รออนุมัติ',approved:'อนุมัติแล้ว',rejected:'ส่งกลับ',mismatch:'ข้อมูลไม่ตรง',open:'เปิดตรวจนับ',closed:'ปิดรอบแล้ว'} as Any)[s]||s;
 export function Badge({value}:{value:string}){return <span className={'badge '+value}>{statusLabel(value)}</span>}
 // สภาพครุภัณฑ์: ระหว่างมีคำขอค้างแสดง "รออนุมัติซ่อม/โอนย้าย/จำหน่าย" แทน (สภาพจริงอยู่ใน tooltip)
 export function ConditionBadge({condition,awaiting}:{condition:string;awaiting?:{label:string;detail:string}}){return awaiting?<span className="badge awaiting" title={`${awaiting.detail} · สภาพปัจจุบัน: ${statusLabel(condition)}`}>{awaiting.label}</span>:<Badge value={condition}/>}

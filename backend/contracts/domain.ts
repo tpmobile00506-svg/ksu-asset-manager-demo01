@@ -561,6 +561,20 @@ export function conditionSummary(assets: readonly Pick<Asset, 'condition' | 'lif
   return out;
 }
 
+// ยกเลิกรายการที่บันทึกผิด (ผู้ใช้ตัดสินใจ 18 ต.ค. 2569): เจ้าหน้าที่/Admin กดเองได้ ไม่ต้องผ่านสายอนุมัติ แต่ต้องใส่เหตุผล
+// ใช้ได้เฉพาะรายการที่ยังไม่มีอะไรเกิดขึ้นกับมัน · ยกเลิกแล้ว lifecycle = 'voided' อยู่หมวด "ข้อมูลผิดพลาด" ไม่นับในทะเบียน รายงาน และ Excel
+// คืนข้อความเหตุผลที่ยกเลิกไม่ได้ ('' = ยกเลิกได้)
+export function voidBlockReason(a: Pick<Asset, 'lifecycle' | 'parentId' | 'setId'>, history: { requests: number; counted: number }): string {
+  if (a.lifecycle !== 'active') return 'รายการนี้ไม่อยู่ในทะเบียนที่ถือครองแล้ว จึงยกเลิกไม่ได้';
+  if (a.parentId) return 'รายการนี้มาจากการแบ่งล็อต จึงยกเลิกไม่ได้';
+  if (a.setId) return 'ครุภัณฑ์ในชุดห้ามแยก จึงยกเลิกทีละรายการไม่ได้';
+  if (history.requests) return 'รายการนี้เคยมีคำขอโอนย้าย/ซ่อม/จำหน่ายแล้ว จึงยกเลิกไม่ได้';
+  if (history.counted) return 'รายการนี้เคยถูกตรวจนับแล้ว จึงยกเลิกไม่ได้';
+  return '';
+}
+// หมายเลขครุภัณฑ์ห้ามซ้ำในฐานข้อมูล: เติมท้ายรหัสของรายการที่ยกเลิก ให้เพิ่มรายการที่ถูกต้องด้วยรหัสเดิมได้
+export const voidedCode = (code: string, id: string) => `${code} (ยกเลิก ${id.slice(0, 8)})`;
+
 // อายุการใช้งานคงเหลือ (ปี) ใช้ฐานวันเดียวกับ bookValue (1 ปี = 365.25 วัน) คืน null ถ้าไม่มีวันรับหรืออายุใช้งาน
 function elapsedDays(receivedDate: string, at: Date): number | null {
   const d = (receivedDate || '').trim();

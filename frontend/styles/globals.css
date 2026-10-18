@@ -818,6 +818,14 @@ button:focus-visible, a:focus-visible {
   color: #244fd7;
 }
 
+/* รายการที่ยกเลิกเพราะบันทึกผิด (หมวด "ข้อมูลผิดพลาด") */
+.badge.voided {
+  background: #f4f4f5;
+  color: #71717a;
+  outline: 1px solid #d4d4d8;
+  outline-offset: -1px;
+}
+
 .status-line {
   margin-top: 6px;
   display: flex;
