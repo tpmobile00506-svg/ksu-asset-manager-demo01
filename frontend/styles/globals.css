@@ -818,6 +818,67 @@ button:focus-visible, a:focus-visible {
   color: #244fd7;
 }
 
+/* ช่องติ๊กเลือกรายการในตาราง: แทนหน้าตาเดิมของเบราว์เซอร์ ขอบเทาบาง มุมมน ติ๊กแล้วพื้นน้ำเงินเครื่องหมายขาว
+   ยังเป็น <input type="checkbox"> เดิม จึงใช้คีย์บอร์ด/โปรแกรมอ่านหน้าจอ และสถานะเลือกบางส่วน (indeterminate) ได้เหมือนเดิม */
+.select-check {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-content: center;
+  vertical-align: middle;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.select-check-lg {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+}
+.select-check:hover:not(:disabled) {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+.select-check:checked,
+.select-check:indeterminate {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+.select-check:checked::after {
+  content: '';
+  width: 8px;
+  height: 4.5px;
+  border: 2px solid #fff;
+  border-top: 0;
+  border-right: 0;
+  transform: translateY(-1px) rotate(-45deg);
+}
+.select-check-lg:checked::after {
+  width: 10px;
+  height: 5.5px;
+}
+.select-check:indeterminate::after {
+  content: '';
+  width: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: #fff;
+}
+.select-check:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+.select-check:disabled {
+  cursor: default;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
 /* รายการที่ยกเลิกเพราะบันทึกผิด (หมวด "ข้อมูลผิดพลาด") */
 .badge.voided {
   background: #f4f4f5;

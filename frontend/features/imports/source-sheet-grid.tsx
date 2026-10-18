@@ -180,7 +180,7 @@ export default function SourceSheetGrid({ sourceId, sheets, revision, canImport,
                   title={r.issue || (r.fund ? 'หัวทุน: ' + r.fund.name : undefined)}>
                   <th className={`xls-rowhead ${can ? 'can' : ''}`}
                     onPointerDown={e => { e.preventDefault(); pressRow(index, e.shiftKey); }}>
-                    <input type="checkbox" aria-label={`เลือกแถว ${r.row}`} checked={on} disabled={!can} readOnly tabIndex={-1} />
+                    <input type="checkbox" className="select-check" aria-label={`เลือกแถว ${r.row}`} checked={on} disabled={!can} readOnly tabIndex={-1} />
                     <span>{r.row}</span>
                   </th>
                   {cells(r, cols)}
