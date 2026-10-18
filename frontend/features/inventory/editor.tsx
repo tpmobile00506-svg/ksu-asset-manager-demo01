@@ -23,7 +23,8 @@ import {
   satang,
   splitAmounts,
   standardBranches,
-  fiscalYearOf
+  fiscalYearOf,
+  ADMIN_APPROVES_ALL
 } from '@/shared/domain';
 import { Any, Pick, statusLabel } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
@@ -546,9 +547,9 @@ export default function Editor({
                       {modal.request.name}
                       <p className="mono">{modal.request.code}</p>
                       {modal.request.requesterName && <p className="mt-1">ผู้ยื่นคำขอ: <b>{modal.request.requesterName}</b></p>}
-                      {modal.kind === 'approve' && data.me.role === 'tester' && (
+                      {modal.kind === 'approve' && (data.me.role === 'tester' || (ADMIN_APPROVES_ALL && data.me.role === 'admin')) && (
                         <p className="mt-2 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-teal-800">
-                          บัญชีทดลอง: กดบันทึกแล้วคำขอนี้จะ<b>อนุมัติครบทุกขั้นทันที</b> (ข้ามขั้นที่เหลือ) และทะเบียนจะเปลี่ยนตามคำขอ
+                          {data.me.role === 'admin' ? 'Admin' : 'บัญชีทดลอง'}: กดบันทึกแล้วคำขอนี้จะ<b>อนุมัติครบทุกขั้นทันที</b> (ข้ามขั้นที่เหลือ) และทะเบียนจะเปลี่ยนตามคำขอ
                         </p>
                       )}
                       <p className="mt-1">เหตุผลของผู้ขอ: {modal.request.reason}</p>

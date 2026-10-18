@@ -1,5 +1,8 @@
 export const roles = {staff:'เจ้าหน้าที่พัสดุ (Staff)',head:'หัวหน้าสาขา (Head)',deputy:'รองคณบดี (Deputy)',dean:'คณบดี (Dean)',admin:'ผู้ดูแลระบบ (Admin)',tester:'ผู้ทดสอบระบบ (Tester)'} as const;
 export type Role = keyof typeof roles;
+// ชั่วคราว (ผู้ใช้ตัดสินใจ 18 ต.ค. 2569): Admin อนุมัติคำขอได้ กดครั้งเดียวจบทุกขั้น รวมคำขอของตัวเอง ใช้สาธิตบนเว็บจริง
+// ปิดหลังสอบโดยเปลี่ยนเป็น false — กฎเดิมคือ Admin อนุมัติไม่ได้ เพื่อแบ่งแยกหน้าที่ระหว่างคนดูแลระบบกับผู้อนุมัติ
+export const ADMIN_APPROVES_ALL = true;
 export const conditions = {normal:'ปกติ',damaged:'ชำรุด',repair:'กำลังซ่อม',missing:'ไม่พบ'} as const;
 export const requestTypes = {transfer:'โอนย้าย',repair:'ซ่อมบำรุง',disposal:'จำหน่าย / ตัดบัญชี'} as const;
 export const headers11 = ['ลำดับ','หมายเลขครุภัณฑ์','รายการ','จำนวน','ราคาต่อหน่วย','จำนวนเงิน','หมายเหตุ','สถานที่','สาขา','หมวด (กลุ่มต่างๆ)','สำนักงาน'];
@@ -319,7 +322,9 @@ export function awaitingApprovalByAsset(
 // คำขอนี้รอผู้ใช้คนนี้อนุมัติอยู่หรือไม่ (ใช้ทั้งหน้าคำขอและกระดิ่งแจ้งเตือน ให้นับตรงกัน)
 // ขั้นของหัวหน้าสาขา: ต้องเป็นสาขาเดียวกับครุภัณฑ์ · ห้ามอนุมัติคำขอของตัวเอง
 export function awaitsApprovalBy(r: { status: string; chain: string; stage: number; actor: string }, me: { id: string; role: string; branch?: string | null }, assetBranch?: string | null): boolean {
-  if (r.status !== 'pending' || r.actor === me.id) return false;
+  if (r.status !== 'pending') return false;
+  if (ADMIN_APPROVES_ALL && me.role === 'admin') return true;
+  if (r.actor === me.id) return false;
   // บัญชีผู้ทดสอบ (ผู้ใช้ตัดสินใจ 18 ต.ค. 2569): อนุมัติได้ทุกคำขอทุกสาขา กดครั้งเดียวจบทุกขั้นที่เหลือ
   if (me.role === 'tester') return true;
   let chain: string[] = ['head', 'deputy', 'dean'];
