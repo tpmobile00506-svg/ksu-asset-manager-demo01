@@ -24,7 +24,7 @@ import {
   AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Asset, conditions, satang, assetTypes, assetTypeOf, assetGroupOfType, academicBranches, officeBranches, isStandardBranch } from '@/shared/domain';
+import { Asset, conditions, satang, assetTypes, assetTypeOf, assetGroups, assetGroupOfType, UNGROUPED, academicBranches, officeBranches, isStandardBranch } from '@/shared/domain';
 import {
   Any,
   api,
@@ -34,6 +34,9 @@ import {
   getSessionSignal
 } from '@/frontend/components/common';
 import { WorkspaceData } from '@/frontend/types/models';
+
+// ช่องเลือกประเภทกับหมวดใช้หน้าตาเดียวกัน ให้สองช่องข้างกันสมส่วน
+const selectClass = 'h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 // สาขาวิชา / หน่วยงาน: เลือกจากรายการมาตรฐานเท่านั้น แยกกลุ่มสาขาวิชากับหน่วยงาน
 // ค่าเดิมที่ไม่อยู่ในรายการ (ข้อมูลเก่า) แสดงไว้ให้เห็น แต่บันทึกได้เมื่อเลือกค่ามาตรฐานแทนเท่านั้น
@@ -496,7 +499,7 @@ export default function AssetFormModal({
                       value={categoryInput}
                       onChange={e => setCategoryInput(e.target.value)}
                       required
-                      className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className={selectClass}
                     >
                       <option value="" disabled>เลือกประเภทครุภัณฑ์</option>
                       {assetTypes.map(cat => <option key={cat} value={cat}>{cat} ({assetGroupOfType(cat)})</option>)}
@@ -504,10 +507,20 @@ export default function AssetFormModal({
                         <option value={categoryInput}>{categoryInput} (ค่าเดิม ไม่อยู่ในรายการ)</option>}
                     </select>
                   </label>
-                  {/* หมวด = ชื่อแผ่นงานของประเภท (สำนักงาน คอม ไฟฟ้า ...) ระบบตั้งให้จากประเภท แก้เองไม่ได้ */}
+                  {/* หมวด = ชื่อแผ่นงานของประเภท (สำนักงาน คอม ไฟฟ้า ...) คู่กันหนึ่งต่อหนึ่ง เลือกหมวดแล้วประเภทเปลี่ยนตาม (ผู้ใช้ขอ 18 ต.ค. 2569)
+                      ไม่ส่งช่องนี้ไปเซิร์ฟเวอร์ เซิร์ฟเวอร์คิดหมวดจากประเภทเองเสมอ */}
                   <label>
-                    <span>หมวด (กลุ่มต่างๆ)</span>
-                    <Input value={assetGroupOfType(categoryInput)} readOnly tabIndex={-1} className="bg-slate-50 text-slate-600" />
+                    <span>หมวด (กลุ่มต่างๆ) *</span>
+                    <select
+                      value={categoryInput ? assetGroupOfType(categoryInput) : ''}
+                      onChange={e => setCategoryInput(assetTypeOf(e.target.value))}
+                      className={selectClass}
+                    >
+                      <option value="" disabled>เลือกหมวด</option>
+                      {assetGroups.filter(g => g !== UNGROUPED).map(g => <option key={g} value={g}>{g} ({assetTypeOf(g)})</option>)}
+                      {categoryInput && assetGroupOfType(categoryInput) === UNGROUPED &&
+                        <option value={UNGROUPED} disabled>{UNGROUPED}</option>}
+                    </select>
                   </label>
                 </div>
               </div>
