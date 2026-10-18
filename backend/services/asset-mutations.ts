@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { prisma, json, plain, type Transaction, Prisma } from '../db/client';
 import { freshMember, publicUserFields, hashPassword, passwordFingerprint, type Member } from '../auth/sessions';
-import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, assetTypes, assetGroupOfType, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride, thaiFiscalYear, nextRequestSeq } from '../contracts/domain';
+import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, assetTypes, assetGroupOfType, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride, thaiFiscalYear, nextRequestSeq, ADMIN_APPROVES_ALL } from '../contracts/domain';
 import { ApiError, clean, allow, now, id, asset, audit, dimensions, financialData, insertAsset, validated, getSource, registeredCodes, loadOverrides, overridesKey } from './asset-service';
 import { assetImageKey } from '../storage/asset-image-metadata';
 import { importFileAction, isImportFileAction } from './import-files';
@@ -546,13 +546,14 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     const r = await tx.assetRequest.findUnique({ where: { id: reqId } });
     if (!r || r.status !== 'pending' || r.version !== reqVersion) throw new ApiError('คำขอเปลี่ยนแล้ว กรุณาโหลดใหม่', 409);
     // บัญชีผู้ทดสอบ (tester) ใช้ทดลอง/สาธิต: ข้ามการตรวจบทบาทและสาขาของขั้น แต่ยังห้ามอนุมัติคำขอของตัวเอง
-    const chain = JSON.parse(r.chain), tester = m.role === 'tester';
-    if (!tester) allow(m, [chain[r.stage]]);
-    if (r.actor === m.id) throw new ApiError('ไม่สามารถอนุมัติคำขอตนเอง');
+    // Admin (ชั่วคราว ADMIN_APPROVES_ALL) อนุมัติได้เหมือนบัญชีทดลอง และอนุมัติคำขอของตัวเองได้
+    const chain = JSON.parse(r.chain), tester = m.role === 'tester', adminAll = ADMIN_APPROVES_ALL && m.role === 'admin', skipper = tester || adminAll;
+    if (!skipper) allow(m, [chain[r.stage]]);
+    if (r.actor === m.id && !adminAll) throw new ApiError('ไม่สามารถอนุมัติคำขอตนเอง');
     const a = await asset(tx, r.assetId);
     if (a.version !== r.assetVersion || a.lifecycle !== 'active') throw new ApiError('ข้อมูลครุภัณฑ์เปลี่ยนแล้ว คำขอเดิมใช้ไม่ได้', 409);
 
-    if (!tester && chain[r.stage] === 'head') {
+    if (!skipper && chain[r.stage] === 'head') {
       const userBranch = m.branch ? normalizeBranch(m.branch, '', '') : null;
       const assetBranch = a.branch ? normalizeBranch(a.branch, '', '') : null;
       if (!userBranch || !assetBranch || userBranch !== assetBranch) {
@@ -563,13 +564,13 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     const note = clean(reason ?? '');
     if (action === 'reject' && !note) throw new ApiError('กรุณาระบุเหตุผลส่งกลับ');
     // ผู้ทดสอบกดอนุมัติ = ลงนามทุกขั้นที่เหลือในครั้งเดียว และระบุในหมายเหตุว่าข้ามขั้น ไม่ปนกับลายเซ็นจริงของผู้บริหาร
-    const skipAll = tester && action === 'approve';
+    const skipAll = skipper && action === 'approve', by = adminAll ? 'Admin' : 'บัญชีทดลอง (ผู้ทดสอบระบบ)';
     const stages: number[] = skipAll ? chain.map((_: string, i: number) => i).slice(r.stage) : [r.stage];
     const last = stages[stages.length - 1], final = action === 'approve' && last === chain.length - 1;
-    const signedNote = skipAll ? ['อนุมัติข้ามขั้นโดยบัญชีทดลอง (ผู้ทดสอบระบบ)', note].filter(Boolean).join(' · ') : note;
+    const signedNote = skipAll ? [`อนุมัติข้ามขั้นโดย${by}`, note].filter(Boolean).join(' · ') : note;
     for (const stage of stages) await tx.approval.create({ data: { id: id(), requestId: r.id, stage, decision: action, actor: m.id, note: signedNote, createdAt: now() } });
     await tx.assetRequest.update({ where: { id: r.id }, data: { stage: action === 'approve' ? last + 1 : r.stage, status: action === 'reject' ? 'rejected' : final ? 'approved' : 'pending', version: { increment: 1 } } });
-    await audit(tx, m, action === 'reject' ? 'ส่งคำขอกลับ' : skipAll ? 'อนุมัติคำขอ (ข้ามขั้น · บัญชีทดลอง)' : 'อนุมัติคำขอ', a.id, r, { stage: last + 1, final }, note);
+    await audit(tx, m, action === 'reject' ? 'ส่งคำขอกลับ' : skipAll ? `อนุมัติคำขอ (ข้ามขั้น · ${adminAll ? 'Admin' : 'บัญชีทดลอง'})` : 'อนุมัติคำขอ', a.id, r, { stage: last + 1, final }, note);
     if (final) {
       const payload = JSON.parse(r.payload);
       let target: Asset = a;
