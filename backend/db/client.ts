@@ -33,13 +33,23 @@ export async function disconnectDatabase() {
 }
 import { ensureDatabaseReady } from './init';
 
-export async function checkDatabase() {
+// ตรวจความพร้อมของฐานข้อมูลครั้งเดียวต่อการเชื่อมต่อ (เดิมตรวจทุกคำขอ เสีย 2 คำสั่งไปกลับ ช้ามากเมื่อเซิร์ฟเวอร์อยู่ไกลฐานข้อมูล)
+// ตรวจไม่ผ่านจะไม่จำผล คำขอถัดไปตรวจใหม่ · หน้า /api/health ส่ง fresh: true เพื่อตรวจจริงทุกครั้ง
+const readyPools = new WeakMap<pg.Pool, Promise<void>>();
+export async function checkDatabase({ fresh = false } = {}) {
+  let pool: pg.Pool | undefined;
   try {
-    const pool = getPool();
-    await pool.query('SELECT 1');
-    await ensureDatabaseReady(pool);
+    pool = getPool();
+    let ready = fresh ? undefined : readyPools.get(pool);
+    if (!ready) {
+      const target = pool;
+      ready = (async () => { await target.query('SELECT 1'); await ensureDatabaseReady(target); })();
+      readyPools.set(pool, ready);
+    }
+    await ready;
   }
   catch (error) {
+    if (pool) readyPools.delete(pool);
     console.error('Database unavailable', { code: (error as { code?: string }).code });
     throw new ApiError('ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาลองใหม่ภายหลัง', 503);
   }
