@@ -684,6 +684,7 @@ export default function Workspace(){
         onSplit={()=>open('split',{asset:selected})}
         onRepairComplete={()=>open('repairComplete',{asset:selected})}
         onVoid={()=>open('void',{asset:selected})}
+        onRestore={()=>open('restore',{asset:selected})}
         onSelectAsset={(a)=>setSelected(a)}
         onPhotoChanged={reload}
         rounds={data.rounds}

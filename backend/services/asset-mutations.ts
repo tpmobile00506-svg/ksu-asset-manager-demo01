@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { prisma, json, plain, type Transaction, Prisma } from '../db/client';
 import { freshMember, publicUserFields, hashPassword, passwordFingerprint, type Member } from '../auth/sessions';
-import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, assetTypes, assetGroupOfType, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride, thaiFiscalYear, nextRequestSeq, ADMIN_APPROVES_ALL, voidBlockReason, voidedCode } from '../contracts/domain';
+import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, assetTypes, assetGroupOfType, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride, thaiFiscalYear, nextRequestSeq, ADMIN_APPROVES_ALL, voidBlockReason, voidedCode, restoredCode } from '../contracts/domain';
 import { ApiError, clean, allow, now, id, asset, audit, dimensions, financialData, insertAsset, validated, getSource, registeredCodes, loadOverrides, overridesKey } from './asset-service';
 import { assetImageKey } from '../storage/asset-image-metadata';
 import { importFileAction, isImportFileAction } from './import-files';
@@ -556,6 +556,27 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
       await tx.asset.update({ where: { id: a.id }, data: { lifecycle: 'voided', code, version: { increment: 1 } } });
       await audit(tx, m, 'ยกเลิกรายการ (ข้อมูลผิดพลาด)', a.id, a, { lifecycle: 'voided', code, sourceRowReopened }, reason);
     }
+    return { ok: true };
+  }
+  // กู้คืนรายการที่ยกเลิก (หมวด "ข้อมูลผิดพลาด") กลับเข้าทะเบียนที่ถือครอง (ผู้ใช้ขอ 18 ต.ค. 2569)
+  if (action === 'restore') {
+    allow(m, ['staff', 'admin']);
+    const a = await asset(tx, clean(b.id));
+    if (a.lifecycle !== 'voided') throw new ApiError('รายการนี้ไม่ได้อยู่ในหมวดข้อมูลผิดพลาด จึงกู้คืนไม่ได้');
+    if (a.version !== b.version) throw new ApiError('ข้อมูลเปลี่ยนแล้ว กรุณาโหลดใหม่', 409);
+    const reason = clean(b.reason ?? '');
+    if (!reason) throw new ApiError('กรุณาระบุเหตุผลที่กู้คืนรายการ');
+    // รหัสเดิมอาจถูกใช้แล้ว (เช่น เพิ่มรายการที่ถูกต้องด้วยรหัสเดิมไปแล้ว) → แจ้งว่าซ้ำกับรายการไหน
+    const code = restoredCode(a.code, a.id);
+    await assertCodesFree(tx, [code], a.id);
+    // ตอนยกเลิกอาจเปิดแถว Excel ต้นฉบับให้นำเข้าใหม่ไว้ → บันทึกกลับว่านำเข้าแล้ว กันนำเข้าซ้ำ
+    let sourceRowRestored = false;
+    if (a.sourceId && a.sourceRow && !(await tx.sourceRow.findFirst({ where: { sourceId: a.sourceId, sourceRow: a.sourceRow }, select: { id: true } }))) {
+      await tx.sourceRow.create({ data: { id: id(), sourceId: a.sourceId, sourceRow: a.sourceRow, raw: json({ restoredAssetId: a.id }), decision: 'imported', reason, actor: m.id, createdAt: now() } });
+      sourceRowRestored = true;
+    }
+    await tx.asset.update({ where: { id: a.id }, data: { lifecycle: 'active', code, version: { increment: 1 } } });
+    await audit(tx, m, 'กู้คืนรายการ (จากข้อมูลผิดพลาด)', a.id, a, { lifecycle: 'active', code, sourceRowRestored }, reason);
     return { ok: true };
   }
   if (action === 'approve' || action === 'reject') {

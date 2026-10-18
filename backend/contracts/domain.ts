@@ -574,6 +574,11 @@ export function voidBlockReason(a: Pick<Asset, 'lifecycle' | 'parentId' | 'setId
 }
 // หมายเลขครุภัณฑ์ห้ามซ้ำในฐานข้อมูล: เติมท้ายรหัสของรายการที่ยกเลิก ให้เพิ่มรายการที่ถูกต้องด้วยรหัสเดิมได้
 export const voidedCode = (code: string, id: string) => `${code} (ยกเลิก ${id.slice(0, 8)})`;
+// กู้คืนรายการที่ยกเลิก: ตัดส่วนท้ายที่ voidedCode เติมไว้ คืนรหัสเดิม (รหัสที่ไม่มีส่วนท้ายนี้คืนตามเดิม)
+export function restoredCode(code: string, id: string): string {
+  const suffix = voidedCode('', id);
+  return code.endsWith(suffix) ? code.slice(0, -suffix.length) : code;
+}
 
 // อายุการใช้งานคงเหลือ (ปี) ใช้ฐานวันเดียวกับ bookValue (1 ปี = 365.25 วัน) คืน null ถ้าไม่มีวันรับหรืออายุใช้งาน
 function elapsedDays(receivedDate: string, at: Date): number | null {

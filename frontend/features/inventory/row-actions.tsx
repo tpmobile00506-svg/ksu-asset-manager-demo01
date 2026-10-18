@@ -1,5 +1,5 @@
 'use client';
-import { MoreHorizontal, Eye, Pencil, Scissors, ArrowLeftRight, QrCode, Ban } from 'lucide-react';
+import { MoreHorizontal, Eye, Pencil, Scissors, ArrowLeftRight, QrCode, Ban, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Asset } from '@/shared/domain';
@@ -14,6 +14,7 @@ export function RowActions({ asset, editable, open, view }: { asset: Asset; edit
   const many = asset.quantity > 1 && !asset.setId;
   // ยกเลิกรายการที่บันทึกผิด: ซ่อนเมื่อรู้แน่ว่ายกเลิกไม่ได้ (ลูกจากแบ่งล็อต/ของในชุด) ที่เหลือเซิร์ฟเวอร์ตรวจประวัติอีกชั้น
   const voidable = can && !asset.parentId && !asset.setId;
+  const restorable = editable && asset.lifecycle === 'voided';
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -30,6 +31,8 @@ export function RowActions({ asset, editable, open, view }: { asset: Asset; edit
         {can && <DropdownMenuItem onSelect={() => open('qr', { assets: [asset] })}><QrCode size={14} />พิมพ์ QR</DropdownMenuItem>}
         {voidable && <DropdownMenuSeparator />}
         {voidable && <DropdownMenuItem className="text-rose-700 focus:text-rose-700" onSelect={() => open('void', { asset })}><Ban size={14} />ยกเลิกรายการ (บันทึกผิด)</DropdownMenuItem>}
+        {restorable && <DropdownMenuSeparator />}
+        {restorable && <DropdownMenuItem className="text-emerald-700 focus:text-emerald-700" onSelect={() => open('restore', { asset })}><RotateCcw size={14} />กู้คืนรายการ</DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>
   );

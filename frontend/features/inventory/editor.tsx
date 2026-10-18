@@ -24,7 +24,8 @@ import {
   splitAmounts,
   standardBranches,
   fiscalYearOf,
-  ADMIN_APPROVES_ALL
+  ADMIN_APPROVES_ALL,
+  restoredCode
 } from '@/shared/domain';
 import { Any, Pick, statusLabel } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
@@ -66,7 +67,8 @@ const titleMap: Record<string, string> = {
   source: 'ข้อมูลต้นฉบับ',
   qr: 'ป้าย QR ประจำครุภัณฑ์',
   repairComplete: 'บันทึกผลการซ่อม',
-  void: 'ยกเลิกรายการที่บันทึกผิด'
+  void: 'ยกเลิกรายการที่บันทึกผิด',
+  restore: 'กู้คืนรายการที่ยกเลิก'
 };
 
 export default function Editor({
@@ -201,9 +203,9 @@ export default function Editor({
           repairedBy: f.repairedBy,
           reason: f.reason
         });
-      } else if (modal.kind === 'void') {
+      } else if (modal.kind === 'void' || modal.kind === 'restore') {
         await write({
-          action: 'void',
+          action: modal.kind,
           id: modal.asset.id,
           version: modal.asset.version,
           reason: f.reason
@@ -790,6 +792,35 @@ export default function Editor({
                     </label>
                   </div>
                 )}
+
+                {modal?.kind === 'restore' && (
+                  <div className="flex flex-col gap-4">
+                    <div className="notice">
+                      <b>{modal.asset.name}</b>
+                      <p className="mono">{modal.asset.code}</p>
+                      <p className="mt-1">
+                        กู้คืนแล้วใช้รหัส <b className="mono">{restoredCode(modal.asset.code, modal.asset.id)}</b> ·{' '}
+                        {modal.asset.quantity.toLocaleString('th-TH')} ชิ้น · มูลค่า {money(modal.asset.totalSatang)} บาท
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                      รายการจะกลับเข้า<b>ทะเบียนที่ถือครอง</b> และนับในรายงานกับไฟล์ Excel อีกครั้ง
+                      <ul className="mt-1 list-disc pl-5">
+                        <li>ถ้ารหัสเดิมถูกใช้กับรายการใหม่ไปแล้ว จะกู้คืนไม่ได้ (ระบบจะบอกว่าซ้ำกับรายการไหน)</li>
+                        <li>ไม่ถูกใส่กลับเข้ารอบตรวจนับที่เปิดอยู่ เหมือนรายการที่เพิ่มหลังเปิดรอบ</li>
+                      </ul>
+                    </div>
+                    <label>
+                      <span>เหตุผลที่กู้คืน *</span>
+                      <Textarea
+                        required
+                        name="reason"
+                        placeholder="เช่น กดยกเลิกผิดรายการ"
+                        rows={2}
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
 
               <div className="dialog-footer-sticky">
@@ -806,6 +837,8 @@ export default function Editor({
                     ? 'กำลังบันทึก…'
                     : modal?.kind === 'void'
                     ? 'ยืนยันยกเลิกรายการ'
+                    : modal?.kind === 'restore'
+                    ? 'ยืนยันกู้คืนรายการ'
                     : modal?.kind === 'split'
                     ? 'ยืนยันแบ่งล็อต'
                     : modal?.kind === 'request'
