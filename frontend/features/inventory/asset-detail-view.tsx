@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   Calendar,
   FolderOpen,
-  Ban
+  Ban,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,8 @@ interface AssetDetailViewProps {
   onRepairComplete?: () => void;
   // ยกเลิกรายการที่บันทึกผิด (หมวด "ข้อมูลผิดพลาด")
   onVoid?: () => void;
+  // กู้คืนรายการที่ยกเลิกกลับเข้าทะเบียน
+  onRestore?: () => void;
   onSelectAsset?: (a: Asset) => void;
   onPhotoChanged: () => Promise<void>;
   rounds?: any[];
@@ -56,6 +59,7 @@ export default function AssetDetailView({
   onSplit,
   onRepairComplete,
   onVoid,
+  onRestore,
   onSelectAsset,
   onPhotoChanged,
   rounds = [],
@@ -251,6 +255,16 @@ export default function AssetDetailView({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {editable && asset.lifecycle === 'voided' && onRestore && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRestore}
+                className="h-9 px-3 text-xs font-semibold text-emerald-700 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 cursor-pointer"
+              >
+                <RotateCcw size={13} className="mr-1.5" /> กู้คืนรายการ
+              </Button>
+            )}
             {editable && asset.lifecycle === 'active' && (
               <>
                 <Button
@@ -293,13 +307,15 @@ export default function AssetDetailView({
                 )}
               </>
             )}
-            <Button
-              size="sm"
-              onClick={onRequest}
-              className="h-9 px-3.5 text-xs font-semibold bg-[#2563eb] hover:bg-[#1d4ed8] text-white cursor-pointer shadow-sm"
-            >
-              <ArrowLeftRight size={14} className="mr-1.5" /> ส่งคำขอ (โอนย้าย/ซ่อม/จำหน่าย)
-            </Button>
+            {asset.lifecycle !== 'voided' && (
+              <Button
+                size="sm"
+                onClick={onRequest}
+                className="h-9 px-3.5 text-xs font-semibold bg-[#2563eb] hover:bg-[#1d4ed8] text-white cursor-pointer shadow-sm"
+              >
+                <ArrowLeftRight size={14} className="mr-1.5" /> ส่งคำขอ (โอนย้าย/ซ่อม/จำหน่าย)
+              </Button>
+            )}
           </div>
         </div>
       </div>

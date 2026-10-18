@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mutate } from '../services/asset-mutations';
-import { voidBlockReason, voidedCode, type Asset } from '../contracts/domain';
+import { voidBlockReason, voidedCode, restoredCode, type Asset } from '../contracts/domain';
 import { createAssetWorkbook } from '../../frontend/services/excel-export';
 import type { Member } from '../auth/sessions';
 
@@ -116,4 +116,80 @@ test('Excel: รายการที่ยกเลิก (ข้อมูล�
   for (const s of sheets) s.eachRow(row => row.eachCell(cell => { texts.push(String(cell.value ?? '')); }));
   assert.ok(texts.some(t => t.includes('OK-1')));
   assert.ok(!texts.some(t => t.includes('WRONG-1')));
+});
+
+// กู้คืนรายการที่ยกเลิก: กลับเข้าทะเบียนที่ถือครองด้วยรหัสเดิม (ถ้ารหัสเดิมยังว่าง)
+// others = รายการอื่นในทะเบียน (ใช้ตรวจรหัสซ้ำ) · decided = แถว Excel ต้นฉบับยังมีบันทึกว่านำเข้าแล้วหรือไม่
+function restoreEnvironment(member: Member, overrides: Record<string, unknown> = {}, others: Array<Record<string, unknown>> = [], decided = false) {
+  const asset: Record<string, any> = { id: ASSET_ID, code: 'วค.01-0001 (ยกเลิก abcdef12)', name: 'คอมพิวเตอร์', quantity: 1, unitSatang: 1500000, totalSatang: 1500000,
+    salvageSatang: 0, branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', location: 'ห้อง 1', condition: 'normal', lifecycle: 'voided', version: 3,
+    parentId: null, setId: null, sourceId: 'src-1', sourceRow: 'คอม!12', ...overrides };
+  const log = { sourceRowCreated: [] as Array<Record<string, any>>, audits: [] as Array<Record<string, any>> };
+  const tx = {
+    user: { findUnique: async () => member },
+    asset: {
+      findUnique: async () => ({ ...asset }),
+      findMany: async () => [{ ...asset }, ...others],
+      update: async ({ data }: { data: Record<string, any> }) => { const { version, ...rest } = data; Object.assign(asset, rest); if (version?.increment) asset.version += 1; return asset; },
+    },
+    sourceRow: {
+      findFirst: async () => (decided ? { id: 'decision-1' } : null),
+      create: async ({ data }: { data: Record<string, any> }) => { log.sourceRowCreated.push(data); return data; },
+    },
+    operation: { findUnique: async () => null, create: async () => ({}) },
+    audit: { create: async ({ data }: { data: Record<string, any> }) => { log.audits.push(data); return data; } },
+  };
+  return { asset, log, restore: useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) }) };
+}
+
+test('restoredCode ตัดส่วนท้าย "(ยกเลิก ไอดี 8 ตัว)" ออก · รหัสที่ไม่มีส่วนท้ายคืนตามเดิม', () => {
+  assert.equal(restoredCode('วค.01-0001 (ยกเลิก abcdef12)', ASSET_ID), 'วค.01-0001');
+  assert.equal(restoredCode('วค.01-0001', ASSET_ID), 'วค.01-0001');
+  assert.equal(restoredCode('วค.01-0001 (ยกเลิก 99999999)', ASSET_ID), 'วค.01-0001 (ยกเลิก 99999999)');   // ไอดีไม่ตรงกับรายการนี้
+});
+
+test('กู้คืน → ทะเบียนที่ถือครอง รหัสเดิม และบันทึกแถว Excel กลับว่านำเข้าแล้ว', async () => {
+  const env = restoreEnvironment(staff);
+  try {
+    await mutate(staff, { action: 'restore', id: ASSET_ID, version: 3, reason: 'กดยกเลิกผิดรายการ' });
+    assert.equal(env.asset.lifecycle, 'active');
+    assert.equal(env.asset.code, 'วค.01-0001');
+    assert.equal(env.asset.version, 4);
+    assert.equal(env.log.sourceRowCreated.length, 1);
+    assert.equal(env.log.sourceRowCreated[0].sourceId, 'src-1');
+    assert.equal(env.log.sourceRowCreated[0].sourceRow, 'คอม!12');
+    assert.equal(env.log.sourceRowCreated[0].decision, 'imported');
+    assert.equal(env.log.audits.length, 1);
+    assert.equal(env.log.audits[0].action, 'กู้คืนรายการ (จากข้อมูลผิดพลาด)');
+    assert.equal(env.log.audits[0].reason, 'กดยกเลิกผิดรายการ');
+  } finally { env.restore(); }
+});
+
+test('กู้คืน: แถว Excel ยังมีบันทึกนำเข้าอยู่ (มีรายการอื่นจากแถวเดียวกัน) → ไม่สร้างซ้ำ', async () => {
+  const env = restoreEnvironment(staff, {}, [], true);
+  try {
+    await mutate(staff, { action: 'restore', id: ASSET_ID, version: 3, reason: 'กดยกเลิกผิดรายการ' });
+    assert.equal(env.asset.lifecycle, 'active');
+    assert.equal(env.log.sourceRowCreated.length, 0);
+  } finally { env.restore(); }
+});
+
+test('กู้คืนไม่ได้: รหัสเดิมถูกใช้แล้ว (409) · ไม่ได้อยู่ในหมวดข้อมูลผิดพลาด · ไม่มีเหตุผล · หัวหน้าสาขา (403) — ทะเบียนไม่เปลี่ยน', async () => {
+  const taken = { id: 'new-1', code: 'วค.01-0001', name: 'คอมพิวเตอร์ (เพิ่มใหม่)', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', lifecycle: 'active' };
+  const cases: Array<[Member, Record<string, unknown>, Array<Record<string, unknown>>, Record<string, unknown>, (e: any) => boolean]> = [
+    [staff, {}, [taken], {}, e => e?.status === 409 && /ซ้ำ/.test(e?.message)],
+    [staff, { lifecycle: 'active', code: 'วค.01-0001' }, [], {}, e => /ไม่ได้อยู่ในหมวดข้อมูลผิดพลาด/.test(e?.message)],
+    [staff, {}, [], { reason: '' }, e => /เหตุผล/.test(e?.message)],
+    [head, {}, [], {}, e => e?.status === 403],
+  ];
+  for (const [member, overrides, others, input, check] of cases) {
+    const env = restoreEnvironment(member, overrides, others);
+    const before = { lifecycle: env.asset.lifecycle, code: env.asset.code };
+    try {
+      await assert.rejects(mutate(member, { action: 'restore', id: ASSET_ID, version: 3, reason: 'กดยกเลิกผิดรายการ', ...input }), check);
+      assert.deepEqual({ lifecycle: env.asset.lifecycle, code: env.asset.code }, before);
+      assert.equal(env.log.audits.length, 0);
+      assert.equal(env.log.sourceRowCreated.length, 0);
+    } finally { env.restore(); }
+  }
 });
