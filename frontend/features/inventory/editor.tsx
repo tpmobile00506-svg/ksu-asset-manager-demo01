@@ -65,7 +65,8 @@ const titleMap: Record<string, string> = {
   user: 'กำหนดสิทธิ์ผู้ใช้',
   source: 'ข้อมูลต้นฉบับ',
   qr: 'ป้าย QR ประจำครุภัณฑ์',
-  repairComplete: 'บันทึกผลการซ่อม'
+  repairComplete: 'บันทึกผลการซ่อม',
+  void: 'ยกเลิกรายการที่บันทึกผิด'
 };
 
 export default function Editor({
@@ -198,6 +199,13 @@ export default function Editor({
           version: modal.asset.version,
           costSatang: satang(f.cost),
           repairedBy: f.repairedBy,
+          reason: f.reason
+        });
+      } else if (modal.kind === 'void') {
+        await write({
+          action: 'void',
+          id: modal.asset.id,
+          version: modal.asset.version,
           reason: f.reason
         });
       }
@@ -752,6 +760,36 @@ export default function Editor({
                     </label>
                   </div>
                 )}
+
+                {modal?.kind === 'void' && (
+                  <div className="flex flex-col gap-4">
+                    <div className="notice">
+                      <b>{modal.asset.name}</b>
+                      <p className="mono">{modal.asset.code}</p>
+                      <p className="mt-1">
+                        {modal.asset.quantity.toLocaleString('th-TH')} ชิ้น · มูลค่า {money(modal.asset.totalSatang)} บาท
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                      ใช้เมื่อ<b>บันทึกผิด</b>เท่านั้น เช่น เพิ่มซ้ำ เพิ่มผิดชิ้น หรือใส่ราคา/จำนวนผิด
+                      (ถ้าของถูกจำหน่ายจริง ให้ยื่นคำขอจำหน่ายแทน)
+                      <ul className="mt-1 list-disc pl-5">
+                        <li>รายการจะย้ายไปหมวด "ข้อมูลผิดพลาด" ไม่นับในทะเบียน รายงาน และไฟล์ Excel</li>
+                        <li>รหัสเดิมว่างให้เพิ่มรายการที่ถูกต้องใหม่ได้ · ประวัติการยกเลิกยังเก็บไว้ตรวจย้อนหลัง</li>
+                        <li>ทำย้อนกลับไม่ได้</li>
+                      </ul>
+                    </div>
+                    <label>
+                      <span>เหตุผลที่ยกเลิก *</span>
+                      <Textarea
+                        required
+                        name="reason"
+                        placeholder="เช่น ใส่ราคาผิด 15,000 ที่ถูกคือ 1,500 จะเพิ่มรายการใหม่ให้ถูกต้อง"
+                        rows={2}
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
 
               <div className="dialog-footer-sticky">
@@ -763,9 +801,11 @@ export default function Editor({
                 >
                   ยกเลิก
                 </Button>
-                <Button type="submit" disabled={busy}>
+                <Button type="submit" disabled={busy} variant={modal?.kind === 'void' ? 'destructive' : 'default'}>
                   {busy
                     ? 'กำลังบันทึก…'
+                    : modal?.kind === 'void'
+                    ? 'ยืนยันยกเลิกรายการ'
                     : modal?.kind === 'split'
                     ? 'ยืนยันแบ่งล็อต'
                     : modal?.kind === 'request'

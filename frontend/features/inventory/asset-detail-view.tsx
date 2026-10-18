@@ -14,7 +14,8 @@ import {
   QrCode,
   CheckCircle2,
   Calendar,
-  FolderOpen
+  FolderOpen,
+  Ban
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,8 @@ interface AssetDetailViewProps {
   onRequest: () => void;
   onSplit?: () => void;
   onRepairComplete?: () => void;
+  // ยกเลิกรายการที่บันทึกผิด (หมวด "ข้อมูลผิดพลาด")
+  onVoid?: () => void;
   onSelectAsset?: (a: Asset) => void;
   onPhotoChanged: () => Promise<void>;
   rounds?: any[];
@@ -52,6 +55,7 @@ export default function AssetDetailView({
   onRequest,
   onSplit,
   onRepairComplete,
+  onVoid,
   onSelectAsset,
   onPhotoChanged,
   rounds = [],
@@ -275,6 +279,16 @@ export default function AssetDetailView({
                     className="h-9 px-3 text-xs font-semibold text-emerald-700 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 cursor-pointer"
                   >
                     <Wrench size={13} className="mr-1.5" /> บันทึกซ่อมเสร็จ
+                  </Button>
+                )}
+                {onVoid && !asset.parentId && !asset.setId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onVoid}
+                    className="h-9 px-3 text-xs font-semibold text-rose-700 border-rose-200 hover:bg-rose-50 cursor-pointer"
+                  >
+                    <Ban size={13} className="mr-1.5" /> ยกเลิกรายการ (บันทึกผิด)
                   </Button>
                 )}
               </>

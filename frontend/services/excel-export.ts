@@ -52,8 +52,11 @@ function sheetTitle(type: string, used: Set<string>) {
   return title;
 }
 
+// ไม่ออกรายงาน: แม่ที่แบ่งล็อตแล้ว (ลูกออกแทน) และรายการที่ยกเลิกเพราะบันทึกผิด
+const inReport = (a: Asset) => a.lifecycle !== 'split' && a.lifecycle !== 'voided';
+
 export async function createAssetWorkbook(assets: Asset[], options: AssetExportOptions = {}) {
-  assets = assets.filter(a => a.lifecycle !== 'split');
+  assets = assets.filter(inReport);
   const ExcelModule = await import('exceljs');
   const Excel = (ExcelModule as any).default || ExcelModule;
   const w = new Excel.Workbook();
@@ -445,7 +448,7 @@ function paginate(lines: ReportLine[], rowsPerPage = ITEMS_PER_ASSET_PAGE): Repo
 
 // จำนวนหน้าของรายงานครุภัณฑ์คงเหลือ (ใช้นับ "แนบท้ายหน้า" ของรายงานพัสดุชำรุด)
 export function assetReportPageCount(assets: Asset[], layout: PageLayout = 'portrait'): number {
-  const groups = byAssetType(assets.filter(a => a.lifecycle !== 'split'));
+  const groups = byAssetType(assets.filter(inReport));
   return groups.length ? groups.reduce((n, [, list]) => n + paginate(reportLines(list), pageLayouts[layout].rows).length, 0) : 1;
 }
 
