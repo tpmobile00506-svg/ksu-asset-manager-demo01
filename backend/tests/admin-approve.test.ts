@@ -79,3 +79,16 @@ test('awaitsApprovalBy: Admin เห็นปุ่มพิจารณาท�
   assert.equal(awaitsApprovalBy({ ...r, stage: 0, actor: head.id }, head, head.branch), false);
   assert.equal(awaitsApprovalBy({ ...r, actor: 'staff-1' }, staff, null), false);
 });
+
+// ปิดสวิตช์แล้ว (หลังสอบ 19 ต.ค. 2569): กลับเป็นกฎปกติ Admin อนุมัติ/ส่งกลับไม่ได้ (403) และไม่เห็นปุ่มพิจารณา
+test('ปิดสวิตช์: Admin อนุมัติไม่ได้ (403) คำขอยังรออยู่ที่ขั้นเดิม · awaitsApprovalBy เป็น false', { skip: ADMIN_APPROVES_ALL && 'สวิตช์ ADMIN_APPROVES_ALL ยังเปิดอยู่' }, async () => {
+  const env = environment(admin, staff.id);
+  try {
+    await assert.rejects(mutate(admin, { action: 'approve', id: 'req-1', version: 1, reason: '' }), (e: any) => e?.status === 403);
+    assert.equal(env.request.status, 'pending');
+    assert.equal(env.request.stage, 0);
+    assert.equal(env.approvals.length, 0);
+    assert.equal(env.asset.lifecycle, 'active');
+  } finally { env.restore(); }
+  assert.equal(awaitsApprovalBy({ status: 'pending', chain: '["head","deputy","dean"]', stage: 1, actor: 'staff-1' }, admin, null), false);
+});
