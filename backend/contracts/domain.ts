@@ -1,8 +1,8 @@
 export const roles = {staff:'เจ้าหน้าที่พัสดุ (Staff)',head:'หัวหน้าสาขา (Head)',deputy:'รองคณบดี (Deputy)',dean:'คณบดี (Dean)',admin:'ผู้ดูแลระบบ (Admin)',tester:'ผู้ทดสอบระบบ (Tester)'} as const;
 export type Role = keyof typeof roles;
-// ชั่วคราว (ผู้ใช้ตัดสินใจ 18 ต.ค. 2569): Admin อนุมัติคำขอได้ กดครั้งเดียวจบทุกขั้น รวมคำขอของตัวเอง ใช้สาธิตบนเว็บจริง
-// ปิดหลังสอบโดยเปลี่ยนเป็น false — กฎเดิมคือ Admin อนุมัติไม่ได้ เพื่อแบ่งแยกหน้าที่ระหว่างคนดูแลระบบกับผู้อนุมัติ
-export const ADMIN_APPROVES_ALL = true;
+// สวิตช์สาธิต (เปิด 18 ต.ค. 2569 ช่วงสอบ ปิดแล้ว 19 ต.ค. 2569 หลังสอบเสร็จ): true = Admin อนุมัติคำขอได้ กดครั้งเดียวจบทุกขั้น
+// กฎปกติคือ false — Admin อนุมัติไม่ได้ เพื่อแบ่งแยกหน้าที่ระหว่างคนดูแลระบบกับผู้อนุมัติ
+export const ADMIN_APPROVES_ALL = false;
 export const conditions = {normal:'ปกติ',damaged:'ชำรุด',repair:'กำลังซ่อม',missing:'ไม่พบ'} as const;
 export const requestTypes = {transfer:'โอนย้าย',repair:'ซ่อมบำรุง',disposal:'จำหน่าย / ตัดบัญชี'} as const;
 export const headers11 = ['ลำดับ','หมายเลขครุภัณฑ์','รายการ','จำนวน','ราคาต่อหน่วย','จำนวนเงิน','หมายเหตุ','สถานที่','สาขา','หมวด (กลุ่มต่างๆ)','สำนักงาน'];
