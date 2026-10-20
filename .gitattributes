@@ -1,0 +1,11 @@
+# ไฟล์ข้อความเก็บเป็น LF ทุกเครื่อง ตรงกับ Prettier (ไม่ขึ้นคำเตือน LF/CRLF บน Windows)
+* text=auto eol=lf
+
+# ไฟล์ไบนารี ห้ามแปลงอะไร
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.xlsx binary
+*.pdf binary
