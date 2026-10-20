@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { prisma, json, plain, type Transaction, Prisma } from '../db/client';
+import { prisma, json, plain, type Transaction, Prisma, isWriteConflict, writeConflictDelay } from '../db/client';
 import { freshMember, publicUserFields, hashPassword, passwordFingerprint, type Member } from '../auth/sessions';
 import {
   type Asset,
@@ -60,6 +60,8 @@ import {
 } from '../validation';
 
 type Input = Record<string, any>;
+// ชนกับคำขอของคนอื่นพร้อมกัน: ลองใหม่ได้สูงสุดกี่รอบ (รวมรอบแรก) ก่อนแจ้งผู้ใช้ให้ลองใหม่เอง
+const MAX_ATTEMPTS = 5;
 // รหัสชุดคงที่ต่อไฟล์ต้นฉบับ แถวในชุดเดียวกันที่นำเข้าคนละครั้งจึงเข้าชุดเดิม
 export function setIdFor(sourceId: string, setKey: string) {
   return (
@@ -207,8 +209,8 @@ export async function mutate(member: Member, input: Input) {
   }
   // Version/pending checks and writes must share a serializable snapshot.
   const isolationLevel: Prisma.TransactionIsolationLevel = 'Serializable';
-  // Serializable อาจยกเลิก transaction ที่ทำพร้อมกันแม้แก้คนละรายการ (P2034) เช่น 2 คนเพิ่มครุภัณฑ์พร้อมกัน
-  // ซึ่งต่างก็อ่านรหัสทั้งทะเบียนเพื่อตรวจรหัสซ้ำ: ทุกอย่างถูกย้อนกลับแล้ว จึงลองใหม่ได้อย่างปลอดภัย
+  // Serializable อาจยกเลิก transaction ที่ทำพร้อมกันแม้แก้คนละรายการ เช่น 2 คนเพิ่มครุภัณฑ์พร้อมกัน
+  // ซึ่งต่างก็อ่านรหัสทั้งทะเบียนเพื่อตรวจรหัสซ้ำ: ทุกอย่างถูกย้อนกลับแล้ว จึงลองใหม่ได้อย่างปลอดภัย (ดู isWriteConflict)
   for (let attempt = 1; ; attempt++) {
     if (attempt === 1)
       trace.step('เปิด transaction แบบ Serializable — ทุกขั้นต่อจากนี้ต้องสำเร็จพร้อมกัน ถ้าพลาดจะยกเลิกทั้งหมด');
@@ -229,13 +231,16 @@ export async function mutate(member: Member, input: Input) {
         { isolationLevel, maxWait: 15000, timeout: 45000 },
       );
     } catch (error) {
-      const code = (error as { code?: string }).code || '';
+      const conflict = isWriteConflict(error);
       // A concurrent identical request may have committed while this transaction rolled back.
-      if (['P2002', 'P2034'].includes(code)) {
+      if (conflict || (error as { code?: string }).code === 'P2002') {
         const existing = await prisma.operation.findUnique({ where: { id: token } });
         if (existing) return replay(existing);
       }
-      if (code === 'P2034' && attempt < 3) continue;
+      if (conflict && attempt < MAX_ATTEMPTS) {
+        await new Promise(resolve => setTimeout(resolve, writeConflictDelay(attempt)));
+        continue;
+      }
       throw error;
     }
   }

@@ -2,13 +2,15 @@ import { member, checkOrigin } from '../auth/sessions';
 import { getData, upload, ApiError } from '../services/asset-service';
 import { mutate } from '../services/asset-mutations';
 import { boundedFormData, boundedJson } from '../services/request-body';
-import { json } from '../db/client';
+import { json, isWriteConflict } from '../db/client';
 import { trace, traced, describeAction } from '../debug/trace';
 export function fail(error: unknown) {
   if (error instanceof ApiError) return Response.json({ error: error.message }, { status: error.status });
   if (error instanceof SyntaxError) return Response.json({ error: 'รูปแบบข้อมูลไม่ถูกต้อง' }, { status: 400 });
   const code = (error as { code?: string })?.code;
-  if (['P2002', 'P2004', 'P2034'].includes(code || ''))
+  if (isWriteConflict(error))
+    return Response.json({ error: 'มีผู้ใช้อื่นบันทึกข้อมูลพร้อมกัน กรุณาลองใหม่อีกครั้ง' }, { status: 409 });
+  if (['P2002', 'P2004'].includes(code || ''))
     return Response.json({ error: 'ข้อมูลซ้ำ หรือมีผู้อื่นแก้ไขแล้ว กรุณาโหลดข้อมูลใหม่' }, { status: 409 });
   if (code === 'P2003')
     return Response.json(
