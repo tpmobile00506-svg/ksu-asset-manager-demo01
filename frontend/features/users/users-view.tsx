@@ -75,8 +75,6 @@ export default function UsersView({
   // สายอนุมัติที่ใช้จริง (ค่าที่บันทึกไว้เสีย เช่น "[]" ระบบใช้ค่าเริ่มต้นแทน)
   const workflow = approvalChainOf(data.settings.workflow);
 
-  if (data.me.role !== 'admin') return null;
-
   const combinedUsers = useMemo(() => {
     return [
       ...data.users,
@@ -104,6 +102,9 @@ export default function UsersView({
       return matchSearch && matchRole && matchStatus;
     });
   }, [combinedUsers, search, roleFilter, statusFilter]);
+
+  // ตรวจบทบาทหลังเรียก hook ครบแล้ว: React ต้องเรียก hook ลำดับเดิมทุกครั้งที่วาดหน้า (กฎ Rules of Hooks)
+  if (data.me.role !== 'admin') return null;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
