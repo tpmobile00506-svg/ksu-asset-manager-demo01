@@ -3,6 +3,14 @@ import fs from 'fs';
 import path from 'path';
 import { prisma, disconnectDatabase } from '../db/client';
 
+// ⚠️ สำรองข้อมูลเป็นไฟล์ JSON แล้ว "ลบครุภัณฑ์และประวัติทั้งหมด" ในฐานข้อมูลที่ DATABASE_URL ชี้อยู่
+// ฐานข้อมูลนี้ใช้ร่วมกับเว็บจริง (Vercel) จึงต้องพิมพ์ยืนยันเองทุกครั้ง และควรสร้าง backup branch ใน Neon ก่อน:
+//   npx tsx backend/scripts/backup-and-wipe.ts --yes-wipe-everything
+if (!process.argv.includes('--yes-wipe-everything')) {
+  console.error('สคริปต์นี้ลบข้อมูลทั้งหมด ถ้าแน่ใจให้รันพร้อม --yes-wipe-everything');
+  process.exit(1);
+}
+
 async function main() {
   console.log('--- Step 1: Backing up current database tables ---');
 
