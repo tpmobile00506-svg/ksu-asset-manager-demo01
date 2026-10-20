@@ -27,10 +27,9 @@ import {
   insertAsset,
   validated,
 } from '../asset-service';
-import { assetImageKey } from '../../storage/asset-image-metadata';
 import { trace } from '../../debug/trace';
 import { type MutationContext } from './types';
-import { linkToSet, hintFund, assertCodesFree, split, loadEditableAsset } from './helpers';
+import { linkToSet, hintFund, assertCodesFree, split, loadEditableAsset, copyPhoto } from './helpers';
 
 // คำสั่งของทะเบียนครุภัณฑ์: เพิ่ม แก้ไข แก้หลายรายการ แบ่งล็อต ซ่อมเสร็จ ยกเลิก และกู้คืน
 
@@ -233,12 +232,11 @@ export async function splitAsset(ctx: MutationContext) {
   ];
   await tx.asset.update({ where: { id: a.id }, data: { lifecycle: 'split', version: { increment: 1 } } });
   for (const child of children) await insertAsset(tx, child);
-  const parentPhoto = await tx.storedFile.findUnique({ where: { key: assetImageKey(a.id) } });
-  if (parentPhoto) {
-    for (const child of children) {
-      await tx.storedFile.create({ data: { key: assetImageKey(child.id), body: parentPhoto.body } }).catch(() => {});
-    }
-  }
+  await copyPhoto(
+    tx,
+    a.id,
+    children.map(child => child.id),
+  );
   await audit(tx, m, 'แบ่งล็อต', a.id, a, children, reason);
   return { ok: true };
 }
