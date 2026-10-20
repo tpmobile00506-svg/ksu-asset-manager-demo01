@@ -67,10 +67,10 @@ function renderModal(toDataURL: (url: string) => Promise<string>) {
     sonner: { toast: { error: (message: string) => errors.push(message) } },
     qrcode: { toDataURL },
   };
-  const module = { exports: {} as { default: (props: unknown) => Node } };
+  const cjs = { exports: {} as { default: (props: unknown) => Node } };
   runInNewContext(code, {
-    module,
-    exports: module.exports,
+    module: cjs,
+    exports: cjs.exports,
     require(name: string) {
       assert.ok(name in mocks, `Unexpected component import: ${name}`);
       return mocks[name];
@@ -89,7 +89,7 @@ function renderModal(toDataURL: (url: string) => Promise<string>) {
       effectIndex = 0;
       memoIndex = 0;
       pendingEffects = [];
-      const tree = module.exports.default({ open, assets, onClose() {} });
+      const tree = cjs.exports.default({ open, assets, onClose() {} });
       // Return the rendered output before effects so stale labels cannot escape
       // for one render between a new selection and its generation effect.
       pendingEffects.forEach(effect => effect());

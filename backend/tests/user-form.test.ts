@@ -63,7 +63,6 @@ function mount(user?: Record<string, unknown>) {
       }
     }
   }
-  let common: Record<string, any>, fields: Record<string, any>;
   const require = (id: string) => {
     if (id === 'react') return react;
     if (id === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'Fragment' };
@@ -73,12 +72,13 @@ function mount(user?: Record<string, unknown>) {
     return new Proxy({}, { get: (_, name) => name });
   };
   const evaluate = (code: string) => {
-    const module = { exports: {} as Record<string, any> };
-    runInNewContext(code, { module, exports: module.exports, require, FormData: BrowserFormData, AbortController });
-    return module.exports;
+    const cjs = { exports: {} as Record<string, any> };
+    runInNewContext(code, { module: cjs, exports: cjs.exports, require, FormData: BrowserFormData, AbortController });
+    return cjs.exports;
   };
-  common = evaluate(commonCode);
-  fields = evaluate(fieldCode);
+  // require ด้านบนอ้างถึง common/fields ตอนโหลดไฟล์ถัดไป จึงต้องโหลดตามลำดับนี้
+  const common = evaluate(commonCode);
+  const fields = evaluate(fieldCode);
   const Editor = evaluate(editorCode).default;
   const writes: Record<string, any>[] = [];
   let failNext = false;

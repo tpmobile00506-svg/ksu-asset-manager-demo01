@@ -2,8 +2,11 @@
 import { useEffect, useRef } from 'react';
 import { Asset } from '@/shared/domain';
 export function useAssetTools(assets: Asset[], open: (kind: string, data: Record<string, unknown>) => void) {
+  // เครื่องมือที่ลงทะเบียนไว้ครั้งเดียวต้องเห็นรายการล่าสุดเสมอ: อัปเดต ref หลัง render (เขียน ref ระหว่าง render ไม่ปลอดภัย)
   const ref = useRef({ assets, open });
-  ref.current = { assets, open };
+  useEffect(() => {
+    ref.current = { assets, open };
+  });
   useEffect(() => {
     const context = (document as Document & { modelContext?: any }).modelContext;
     if (!context?.registerTool) return;

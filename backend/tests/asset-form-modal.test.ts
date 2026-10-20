@@ -67,7 +67,7 @@ function mount(kind: 'create' | 'edit' | 'import', asset: Record<string, unknown
         : Response.json({ ok: true, imageVersion: 'saved-photo' });
     },
   };
-  const module = { exports: {} as any };
+  const cjs = { exports: {} as any };
   const require = (id: string) => {
     if (id === 'react') return react;
     if (id === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'Fragment' };
@@ -82,7 +82,7 @@ function mount(kind: 'create' | 'edit' | 'import', asset: Record<string, unknown
       };
     return new Proxy({}, { get: (_, name) => name });
   };
-  runInNewContext(compiled, { module, exports: module.exports, require, FormData: BrowserFormData, URL });
+  runInNewContext(compiled, { module: cjs, exports: cjs.exports, require, FormData: BrowserFormData, URL });
   const props = {
     open: true,
     onClose() {},
@@ -110,7 +110,7 @@ function mount(kind: 'create' | 'edit' | 'import', asset: Record<string, unknown
   const render = () => {
     cursor = 0;
     effects = [];
-    const tree = module.exports.default(props);
+    const tree = cjs.exports.default(props);
     elements = [];
     const walk = (value: any) => {
       if (!value || typeof value !== 'object') return;
