@@ -1,0 +1,157 @@
+import { createHash } from 'node:crypto';
+import { type Transaction } from '../../db/client';
+import { type Member } from '../../auth/sessions';
+import {
+  type Asset,
+  type CandidateSet,
+  type CandidateFund,
+  splitAmounts,
+  codeKey,
+  branchAbbr,
+} from '../../contracts/domain';
+import { ApiError, clean, allow, now, id, asset, audit, insertAsset } from '../asset-service';
+import { assetImageKey } from '../../storage/asset-image-metadata';
+import { trace } from '../../debug/trace';
+import { type MutationContext } from './types';
+
+// ตัวช่วยที่หลายคำสั่งใช้ร่วมกัน: ผูกชุด/ทุน ตรวจรหัสซ้ำ แบ่งยอดเงิน และขั้นตรวจก่อนแก้ครุภัณฑ์
+
+// รหัสชุดคงที่ต่อไฟล์ต้นฉบับ แถวในชุดเดียวกันที่นำเข้าคนละครั้งจึงเข้าชุดเดิม
+export function setIdFor(sourceId: string, setKey: string) {
+  return (
+    'set-' +
+    createHash('sha256')
+      .update(sourceId + '\n' + setKey)
+      .digest('hex')
+      .slice(0, 24)
+  );
+}
+export async function linkToSet(tx: Transaction, sourceId: string | null, set: CandidateSet | undefined) {
+  if (!sourceId || !set) return {};
+  const setId = setIdFor(sourceId, set.key);
+  await tx.assetSet.upsert({
+    where: { id: setId },
+    create: { id: setId, name: set.name, kind: set.kind, createdAt: now() },
+    update: {},
+  });
+  return { setId, setRole: set.role ?? 'member' };
+}
+// หัวทุนจากไฟล์ต้นฉบับ: สร้างรายชื่อทุนไว้ และจดเป็น "รายการแนะนำ" (fundHintId) ยังไม่นับว่ามาจากทุนจนเจ้าหน้าที่ยืนยัน
+// หัวเดียวกันที่พิมพ์ซ้ำทุกหน้า/ทุกแผ่น (ชื่อเหมือนกัน ไม่สนช่องว่างซ้อน) = ทุนเดียวกัน
+export const fundName = (name: string) => name.trim().replace(/\s+/g, ' ');
+export async function fundIdsByName(tx: Transaction) {
+  const funds = await tx.assetSet.findMany({ where: { kind: 'fund' }, select: { id: true, name: true } });
+  return new Map(funds.map(f => [fundName(f.name), f.id]));
+}
+export async function hintFund(tx: Transaction, sourceId: string | null, fund: CandidateFund | undefined) {
+  if (!sourceId || !fund) return {};
+  const name = fundName(fund.name);
+  const existing = (await fundIdsByName(tx)).get(name);
+  if (existing) return { fundHintId: existing };
+  const fundHintId = setIdFor(sourceId, 'fund:' + name);
+  await tx.assetSet.upsert({
+    where: { id: fundHintId },
+    create: { id: fundHintId, name, kind: 'fund', createdAt: now() },
+    update: {},
+  });
+  return { fundHintId };
+}
+// หมายเลขครุภัณฑ์ห้ามซ้ำ (เทียบด้วย codeKey) และบอกให้ชัดว่าซ้ำกับรายการไหน แทนข้อความกลางๆ จากฐานข้อมูล
+// registered: รายการรหัสในทะเบียนที่อ่านไว้แล้วใน transaction เดียวกัน (นำเข้าแบบกลุ่ม) ไม่ต้องอ่านทั้งตารางซ้ำ
+export async function assertCodesFree(
+  tx: Transaction,
+  codes: string[],
+  exceptId?: string,
+  registered?: Map<string, string>,
+) {
+  const wanted = new Map(codes.map(c => [codeKey(c), c]));
+  if (wanted.size !== codes.length) throw new ApiError('หมายเลขครุภัณฑ์ในรายการที่เพิ่มซ้ำกันเอง กรุณาตรวจสอบ', 409);
+  if (registered) {
+    const dup = [...wanted].find(([key]) => registered.has(key));
+    if (dup)
+      throw new ApiError(`หมายเลขครุภัณฑ์ ${dup[1]} ซ้ำกับรายการที่มีในทะเบียนแล้ว: ${registered.get(dup[0])}`, 409);
+    return;
+  }
+  const existing = await tx.asset.findMany({
+    select: { id: true, code: true, name: true, branch: true, lifecycle: true },
+  });
+  const hit = existing.find(a => a.id !== exceptId && wanted.has(codeKey(a.code)));
+  if (hit) {
+    const state =
+      hit.lifecycle === 'disposed' ? ' ซึ่งจำหน่ายแล้ว' : hit.lifecycle === 'split' ? ' (ประวัติการแบ่งล็อต)' : '';
+    throw new ApiError(
+      `หมายเลขครุภัณฑ์ ${wanted.get(codeKey(hit.code))} ซ้ำกับรายการที่มีในทะเบียนแล้ว: ${hit.code} · ${hit.name} · ${branchAbbr(hit.branch)}${state}`,
+      409,
+    );
+  }
+}
+// ครุภัณฑ์ในชุดเดียวกันที่ยังใช้งาน (ห้ามแยก: โอนย้าย/จำหน่ายต้องทำทั้งชุด)
+export async function setMembers(tx: Transaction, setId: string) {
+  return tx.asset.findMany({ where: { setId, lifecycle: 'active' } });
+}
+export function split(quantity: number, total: number, take: number) {
+  try {
+    return splitAmounts(quantity, total, take);
+  } catch {
+    throw new ApiError('จำนวนที่แบ่งต้องเป็นจำนวนเต็ม ตั้งแต่ 1 ถึงจำนวนเดิมลบ 1');
+  }
+}
+// แบ่งล็อตจริงเมื่อคำขอที่ระบุจำนวนบางส่วนผ่านการอนุมัติขั้นสุดท้าย (กฎ: ไม่แบ่งตอนยื่นคำขอ จึงไม่มีอะไรต้องย้อนคืนเมื่อถูกปฏิเสธ)
+// คืนล็อตที่ถูกส่งคำขอ (ล็อตแรก) ส่วนที่เหลือเป็นอีกล็อตหนึ่งยังใช้งานตามปกติ
+export async function splitLotForRequest(
+  tx: Transaction,
+  m: Member,
+  a: Asset,
+  take: number,
+  reason: string,
+): Promise<Asset> {
+  const amounts = split(a.quantity, a.totalSatang, take);
+  const salvage = split(a.quantity, a.salvageSatang, take);
+  const target: Asset = {
+    ...a,
+    id: id(),
+    parentId: a.id,
+    code: a.code + ' / 1-' + a.version,
+    quantity: take,
+    totalSatang: amounts[0],
+    salvageSatang: salvage[0],
+    version: 1,
+    createdAt: now(),
+  };
+  const remainder: Asset = {
+    ...a,
+    id: id(),
+    parentId: a.id,
+    code: a.code + ' / 2-' + a.version,
+    quantity: a.quantity - take,
+    totalSatang: amounts[1],
+    salvageSatang: salvage[1],
+    version: 1,
+    createdAt: now(),
+  };
+  await tx.asset.update({ where: { id: a.id }, data: { lifecycle: 'split', version: { increment: 1 } } });
+  await insertAsset(tx, target);
+  await insertAsset(tx, remainder);
+  const parentPhoto = await tx.storedFile.findUnique({ where: { key: assetImageKey(a.id) } });
+  if (parentPhoto) {
+    for (const child of [target, remainder]) {
+      await tx.storedFile.create({ data: { key: assetImageKey(child.id), body: parentPhoto.body } }).catch(() => {});
+    }
+  }
+  await audit(tx, m, 'แบ่งล็อตเมื่ออนุมัติคำขอ', a.id, a, [target, remainder], reason);
+  return target;
+}
+
+// ขั้นตรวจร่วมของคำสั่งที่แก้ครุภัณฑ์ 1 รายการ (แก้ไข แบ่งล็อต ยื่นคำขอ ซ่อมเสร็จ ยกเลิก):
+// ต้องเป็นเจ้าหน้าที่/Admin · รายการยังใช้งาน · version ตรงกับตอนเปิดฟอร์ม · ไม่มีคำขอค้าง
+export async function loadEditableAsset({ tx, m, b }: MutationContext) {
+  allow(m, ['staff', 'admin']);
+  const a = await asset(tx, clean(b.id));
+  if (a.lifecycle !== 'active') throw new ApiError('รายการนี้ถูกแบ่งยอดหรือปิดบัญชีแล้ว');
+  if (a.version !== b.version) throw new ApiError('ข้อมูลเปลี่ยนแล้ว กรุณาโหลดใหม่', 409);
+  trace.ok(`version ตรงกัน (${a.version}) — ไม่มีใครแก้รายการ ${a.code} ทับระหว่างที่เปิดฟอร์ม`);
+  if (await tx.assetRequest.findFirst({ where: { assetId: a.id, status: 'pending' } }))
+    throw new ApiError('รายการนี้มีคำขอรออนุมัติ กรุณาดำเนินการคำขอให้เสร็จก่อน');
+  const reason = clean(b.reason ?? '');
+  return { a, reason };
+}
