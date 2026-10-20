@@ -3,6 +3,7 @@ import { getData, upload, ApiError } from '../services/asset-service';
 import { mutate } from '../services/asset-mutations';
 import { boundedFormData, boundedJson } from '../services/request-body';
 import { json } from '../db/client';
+import { trace, traced, describeAction } from '../debug/trace';
 export function fail(error: unknown) {
   if (error instanceof ApiError) return Response.json({ error: error.message }, { status: error.status });
   if (error instanceof SyntaxError) return Response.json({ error: 'รูปแบบข้อมูลไม่ถูกต้อง' }, { status: 400 });
@@ -15,14 +16,31 @@ export function fail(error: unknown) {
 }
 function response(value: unknown) { return new Response(json(value), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } }); }
 export async function GET(request: Request) {
-  try { return response(await getData(await member(request), new URL(request.url))); } catch (error) { return fail(error); }
+  const url = new URL(request.url);
+  return traced('GET', url.pathname + url.search, async () => {
+    try {
+      const value = await getData(await member(request), url);
+      const data = value as { assets?: unknown[]; requests?: unknown[]; items?: unknown[] };
+      if (data.assets) trace.ok(`เตรียมข้อมูลส่งกลับ: ครุภัณฑ์ ${data.assets.length} รายการ · คำขอ ${data.requests?.length ?? 0} รายการ`);
+      else if (data.items) trace.ok(`เตรียมรายการตรวจนับส่งกลับ ${data.items.length} รายการ`);
+      return response(value);
+    } catch (error) { return fail(error); }
+  });
 }
 export async function POST(request: Request) {
-  try {
-    checkOrigin(request);
-    const user = await member(request);
-    const limit = 4.25 * 1024 * 1024, tooLarge = 'ไฟล์ต้องไม่เกิน 4 MB';
-    const value = request.headers.get('content-type')?.includes('multipart/form-data') ? await upload(user, await boundedFormData(request, limit, tooLarge)) : await mutate(user, await boundedJson(request, limit, tooLarge) as Parameters<typeof mutate>[1]);
-    return response(value);
-  } catch (error) { return fail(error); }
+  return traced('POST', new URL(request.url).pathname, async () => {
+    try {
+      checkOrigin(request);
+      trace.ok('ตรวจต้นทาง (Origin) — คำสั่งมาจากเว็บของเราเอง ไม่ใช่เว็บอื่นแอบส่งมา');
+      const user = await member(request);
+      const limit = 4.25 * 1024 * 1024, tooLarge = 'ไฟล์ต้องไม่เกิน 4 MB';
+      if (request.headers.get('content-type')?.includes('multipart/form-data')) {
+        trace.step('รับไฟล์ที่อัปโหลด (Excel) ขนาดไม่เกิน 4 MB');
+        return response(await upload(user, await boundedFormData(request, limit, tooLarge)));
+      }
+      const body = await boundedJson(request, limit, tooLarge) as Parameters<typeof mutate>[1];
+      trace.step(`คำสั่งที่ได้รับ: ${describeAction(body?.action)} (action = "${String(body?.action)}")`);
+      return response(await mutate(user, body));
+    } catch (error) { return fail(error); }
+  });
 }

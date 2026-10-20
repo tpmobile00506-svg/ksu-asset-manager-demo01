@@ -7,6 +7,8 @@
   },
   "scripts": {
     "dev": "next dev frontend --hostname 127.0.0.1 --port 3000",
+    "dev:trace": "node backend/scripts/dev-trace.mjs",
+    "dev:trace:full": "node backend/scripts/dev-trace.mjs full",
     "build": "prisma generate --schema backend/prisma/schema.prisma && next build frontend",
     "start": "next start frontend --hostname 127.0.0.1 --port 3000",
     "postinstall": "prisma generate --schema backend/prisma/schema.prisma",

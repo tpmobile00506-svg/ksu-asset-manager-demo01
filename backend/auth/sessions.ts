@@ -3,7 +3,8 @@ import { promisify } from 'node:util';
 import { prisma, checkDatabase, type Transaction } from '../db/client';
 import { settings } from '../config/env';
 import { ApiError } from '../services/errors';
-import type { Role } from '../contracts/domain';
+import { roles, type Role } from '../contracts/domain';
+import { trace } from '../debug/trace';
 import { loginSchema } from '../validation/auth';
 
 const scrypt = promisify(derive), COOKIE = 'ksu_session';
@@ -48,6 +49,7 @@ export async function member(request: Request): Promise<Member> {
   const session = await prisma.session.findUnique({ where: { tokenHash: digest(token) }, include: { user: { select: publicUserFields } } });
   if (!session || session.expiresAt <= new Date()) throw new ApiError('กรุณาเข้าสู่ระบบอีกครั้ง', 401);
   if (!session.user.active) throw new ApiError('บัญชีนี้ถูกระงับสิทธิ์ กรุณาติดต่อ Admin', 401);
+  trace.ok(`ตรวจบัตรผ่าน (cookie เซสชัน) — ผู้ใช้: ${session.user.name} · บทบาท: ${roles[session.user.role as Role] ?? session.user.role}`);
   return session.user as Member;
 }
 export async function freshMember(tx: Transaction, member: Member): Promise<Member> {
@@ -117,6 +119,7 @@ export async function login(request: Request) {
   const parseResult = loginSchema.safeParse(raw);
   if (!parseResult.success) throw new ApiError('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 401);
   const { email, password } = parseResult.data;
+  trace.ok('ตรวจรูปแบบอีเมลและรหัสผ่าน (Zod) — ผ่าน');
 
   await checkDatabase();
 
@@ -127,9 +130,13 @@ export async function login(request: Request) {
   await takeLoginAttempt(`ip:${digest(ip)}`, 120, 60_000);
   await takeLoginAttempt(attemptKeys[0], 10, 15 * 60_000);
   await takeLoginAttempt(attemptKeys[1], 50, 15 * 60_000);
+  trace.ok('นับจำนวนครั้งที่ลองล็อกอิน (กันการเดารหัส) — ยังไม่เกินกำหนด');
   const user = await prisma.user.findUnique({ where: { email } });
+  trace.step('ตรวจรหัสผ่านด้วย scrypt (ช้าโดยตั้งใจ กันการเดารหัส) — เทียบกับค่าแฮช ไม่ได้เก็บรหัสจริง');
   const valid = await verifyPassword(password, user?.passwordHash || await dummyHash);
   if (!user?.active || !valid) throw new ApiError('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 401);
+  trace.ok(`รหัสผ่านถูกต้อง — ${user.name} · บทบาท: ${roles[user.role as Role] ?? user.role}`);
+  trace.step('สร้างเซสชันใหม่ อายุ 8 ชั่วโมง แล้วส่ง cookie แบบ HttpOnly กลับไปให้เบราว์เซอร์');
   const token = randomBytes(32).toString('hex');
   await prisma.$transaction(async tx => {
     // Prevent a concurrent password reset/deactivation from issuing a fresh session.
@@ -139,6 +146,7 @@ export async function login(request: Request) {
     await tx.loginAttempt.deleteMany({ where: { key: { in: attemptKeys } } });
   }, { isolationLevel: 'Serializable' });
   // ล้างเซสชันหมดอายุนอก transaction เพื่อไม่ให้ชนกันตอนมีคนล็อกอินพร้อมกัน ล้มเหลวได้โดยไม่กระทบการล็อกอิน
+  trace.step('ล้างเซสชันเก่าที่หมดอายุแล้วของทุกคน (งานเก็บกวาด ไม่กระทบการล็อกอินนี้)');
   try { await purgeExpiredSessions(prisma); } catch (error) { console.error('Expired session cleanup failed', { code: (error as { code?: string }).code }); }
   return Response.json({ ok: true }, { headers: { 'Set-Cookie': sessionCookie(token), 'Cache-Control': 'no-store' } });
 }

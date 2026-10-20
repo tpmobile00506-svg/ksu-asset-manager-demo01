@@ -3,6 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, Prisma } from '../generated/prisma/client';
 import { settings } from '../config/env';
 import { ApiError } from '../services/errors';
+import { traceOn, traceSql } from '../debug/trace';
 const cached = globalThis as unknown as { assetPrisma?: PrismaClient; assetPool?: pg.Pool };
 export function getDatabaseUrl() { return settings.databaseUrl; }
 export function getPool(): pg.Pool {
@@ -14,7 +15,12 @@ export function getPool(): pg.Pool {
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(connection.hostname);
   if (!local) { connection.searchParams.set('sslmode', 'verify-full'); connection.searchParams.delete('uselibpqcompat'); }
   cached.assetPool = new pg.Pool({ connectionString: connection.href, max: 5, connectionTimeoutMillis: 10000, idleTimeoutMillis: 20000 });
-  cached.assetPrisma = new PrismaClient({ adapter: new PrismaPg(cached.assetPool) });
+  // โหมดดูการทำงานหลังบ้าน (npm run dev:trace): ให้ Prisma แจ้งทุกคำสั่ง SQL ที่ส่งเข้าฐานข้อมูล
+  if (traceOn()) {
+    const client = new PrismaClient({ adapter: new PrismaPg(cached.assetPool), log: [{ emit: 'event', level: 'query' }] });
+    client.$on('query', event => traceSql(event.query, event.duration));
+    cached.assetPrisma = client as unknown as PrismaClient;
+  } else cached.assetPrisma = new PrismaClient({ adapter: new PrismaPg(cached.assetPool) });
   return cached.assetPool;
 }
 export const prisma = new Proxy({} as PrismaClient, {
