@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mutate } from '../services/asset-mutations';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 // กฎ (ตัดสินใจแล้ว): คำขอที่ระบุจำนวนบางส่วนจะ "ยังไม่แบ่งล็อต" ตอนยื่น แบ่งจริงเมื่ออนุมัติขั้นสุดท้าย
 // ถูกปฏิเสธ/ยังไม่ถึงขั้นสุดท้าย = ทะเบียนไม่เปลี่ยน
@@ -22,31 +23,6 @@ const mk = (id: string, role: Member['role'], branch: string | null = null): Mem
 const headCom = mk('head-com', 'head', branchCom);
 const deputy = mk('deputy-1', 'deputy');
 const dean = mk('dean-1', 'dean');
-
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = new Proxy(client, {
-    get(target, property) {
-      if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
-      return Reflect.get(target, property);
-    },
-  });
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
 
 function environment(kind: 'repair' | 'transfer', stage: number, payloadExtra: Record<string, unknown> = {}) {
   const members = new Map<string, Member>([
@@ -140,7 +116,8 @@ function environment(kind: 'repair' | 'transfer', stage: number, payloadExtra: R
   return { tx, getParent: () => parent, created, request };
 }
 
-const run = (tx: object) => useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+const run = (tx: object) =>
+  installMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) }, { strict: true });
 
 test('อนุมัติขั้นสุดท้ายของคำขอซ่อมที่ระบุ 50 ตัว: แบ่งล็อตเป็น 50 + 150 และมีเฉพาะล็อต 50 ตัวที่เปลี่ยนเป็นกำลังซ่อม', async () => {
   const env = environment('repair', 2);

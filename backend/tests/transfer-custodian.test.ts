@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { mutate } from '../services/asset-mutations';
 import { assetRequestSchema } from '../validation';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 const dean: Member = {
   id: 'dean-1',
@@ -22,31 +23,6 @@ const staff: Member = {
   active: 1,
   createdAt: '',
 };
-
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = new Proxy(client, {
-    get(target, property) {
-      if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
-      return Reflect.get(target, property);
-    },
-  });
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
 
 // คำขอโอนย้ายที่อยู่ขั้นสุดท้าย (stage 2 ของสาย 3 ระดับ) รอคณบดีอนุมัติ
 function createEnvironment(payload: Record<string, unknown>) {
@@ -120,7 +96,10 @@ test('อนุมัติขั้นสุดท้าย: โอนย้า
     branch: 'วิศวกรรมไฟฟ้า (วฟ)',
     custodian: 'นางสาวบี',
   });
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     const res = await mutate(dean, approveFinal);
     assert.equal(res.ok, true);
@@ -136,7 +115,10 @@ test('อนุมัติขั้นสุดท้าย: โอนย้า
 
 test('อนุมัติขั้นสุดท้าย: โอนย้ายที่ไม่ระบุผู้รับผิดชอบ → ผู้รับผิดชอบเดิมไม่เปลี่ยน', async () => {
   const { tx, asset } = createEnvironment({ location: 'ห้อง 202', branch: 'วิศวกรรมไฟฟ้า (วฟ)' });
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await mutate(dean, approveFinal);
     assert.equal(asset.location, 'ห้อง 202');
@@ -169,7 +151,10 @@ test('บทบาท staff อนุมัติขั้นสุดท้า�
     branch: 'วิศวกรรมไฟฟ้า (วฟ)',
     custodian: 'นางสาวบี',
   });
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await assert.rejects(mutate(staff, approveFinal), (e: any) => e?.status === 403);
     assert.equal(asset.custodian, 'นายเอ');
@@ -181,7 +166,10 @@ test('บทบาท staff อนุมัติขั้นสุดท้า�
 // ---------- ชื่อสาขาปลายทางต้องถูกแปลงเป็นชื่อมาตรฐานก่อนเขียนลงทะเบียน ----------
 test('อนุมัติโอนย้าย: สาขาปลายทางที่พิมพ์แบบย่อ ("วิศวกรรมไฟฟ้า") ถูกแปลงเป็นชื่อมาตรฐานก่อนบันทึก', async () => {
   const { tx, asset } = createEnvironment({ location: 'ห้อง 202', branch: 'วิศวกรรมไฟฟ้า' });
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await mutate(dean, approveFinal);
     assert.equal(asset.branch, 'วิศวกรรมไฟฟ้า (วฟ)');
@@ -222,7 +210,10 @@ test('สร้างคำขอโอนย้าย: payload ที่เก�
     operation: { findUnique: async () => null, create: async () => ({}) },
     audit: { create: async () => ({}) },
   };
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await mutate(staff, {
       action: 'request',
@@ -272,7 +263,10 @@ test('สร้างคำขอโอนย้าย: payload เก็บต�
     operation: { findUnique: async () => null, create: async () => ({}) },
     audit: { create: async () => ({}) },
   };
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await mutate(staff, {
       action: 'request',
@@ -300,7 +294,10 @@ test('อนุมัติคำขอที่มีต้นทาง (from):
     branch: 'วิศวกรรมไฟฟ้า (วฟ)',
     from: { location: 'ห้อง 101', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', custodian: 'นายเอ' },
   });
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await mutate(dean, approveFinal);
     assert.equal(asset.location, 'ห้อง 202');
@@ -351,7 +348,10 @@ test('สร้างคำขอ: มีคำขอในปีงบนี้
     operation: { findUnique: async () => null, create: async () => ({}) },
     audit: { create: async () => ({}) },
   };
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await mutate(staff, { action: 'request', id: 'asset-1', version: 2, kind: 'disposal', reason: 'ชำรุด' });
     assert.equal(JSON.parse(stored[0].payload).seq, 3); // max(2 รายการ, seq 2) + 1

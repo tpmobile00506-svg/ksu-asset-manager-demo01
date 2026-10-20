@@ -4,6 +4,7 @@ import { mutate } from '../services/asset-mutations';
 import { voidBlockReason, voidedCode, restoredCode, type Asset } from '../contracts/domain';
 import { createAssetWorkbook } from '../../frontend/services/excel-export';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 // ยกเลิกรายการที่บันทึกผิด (ผู้ใช้ตัดสินใจ 18 ต.ค. 2569): เจ้าหน้าที่/Admin กดเองได้ ต้องใส่เหตุผล
 // ใช้ได้เฉพาะรายการที่ยังไม่มีอะไรเกิดขึ้น · ยกเลิกแล้วอยู่หมวด "ข้อมูลผิดพลาด" (lifecycle = voided) และรหัสเดิมว่างให้ใช้ใหม่
@@ -27,25 +28,6 @@ const head: Member = {
 };
 const ASSET_ID = 'abcdef12-3456-7890-abcd-ef1234567890';
 
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = client;
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
 // history: requests = คำขอทุกสถานะ · counted = รายการตรวจนับที่บันทึกผลแล้ว · pendingCounts = อยู่ในรอบที่เปิดแต่ยังไม่นับ
 // siblings = รายการอื่นจากแถว Excel เดียวกันที่ยังไม่ถูกยกเลิก
 function environment(
@@ -108,7 +90,11 @@ function environment(
       },
     },
   };
-  return { asset, log, restore: useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) }) };
+  return {
+    asset,
+    log,
+    restore: installMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) }),
+  };
 }
 
 test('voidedCode เติมท้ายรหัสด้วย 8 ตัวแรกของไอดี', () => {
@@ -273,7 +259,11 @@ function restoreEnvironment(
       },
     },
   };
-  return { asset, log, restore: useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) }) };
+  return {
+    asset,
+    log,
+    restore: installMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) }),
+  };
 }
 
 test('restoredCode ตัดส่วนท้าย "(ยกเลิก ไอดี 8 ตัว)" ออก · รหัสที่ไม่มีส่วนท้ายคืนตามเดิม', () => {

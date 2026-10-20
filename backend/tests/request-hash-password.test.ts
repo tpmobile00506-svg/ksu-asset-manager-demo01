@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { mutate } from '../services/asset-mutations';
 import { json } from '../db/client';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 // requestHash ในตาราง operations ต้องไม่มาจากรหัสผ่านจริง (sha256 ไม่มี salt เดาย้อนได้เร็ว)
 const admin: Member = {
@@ -24,26 +25,6 @@ const staff: Member = {
   active: 1,
   createdAt: '',
 };
-
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = client;
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
 
 // สร้างบัญชีใหม่ 1 ครั้ง แล้วคืน requestHash ที่ถูกบันทึกลงตาราง operations
 async function storedHash(input: Record<string, unknown>) {
@@ -66,7 +47,7 @@ async function storedHash(input: Record<string, unknown>) {
       },
     },
   };
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
   try {
     await mutate(admin, input);
   } finally {
@@ -141,7 +122,7 @@ test('คำขอที่ไม่มีรหัสผ่าน: requestHash 
       },
     },
   };
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
   try {
     await mutate(admin, input);
   } finally {
@@ -152,7 +133,7 @@ test('คำขอที่ไม่มีรหัสผ่าน: requestHash 
 
 test('ผู้ใช้ที่ไม่ใช่ Admin ส่งรหัสผ่านมา → ถูกปฏิเสธ 403 ก่อนเปิด transaction (ไม่คำนวณ scrypt ให้)', async () => {
   let opened = 0;
-  const restore = useMemoryDatabase({
+  const restore = installMemoryDatabase({
     $transaction: async () => {
       opened++;
       throw new Error('ไม่ควรเปิด transaction');

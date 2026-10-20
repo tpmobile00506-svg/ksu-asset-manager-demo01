@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mutate } from '../services/asset-mutations';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 // หัวทุน / โครงการ (ผู้ใช้ยืนยัน 13 ต.ค. 2569): ทุนมีเฉพาะครุภัณฑ์ที่เจ้าหน้าที่เลือกใส่เอง
 // ครุภัณฑ์ 1 ชิ้นอยู่ได้ทุนเดียว และหัวทุนไม่บังคับโอนย้ายทั้งก้อน (ต่างจากชุดห้ามแยก)
@@ -16,31 +17,6 @@ const mk = (id: string, role: Member['role']): Member => ({
 });
 const staff = mk('staff-1', 'staff'),
   head = mk('head-1', 'head');
-
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = new Proxy(client, {
-    get(target, property) {
-      if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
-      return Reflect.get(target, property);
-    },
-  });
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
 
 function environment() {
   const sets: any[] = [
@@ -113,7 +89,8 @@ function environment() {
   };
   return { tx, sets, assets, audits, requests };
 }
-const run = (tx: object) => useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+const run = (tx: object) =>
+  installMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) }, { strict: true });
 
 test('ใส่เข้าทุนเฉพาะรายการที่เลือก รายการอื่นไม่ถูกนับ และเพิ่มเวอร์ชัน', async () => {
   const { tx, assets, audits } = environment();
