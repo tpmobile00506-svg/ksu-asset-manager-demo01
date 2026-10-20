@@ -7,10 +7,27 @@ import { roles, type Role } from '../contracts/domain';
 import { trace } from '../debug/trace';
 import { loginSchema } from '../validation/auth';
 
-const scrypt = promisify(derive), COOKIE = 'ksu_session';
+const scrypt = promisify(derive),
+  COOKIE = 'ksu_session';
 const duration = 8 * 60 * 60;
-export const publicUserFields = { id: true, email: true, name: true, role: true, branch: true, active: true, createdAt: true } as const;
-export type Member = { id: string; email: string; name: string; role: Role; branch?: string | null; active: number; createdAt: string };
+export const publicUserFields = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  branch: true,
+  active: true,
+  createdAt: true,
+} as const;
+export type Member = {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  branch?: string | null;
+  active: number;
+  createdAt: string;
+};
 export function passwordValid(password: unknown): asserts password is string {
   if (typeof password !== 'string' || password.length < 12 || password.length > 128) {
     throw new ApiError('รหัสผ่านต้องมีความยาว 12–128 ตัวอักษร');
@@ -19,24 +36,35 @@ export function passwordValid(password: unknown): asserts password is string {
 export async function hashPassword(password: string) {
   passwordValid(password);
   const salt = randomBytes(16).toString('hex');
-  const key = await scrypt(password, salt, 64) as Buffer;
+  const key = (await scrypt(password, salt, 64)) as Buffer;
   return `scrypt:${salt}:${key.toString('hex')}`;
 }
 // ลายนิ้วมือรหัสผ่านสำหรับเทียบคำขอซ้ำ (requestHash ในตาราง operations): ใช้ scrypt ที่ช้าเท่ากับรหัสผ่านในตาราง users
 // ไม่ใช้ sha256 ของรหัสผ่านตรง ๆ เพราะเดาย้อนได้เร็วมากถ้าตาราง operations รั่ว
 export async function passwordFingerprint(password: string, salt: string) {
-  return (await scrypt(password, 'operation:' + salt, 64) as Buffer).toString('hex');
+  return ((await scrypt(password, 'operation:' + salt, 64)) as Buffer).toString('hex');
 }
 async function verifyPassword(password: string, hash: string) {
   const parts = hash.split(':');
-  if (parts.length !== 3 || parts[0] !== 'scrypt' || !/^[a-f0-9]{32}$/.test(parts[1]) || !/^[a-f0-9]{128}$/.test(parts[2])) return false;
-  const key = await scrypt(password, parts[1], 64) as Buffer;
+  if (
+    parts.length !== 3 ||
+    parts[0] !== 'scrypt' ||
+    !/^[a-f0-9]{32}$/.test(parts[1]) ||
+    !/^[a-f0-9]{128}$/.test(parts[2])
+  )
+    return false;
+  const key = (await scrypt(password, parts[1], 64)) as Buffer;
   return timingSafeEqual(Buffer.from(parts[2], 'hex'), key);
 }
 const digest = (token: string) => createHash('sha256').update(token).digest('hex');
 const dummyHash = hashPassword('dummy-password-hash');
 export function cookieValue(request: Request): string | null {
-  const value = request.headers.get('cookie')?.split(';').map(x => x.trim()).find(x => x.startsWith(COOKIE + '='))?.slice(COOKIE.length + 1);
+  const value = request.headers
+    .get('cookie')
+    ?.split(';')
+    .map(x => x.trim())
+    .find(x => x.startsWith(COOKIE + '='))
+    ?.slice(COOKIE.length + 1);
   return value && /^[a-f0-9]{64}$/.test(value) ? value : null;
 }
 export function sessionCookie(token: string, maxAge = duration) {
@@ -46,10 +74,15 @@ export async function member(request: Request): Promise<Member> {
   const token = cookieValue(request);
   if (!token) throw new ApiError('กรุณาเข้าสู่ระบบ', 401);
   await checkDatabase();
-  const session = await prisma.session.findUnique({ where: { tokenHash: digest(token) }, include: { user: { select: publicUserFields } } });
+  const session = await prisma.session.findUnique({
+    where: { tokenHash: digest(token) },
+    include: { user: { select: publicUserFields } },
+  });
   if (!session || session.expiresAt <= new Date()) throw new ApiError('กรุณาเข้าสู่ระบบอีกครั้ง', 401);
   if (!session.user.active) throw new ApiError('บัญชีนี้ถูกระงับสิทธิ์ กรุณาติดต่อ Admin', 401);
-  trace.ok(`ตรวจบัตรผ่าน (cookie เซสชัน) — ผู้ใช้: ${session.user.name} · บทบาท: ${roles[session.user.role as Role] ?? session.user.role}`);
+  trace.ok(
+    `ตรวจบัตรผ่าน (cookie เซสชัน) — ผู้ใช้: ${session.user.name} · บทบาท: ${roles[session.user.role as Role] ?? session.user.role}`,
+  );
   return session.user as Member;
 }
 export async function freshMember(tx: Transaction, member: Member): Promise<Member> {
@@ -69,12 +102,18 @@ export function checkOrigin(request: Request) {
     const originHost = new URL(origin).host;
     if (host && originHost.toLowerCase() === host.toLowerCase()) return;
     // ไม่รับ *.vercel.app ทั้งหมด (ใครก็สร้างเว็บ xxx.vercel.app ได้) ลิงก์ของโปรเจกต์นี้อยู่ใน allowed ด้านล่างแล้ว
-  } catch { /* Ignore invalid origin */ }
+  } catch {
+    /* Ignore invalid origin */
+  }
 
   const allowed = new Set([settings.frontendOrigin]);
   for (const h of [process.env.VERCEL_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.VERCEL_BRANCH_URL]) {
     if (!h) continue;
-    try { allowed.add(new URL(`https://${h}`).origin); } catch { /* Ignore invalid deployment configuration. */ }
+    try {
+      allowed.add(new URL(`https://${h}`).origin);
+    } catch {
+      /* Ignore invalid deployment configuration. */
+    }
   }
   if (!allowed.has(origin)) throw new ApiError('ต้นทางคำขอไม่ถูกต้อง', 403);
 }
@@ -84,12 +123,17 @@ export function checkOrigin(request: Request) {
 export function clientIp(request: Request): string {
   const real = request.headers.get('x-real-ip')?.trim();
   if (real) return real;
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',').map(x => x.trim()).filter(Boolean);
+  const forwarded = request.headers
+    .get('x-forwarded-for')
+    ?.split(',')
+    .map(x => x.trim())
+    .filter(Boolean);
   return forwarded?.at(-1) || 'unknown';
 }
 
 async function takeLoginAttempt(key: string, limit: number, windowMs: number) {
-  const now = new Date(), expired = new Date(now.getTime() - windowMs);
+  const now = new Date(),
+    expired = new Date(now.getTime() - windowMs);
   // One atomic statement shares the limit across processes and concurrent requests.
   const [attempt] = await prisma.$queryRaw<Array<{ attempts: number }>>`
     INSERT INTO "login_attempts" ("key", "attempts", "windowStart") VALUES (${key}, 1, ${now})
@@ -104,7 +148,7 @@ async function takeLoginAttempt(key: string, limit: number, windowMs: number) {
 // ลบเซสชันที่หมดอายุแล้ว (เซสชันที่ยังไม่หมดอายุไม่ถูกแตะ) คืนจำนวนที่ลบ
 export async function purgeExpiredSessions(
   client: { session: { deleteMany(args: { where: { expiresAt: { lte: Date } } }): Promise<{ count: number }> } },
-  now = new Date()
+  now = new Date(),
 ): Promise<number> {
   return (await client.session.deleteMany({ where: { expiresAt: { lte: now } } })).count;
 }
@@ -115,7 +159,9 @@ export async function login(request: Request) {
   try {
     raw = await request.json();
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Invalid body');
-  } catch { throw new ApiError('รูปแบบคำขอไม่ถูกต้อง'); }
+  } catch {
+    throw new ApiError('รูปแบบคำขอไม่ถูกต้อง');
+  }
   const parseResult = loginSchema.safeParse(raw);
   if (!parseResult.success) throw new ApiError('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 401);
   const { email, password } = parseResult.data;
@@ -133,21 +179,31 @@ export async function login(request: Request) {
   trace.ok('นับจำนวนครั้งที่ลองล็อกอิน (กันการเดารหัส) — ยังไม่เกินกำหนด');
   const user = await prisma.user.findUnique({ where: { email } });
   trace.step('ตรวจรหัสผ่านด้วย scrypt (ช้าโดยตั้งใจ กันการเดารหัส) — เทียบกับค่าแฮช ไม่ได้เก็บรหัสจริง');
-  const valid = await verifyPassword(password, user?.passwordHash || await dummyHash);
+  const valid = await verifyPassword(password, user?.passwordHash || (await dummyHash));
   if (!user?.active || !valid) throw new ApiError('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 401);
   trace.ok(`รหัสผ่านถูกต้อง — ${user.name} · บทบาท: ${roles[user.role as Role] ?? user.role}`);
   trace.step('สร้างเซสชันใหม่ อายุ 8 ชั่วโมง แล้วส่ง cookie แบบ HttpOnly กลับไปให้เบราว์เซอร์');
   const token = randomBytes(32).toString('hex');
-  await prisma.$transaction(async tx => {
-    // Prevent a concurrent password reset/deactivation from issuing a fresh session.
-    const current = await tx.user.findUnique({ where: { id: user.id } });
-    if (!current?.active || current.passwordHash !== user.passwordHash) throw new ApiError('กรุณาเข้าสู่ระบบอีกครั้ง', 401);
-    await tx.session.create({ data: { tokenHash: digest(token), userId: user.id, expiresAt: new Date(Date.now() + duration * 1000) } });
-    await tx.loginAttempt.deleteMany({ where: { key: { in: attemptKeys } } });
-  }, { isolationLevel: 'Serializable' });
+  await prisma.$transaction(
+    async tx => {
+      // Prevent a concurrent password reset/deactivation from issuing a fresh session.
+      const current = await tx.user.findUnique({ where: { id: user.id } });
+      if (!current?.active || current.passwordHash !== user.passwordHash)
+        throw new ApiError('กรุณาเข้าสู่ระบบอีกครั้ง', 401);
+      await tx.session.create({
+        data: { tokenHash: digest(token), userId: user.id, expiresAt: new Date(Date.now() + duration * 1000) },
+      });
+      await tx.loginAttempt.deleteMany({ where: { key: { in: attemptKeys } } });
+    },
+    { isolationLevel: 'Serializable' },
+  );
   // ล้างเซสชันหมดอายุนอก transaction เพื่อไม่ให้ชนกันตอนมีคนล็อกอินพร้อมกัน ล้มเหลวได้โดยไม่กระทบการล็อกอิน
   trace.step('ล้างเซสชันเก่าที่หมดอายุแล้วของทุกคน (งานเก็บกวาด ไม่กระทบการล็อกอินนี้)');
-  try { await purgeExpiredSessions(prisma); } catch (error) { console.error('Expired session cleanup failed', { code: (error as { code?: string }).code }); }
+  try {
+    await purgeExpiredSessions(prisma);
+  } catch (error) {
+    console.error('Expired session cleanup failed', { code: (error as { code?: string }).code });
+  }
   return Response.json({ ok: true }, { headers: { 'Set-Cookie': sessionCookie(token), 'Cache-Control': 'no-store' } });
 }
 export async function logout(request: Request) {

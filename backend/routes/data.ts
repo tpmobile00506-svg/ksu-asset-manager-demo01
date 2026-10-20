@@ -8,23 +8,38 @@ export function fail(error: unknown) {
   if (error instanceof ApiError) return Response.json({ error: error.message }, { status: error.status });
   if (error instanceof SyntaxError) return Response.json({ error: 'รูปแบบข้อมูลไม่ถูกต้อง' }, { status: 400 });
   const code = (error as { code?: string })?.code;
-  if (['P2002', 'P2004', 'P2034'].includes(code || '')) return Response.json({ error: 'ข้อมูลซ้ำ หรือมีผู้อื่นแก้ไขแล้ว กรุณาโหลดข้อมูลใหม่' }, { status: 409 });
-  if (code === 'P2003') return Response.json({ error: 'ข้อมูลไม่ตรงกับตารางอ้างอิง: ' + ((error as any).meta?.field_name || '') }, { status: 400 });
-  if (code === 'P2028') return Response.json({ error: 'การเชื่อมต่อฐานข้อมูลใช้เวลานานเกินกำหนด กรุณาลองใหม่อีกครั้ง' }, { status: 504 });
+  if (['P2002', 'P2004', 'P2034'].includes(code || ''))
+    return Response.json({ error: 'ข้อมูลซ้ำ หรือมีผู้อื่นแก้ไขแล้ว กรุณาโหลดข้อมูลใหม่' }, { status: 409 });
+  if (code === 'P2003')
+    return Response.json(
+      { error: 'ข้อมูลไม่ตรงกับตารางอ้างอิง: ' + ((error as any).meta?.field_name || '') },
+      { status: 400 },
+    );
+  if (code === 'P2028')
+    return Response.json({ error: 'การเชื่อมต่อฐานข้อมูลใช้เวลานานเกินกำหนด กรุณาลองใหม่อีกครั้ง' }, { status: 504 });
   console.error('Asset API failed:', error);
   return Response.json({ error: 'ระบบไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง' }, { status: 500 });
 }
-function response(value: unknown) { return new Response(json(value), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } }); }
+function response(value: unknown) {
+  return new Response(json(value), {
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}
 export async function GET(request: Request) {
   const url = new URL(request.url);
   return traced('GET', url.pathname + url.search, async () => {
     try {
       const value = await getData(await member(request), url);
       const data = value as { assets?: unknown[]; requests?: unknown[]; items?: unknown[] };
-      if (data.assets) trace.ok(`เตรียมข้อมูลส่งกลับ: ครุภัณฑ์ ${data.assets.length} รายการ · คำขอ ${data.requests?.length ?? 0} รายการ`);
+      if (data.assets)
+        trace.ok(
+          `เตรียมข้อมูลส่งกลับ: ครุภัณฑ์ ${data.assets.length} รายการ · คำขอ ${data.requests?.length ?? 0} รายการ`,
+        );
       else if (data.items) trace.ok(`เตรียมรายการตรวจนับส่งกลับ ${data.items.length} รายการ`);
       return response(value);
-    } catch (error) { return fail(error); }
+    } catch (error) {
+      return fail(error);
+    }
   });
 }
 export async function POST(request: Request) {
@@ -33,14 +48,17 @@ export async function POST(request: Request) {
       checkOrigin(request);
       trace.ok('ตรวจต้นทาง (Origin) — คำสั่งมาจากเว็บของเราเอง ไม่ใช่เว็บอื่นแอบส่งมา');
       const user = await member(request);
-      const limit = 4.25 * 1024 * 1024, tooLarge = 'ไฟล์ต้องไม่เกิน 4 MB';
+      const limit = 4.25 * 1024 * 1024,
+        tooLarge = 'ไฟล์ต้องไม่เกิน 4 MB';
       if (request.headers.get('content-type')?.includes('multipart/form-data')) {
         trace.step('รับไฟล์ที่อัปโหลด (Excel) ขนาดไม่เกิน 4 MB');
         return response(await upload(user, await boundedFormData(request, limit, tooLarge)));
       }
-      const body = await boundedJson(request, limit, tooLarge) as Parameters<typeof mutate>[1];
+      const body = (await boundedJson(request, limit, tooLarge)) as Parameters<typeof mutate>[1];
       trace.step(`คำสั่งที่ได้รับ: ${describeAction(body?.action)} (action = "${String(body?.action)}")`);
       return response(await mutate(user, body));
-    } catch (error) { return fail(error); }
+    } catch (error) {
+      return fail(error);
+    }
   });
 }

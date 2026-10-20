@@ -16,12 +16,25 @@ try {
     console.log('Original source is already registered; preserved without overwriting.');
   } else {
     const key = 'imports/' + source.id;
-    await prisma.$transaction(async tx => {
-      await putFile(key, bytes, tx);
-      await putFile(key + '.json', JSON.stringify(source), tx);
-      await putFile(key + '-raw.json', raw, tx);
-      await tx.importFile.create({ data: { id: source.id, name: source.name, hash: source.hash, objectKey: key, rowCount: source.sheets.reduce((n: number, s: any) => n + s.rows.length, 0), createdAt: new Date().toISOString(), actor: 'source-seed' } });
-    }, { timeout: 20000 });
+    await prisma.$transaction(
+      async tx => {
+        await putFile(key, bytes, tx);
+        await putFile(key + '.json', JSON.stringify(source), tx);
+        await putFile(key + '-raw.json', raw, tx);
+        await tx.importFile.create({
+          data: {
+            id: source.id,
+            name: source.name,
+            hash: source.hash,
+            objectKey: key,
+            rowCount: source.sheets.reduce((n: number, s: any) => n + s.rows.length, 0),
+            createdAt: new Date().toISOString(),
+            actor: 'source-seed',
+          },
+        });
+      },
+      { timeout: 20000 },
+    );
     console.log('Original workbook and all source rows stored privately in PostgreSQL; no assets auto-imported.');
   }
 } finally {

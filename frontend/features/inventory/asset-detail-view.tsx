@@ -16,7 +16,7 @@ import {
   Calendar,
   FolderOpen,
   Ban,
-  RotateCcw
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,7 +64,7 @@ export default function AssetDetailView({
   onPhotoChanged,
   rounds = [],
   onCheckRound,
-  funds = []
+  funds = [],
 }: AssetDetailViewProps) {
   // ทุนที่ยืนยันแล้ว (fundId) หรือทุนที่แนะนำจากไฟล์ต้นฉบับ (fundHintId) แสดงเป็นแถบเต็มความกว้าง ชื่อยาวไม่ถูกตัด
   const hintName = !asset.fundId && asset.fundHintId ? funds.find(f => f.id === asset.fundHintId)?.name : undefined;
@@ -78,17 +78,16 @@ export default function AssetDetailView({
   // สร้าง QR Code Data URL
   useEffect(() => {
     let active = true;
-    const qrContent = typeof window !== 'undefined'
-      ? `${window.location.origin}/?asset=${encodeURIComponent(asset.id)}`
-      : asset.code;
+    const qrContent =
+      typeof window !== 'undefined' ? `${window.location.origin}/?asset=${encodeURIComponent(asset.id)}` : asset.code;
 
     QRCode.toDataURL(qrContent, {
       width: 240,
       margin: 1,
       color: {
         dark: '#0f172a',
-        light: '#ffffff'
-      }
+        light: '#ffffff',
+      },
     })
       .then(url => {
         if (active) setQrDataUrl(url);
@@ -246,9 +245,7 @@ export default function AssetDetailView({
         </button>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#0f172a] tracking-tight">
-              รายละเอียดครุภัณฑ์: {asset.code}
-            </h1>
+            <h1 className="text-2xl font-bold text-[#0f172a] tracking-tight">รายละเอียดครุภัณฑ์: {asset.code}</h1>
             <p className="text-slate-500 text-xs sm:text-sm mt-1">
               {asset.name} · บันทึกล่าสุดเมื่อ{' '}
               {asset.createdAt ? new Date(asset.createdAt).toLocaleDateString('th-TH') : '—'}
@@ -327,9 +324,7 @@ export default function AssetDetailView({
           {/* Main Specifications Card */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-[#0f172a]">
-                ข้อมูลทั่วไปของครุภัณฑ์ (Asset Specification)
-              </h2>
+              <h2 className="text-base font-bold text-[#0f172a]">ข้อมูลทั่วไปของครุภัณฑ์ (Asset Specification)</h2>
               <div className="flex items-center gap-1.5">
                 <ConditionBadge condition={asset.condition} awaiting={awaiting} />
                 {asset.lifecycle !== 'active' && <Badge value={asset.lifecycle} />}
@@ -337,13 +332,23 @@ export default function AssetDetailView({
             </div>
 
             {fundLabel && (
-              <div className={`rounded-lg border px-4 py-3 flex gap-3 items-start ${asset.fundName ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200 border-dashed'}`}>
-                <FolderOpen size={20} className={asset.fundName ? 'text-blue-700 mt-0.5 shrink-0' : 'text-slate-500 mt-0.5 shrink-0'} aria-hidden="true" />
+              <div
+                className={`rounded-lg border px-4 py-3 flex gap-3 items-start ${asset.fundName ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200 border-dashed'}`}
+              >
+                <FolderOpen
+                  size={20}
+                  className={asset.fundName ? 'text-blue-700 mt-0.5 shrink-0' : 'text-slate-500 mt-0.5 shrink-0'}
+                  aria-hidden="true"
+                />
                 <div className="min-w-0">
                   <div className={`text-xs font-bold ${asset.fundName ? 'text-blue-700' : 'text-slate-500'}`}>
                     ทุน / โครงการ · {asset.fundName ? 'ยืนยันแล้ว' : 'แนะนำจากไฟล์ต้นฉบับ (ยังไม่ยืนยัน)'}
                   </div>
-                  <div className={`text-sm leading-relaxed break-words ${asset.fundName ? 'text-blue-900' : 'text-slate-700'}`}>{fundLabel}</div>
+                  <div
+                    className={`text-sm leading-relaxed break-words ${asset.fundName ? 'text-blue-900' : 'text-slate-700'}`}
+                  >
+                    {fundLabel}
+                  </div>
                 </div>
               </div>
             )}
@@ -351,9 +356,7 @@ export default function AssetDetailView({
             {/* Row 1: Code & Serial */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  รหัสครุภัณฑ์ (Asset ID)
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">รหัสครุภัณฑ์ (Asset ID)</label>
                 <div className="relative">
                   <Input
                     value={asset.code}
@@ -363,9 +366,7 @@ export default function AssetDetailView({
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  หมายเลขเครื่อง / Serial No.
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">หมายเลขเครื่อง / Serial No.</label>
                 <Input
                   value={asset.serial || '—'}
                   readOnly
@@ -376,9 +377,7 @@ export default function AssetDetailView({
 
             {/* Row 2: Asset Name */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                ชื่อรายการครุภัณฑ์ (Asset Name)
-              </label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">ชื่อรายการครุภัณฑ์ (Asset Name)</label>
               <Input
                 value={asset.name}
                 readOnly
@@ -389,9 +388,7 @@ export default function AssetDetailView({
             {/* Row 3: Category & Department */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  หมวดหมู่ครุภัณฑ์ (Category)
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">หมวดหมู่ครุภัณฑ์ (Category)</label>
                 <Input
                   value={asset.category || 'ทั่วไป'}
                   readOnly
@@ -399,15 +396,11 @@ export default function AssetDetailView({
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  หมวด (กลุ่มต่างๆ)
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">หมวด (กลุ่มต่างๆ)</label>
                 <Input value={groupFor(asset)} readOnly className="text-sm bg-white border-slate-200 text-slate-800" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  สาขาวิชา
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">สาขาวิชา</label>
                 <Input
                   value={isOffice ? '— (ไม่ใช่ของสาขาวิชา)' : asset.branch || '—'}
                   readOnly
@@ -415,9 +408,7 @@ export default function AssetDetailView({
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  หน่วยงานที่รับผิดชอบ
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">หน่วยงานที่รับผิดชอบ</label>
                 <Input
                   value={isOffice ? asset.branch : 'คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม'}
                   readOnly
@@ -429,9 +420,7 @@ export default function AssetDetailView({
             {/* Row 4: Location & Custodian */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  สถานที่ตั้ง / ห้อง (Location)
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">สถานที่ตั้ง / ห้อง (Location)</label>
                 <Input
                   value={asset.location || '—'}
                   readOnly
@@ -453,7 +442,11 @@ export default function AssetDetailView({
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     ชุด (ห้ามแยก — โอนย้าย/จำหน่ายต้องไปทั้งชุด)
                   </label>
-                  <Input value={`${setRoles[asset.setRole as SetRole] ?? 'รายการในชุด'} · ${asset.setName ?? ''}`} readOnly className="text-sm bg-amber-50 border-amber-200 text-slate-800" />
+                  <Input
+                    value={`${setRoles[asset.setRole as SetRole] ?? 'รายการในชุด'} · ${asset.setName ?? ''}`}
+                    readOnly
+                    className="text-sm bg-amber-50 border-amber-200 text-slate-800"
+                  />
                 </div>
               )}
             </div>
@@ -461,9 +454,7 @@ export default function AssetDetailView({
             {/* Row 5: Acquisition Date & Pricing */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  วันที่ตรวจรับ / ได้มา
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">วันที่ตรวจรับ / ได้มา</label>
                 <Input
                   value={asset.receivedDate || '—'}
                   readOnly
@@ -471,9 +462,7 @@ export default function AssetDetailView({
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  ราคาต่อหน่วย
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">ราคาต่อหน่วย</label>
                 <Input
                   value={`฿${money(asset.unitSatang)}`}
                   readOnly
@@ -481,9 +470,7 @@ export default function AssetDetailView({
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  มูลค่ารวม ({asset.quantity} ชิ้น)
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">มูลค่ารวม ({asset.quantity} ชิ้น)</label>
                 <Input
                   value={`฿${money(asset.totalSatang)}`}
                   readOnly
@@ -495,9 +482,7 @@ export default function AssetDetailView({
             {/* Row 6: Life Years & Status */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  อายุการใช้งานตามเกณฑ์
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">อายุการใช้งานตามเกณฑ์</label>
                 <Input
                   value={asset.lifeYears ? `${asset.lifeYears} ปี` : '—'}
                   readOnly
@@ -505,13 +490,13 @@ export default function AssetDetailView({
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  สถานะสภาพการใช้งาน
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">สถานะสภาพการใช้งาน</label>
                 <Input
-                  value={awaiting
-                    ? `${awaiting.label} · ${awaiting.detail} (สภาพปัจจุบัน: ${conditions[asset.condition as keyof typeof conditions] || asset.condition})`
-                    : conditions[asset.condition as keyof typeof conditions] || asset.condition}
+                  value={
+                    awaiting
+                      ? `${awaiting.label} · ${awaiting.detail} (สภาพปัจจุบัน: ${conditions[asset.condition as keyof typeof conditions] || asset.condition})`
+                      : conditions[asset.condition as keyof typeof conditions] || asset.condition
+                  }
                   readOnly
                   className={`text-sm font-medium bg-white ${awaiting ? 'border-orange-300 text-orange-700' : 'border-slate-200 text-slate-800'}`}
                 />
@@ -520,9 +505,7 @@ export default function AssetDetailView({
 
             {/* Row 7: Notes & Specification */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                หมายเหตุ / คุณลักษณะเฉพาะเพิ่มเติม
-              </label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">หมายเหตุ / คุณลักษณะเฉพาะเพิ่มเติม</label>
               <Textarea
                 value={asset.notes || '—'}
                 readOnly
@@ -629,7 +612,9 @@ export default function AssetDetailView({
                       <span className="font-bold text-orange-700">฿{money(r.costSatang)}</span>
                     </div>
                     <p className="mt-1 text-slate-600">{r.result || '—'}</p>
-                    <p className="mt-1 text-[11px] text-slate-400">{new Date(r.createdAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      {new Date(r.createdAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -645,15 +630,11 @@ export default function AssetDetailView({
                 <History size={17} className="text-blue-600" />
                 ประวัติการทำรายการและความเคลื่อนไหว
               </h2>
-              <span className="text-xs text-slate-500">
-                {history?.events?.length || 0} เหตุการณ์
-              </span>
+              <span className="text-xs text-slate-500">{history?.events?.length || 0} เหตุการณ์</span>
             </div>
 
             {loadingHistory ? (
-              <div className="py-8 text-center text-xs text-slate-400 animate-pulse">
-                กำลังโหลดประวัติของรายการ…
-              </div>
+              <div className="py-8 text-center text-xs text-slate-400 animate-pulse">กำลังโหลดประวัติของรายการ…</div>
             ) : history?.events && history.events.length > 0 ? (
               <div className="space-y-3">
                 {history.events.map((e: any) => (
@@ -718,11 +699,7 @@ export default function AssetDetailView({
                 {/* QR Code image */}
                 <div className="w-24 h-24 bg-white border border-slate-200 rounded p-1 shrink-0 flex items-center justify-center">
                   {qrDataUrl ? (
-                    <img
-                      src={qrDataUrl}
-                      alt="QR Code"
-                      className="w-full h-full object-contain"
-                    />
+                    <img src={qrDataUrl} alt="QR Code" className="w-full h-full object-contain" />
                   ) : (
                     <div className="w-full h-full bg-slate-100 animate-pulse rounded" />
                   )}
@@ -732,15 +709,11 @@ export default function AssetDetailView({
                 <div className="min-w-0 flex-1 space-y-1 text-left">
                   <div>
                     <span className="text-[10px] text-slate-500 block leading-none">รหัสครุภัณฑ์:</span>
-                    <strong className="font-mono text-xs text-[#0f172a] block truncate select-all">
-                      {asset.code}
-                    </strong>
+                    <strong className="font-mono text-xs text-[#0f172a] block truncate select-all">{asset.code}</strong>
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-500 block leading-none">ชื่อรายการ:</span>
-                    <span className="text-[11px] font-bold text-slate-800 block truncate">
-                      {asset.name}
-                    </span>
+                    <span className="text-[11px] font-bold text-slate-800 block truncate">{asset.name}</span>
                   </div>
                   <div>
                     <span className="text-[9.5px] text-slate-600 block truncate">
@@ -750,9 +723,7 @@ export default function AssetDetailView({
                       วันที่ได้มา: {asset.receivedDate || '—'}
                     </span>
                   </div>
-                  <div className="text-[9px] font-bold text-blue-600 pt-0.5">
-                    สแกนเพื่อตรวจสอบสถานะ
-                  </div>
+                  <div className="text-[9px] font-bold text-blue-600 pt-0.5">สแกนเพื่อตรวจสอบสถานะ</div>
                 </div>
               </div>
             </div>

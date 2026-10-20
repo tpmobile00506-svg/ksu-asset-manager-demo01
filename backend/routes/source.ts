@@ -16,11 +16,10 @@ export async function GET(request: Request) {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': "attachment; filename*=UTF-8''" + encodeURIComponent(name),
-        'Cache-Control': 'no-store'
-      }
+        'Cache-Control': 'no-store',
+      },
     });
   } catch (e) {
     return fail(e);
   }
 }
-

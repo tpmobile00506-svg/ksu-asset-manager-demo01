@@ -15,7 +15,7 @@ export default function Operations({
   write,
   busy,
   revision,
-  select
+  select,
 }: {
   view: string;
   data: WorkspaceData;
@@ -25,30 +25,16 @@ export default function Operations({
   revision: number;
   select: (a: Asset) => void;
 }) {
-
   if (view === 'requests') {
     return <RequestsView data={data} open={open} />;
   }
 
   if (view === 'stocktakes') {
-    return (
-      <StocktakesView
-        data={data}
-        open={open}
-        write={write}
-        busy={busy}
-        revision={revision}
-      />
-    );
+    return <StocktakesView data={data} open={open} write={write} busy={busy} revision={revision} />;
   }
 
   if (view === 'reports') {
-    return (
-      <ReportsView
-        data={data}
-        select={select}
-      />
-    );
+    return <ReportsView data={data} select={select} />;
   }
 
   if (view === 'audit') {

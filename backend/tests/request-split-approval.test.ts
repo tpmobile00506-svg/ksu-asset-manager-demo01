@@ -10,7 +10,15 @@ import type { Member } from '../auth/sessions';
 
 const branchCom = 'วิศวกรรมคอมพิวเตอร์ (วค)';
 const branchElec = 'วิศวกรรมไฟฟ้า (วฟ)';
-const mk = (id: string, role: Member['role'], branch: string | null = null): Member => ({ id, email: id + '@example.test', name: id, role, branch, active: 1, createdAt: '' });
+const mk = (id: string, role: Member['role'], branch: string | null = null): Member => ({
+  id,
+  email: id + '@example.test',
+  name: id,
+  role,
+  branch,
+  active: 1,
+  createdAt: '',
+});
 const headCom = mk('head-com', 'head', branchCom);
 const deputy = mk('deputy-1', 'deputy');
 const dean = mk('dean-1', 'dean');
@@ -18,7 +26,14 @@ const dean = mk('dean-1', 'dean');
 function useMemoryDatabase(client: object) {
   const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
   const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy({}, { get() { throw new Error('Real database access is forbidden in this test'); } });
+  cache.assetPool = new Proxy(
+    {},
+    {
+      get() {
+        throw new Error('Real database access is forbidden in this test');
+      },
+    },
+  );
   cache.assetPrisma = new Proxy(client, {
     get(target, property) {
       if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
@@ -26,41 +41,89 @@ function useMemoryDatabase(client: object) {
     },
   });
   return () => {
-    if (previous.pool === undefined) delete cache.assetPool; else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma; else cache.assetPrisma = previous.client;
+    if (previous.pool === undefined) delete cache.assetPool;
+    else cache.assetPool = previous.pool;
+    if (previous.client === undefined) delete cache.assetPrisma;
+    else cache.assetPrisma = previous.client;
   };
 }
 
 function environment(kind: 'repair' | 'transfer', stage: number, payloadExtra: Record<string, unknown> = {}) {
-  const members = new Map<string, Member>([[headCom.id, headCom], [deputy.id, deputy], [dean.id, dean]]);
+  const members = new Map<string, Member>([
+    [headCom.id, headCom],
+    [deputy.id, deputy],
+    [dean.id, dean],
+  ]);
   let parent: any = {
-    id: 'parent-1', code: 'CHAIR-200', name: 'เก้าอี้บรรยาย', quantity: 200, unitSatang: 125000n, totalSatang: 25000000n, salvageSatang: 0n,
-    notes: '', location: 'ห้อง 101', branch: branchCom, category: 'คอมพิวเตอร์', groupName: 'ทั่วไป', condition: 'normal', lifecycle: 'active',
-    version: 2, parentId: null, sourceId: null, sourceRow: null, receivedDate: '2026-01-01', lifeYears: 5, serial: '', brand: '', custodian: '', createdAt: '2026-01-01',
+    id: 'parent-1',
+    code: 'CHAIR-200',
+    name: 'เก้าอี้บรรยาย',
+    quantity: 200,
+    unitSatang: 125000n,
+    totalSatang: 25000000n,
+    salvageSatang: 0n,
+    notes: '',
+    location: 'ห้อง 101',
+    branch: branchCom,
+    category: 'คอมพิวเตอร์',
+    groupName: 'ทั่วไป',
+    condition: 'normal',
+    lifecycle: 'active',
+    version: 2,
+    parentId: null,
+    sourceId: null,
+    sourceRow: null,
+    receivedDate: '2026-01-01',
+    lifeYears: 5,
+    serial: '',
+    brand: '',
+    custodian: '',
+    createdAt: '2026-01-01',
   };
   const created: any[] = [];
   const request: any = {
-    id: 'req-1', assetId: 'parent-1', assetVersion: 2, kind,
-    payload: JSON.stringify({ splitQuantity: 50, ...payloadExtra }), reason: 'ทดสอบ', stage,
-    chain: JSON.stringify(['head', 'deputy', 'dean']), status: 'pending', version: 1, actor: 'staff-other', createdAt: '2026-10-01',
+    id: 'req-1',
+    assetId: 'parent-1',
+    assetVersion: 2,
+    kind,
+    payload: JSON.stringify({ splitQuantity: 50, ...payloadExtra }),
+    reason: 'ทดสอบ',
+    stage,
+    chain: JSON.stringify(['head', 'deputy', 'dean']),
+    status: 'pending',
+    version: 1,
+    actor: 'staff-other',
+    createdAt: '2026-10-01',
   };
   const tx = {
-    user: { findUnique: async ({ where }: { where: { id?: string } }) => (where.id ? members.get(where.id) ?? null : null) },
+    user: {
+      findUnique: async ({ where }: { where: { id?: string } }) => (where.id ? (members.get(where.id) ?? null) : null),
+    },
     operation: { findUnique: async () => null, create: async () => ({}) },
     asset: {
-      findUnique: async ({ where }: { where: { id: string } }) => (where.id === parent.id ? structuredClone(parent) : structuredClone(created.find(c => c.id === where.id) ?? null)),
-      create: async ({ data }: { data: any }) => { created.push(data); return data; },
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        where.id === parent.id
+          ? structuredClone(parent)
+          : structuredClone(created.find(c => c.id === where.id) ?? null),
+      create: async ({ data }: { data: any }) => {
+        created.push(data);
+        return data;
+      },
       update: async ({ where, data }: { where: { id: string }; data: any }) => {
         const inc = data.version?.increment || 0;
         const { version, ...rest } = data;
-        if (where.id === parent.id) { parent = { ...parent, ...rest, version: parent.version + inc }; return parent; }
+        if (where.id === parent.id) {
+          parent = { ...parent, ...rest, version: parent.version + inc };
+          return parent;
+        }
         const child = created.find(c => c.id === where.id);
         Object.assign(child, rest, { version: child.version + inc });
         return child;
       },
     },
     assetRequest: {
-      findUnique: async ({ where }: { where: { id: string } }) => (where.id === request.id ? structuredClone(request) : null),
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        where.id === request.id ? structuredClone(request) : null,
       update: async ({ data }: { data: any }) => {
         const { version, ...rest } = data;
         if (version?.increment) request.version += version.increment;
@@ -97,7 +160,9 @@ test('อนุมัติขั้นสุดท้ายของคำข�
     assert.equal(remainder.condition, 'normal');
     assert.equal(env.request.status, 'approved');
     assert.equal(env.request.assetId, target.id);
-  } finally { restore(); }
+  } finally {
+    restore();
+  }
 });
 
 test('คำขอโอนย้ายที่ระบุ 50 ตัว: เมื่ออนุมัติขั้นสุดท้ายย้ายเฉพาะล็อต 50 ตัว ส่วนที่เหลือคงสถานที่เดิม', async () => {
@@ -113,7 +178,9 @@ test('คำขอโอนย้ายที่ระบุ 50 ตัว: เ�
     assert.equal(remainder.quantity, 150);
     assert.equal(remainder.location, 'ห้อง 101');
     assert.equal(remainder.branch, branchCom);
-  } finally { restore(); }
+  } finally {
+    restore();
+  }
 });
 
 test('ถูกปฏิเสธ (reject) ที่ขั้นแรก: ทะเบียนไม่เปลี่ยน ไม่มีล็อตใหม่ และครุภัณฑ์เดิมยังใช้งานได้', async () => {
@@ -126,7 +193,9 @@ test('ถูกปฏิเสธ (reject) ที่ขั้นแรก: ท�
     assert.equal(env.created.length, 0);
     assert.equal(env.getParent().lifecycle, 'active');
     assert.equal(env.getParent().quantity, 200);
-  } finally { restore(); }
+  } finally {
+    restore();
+  }
 });
 
 test('อนุมัติขั้นที่ยังไม่ใช่ขั้นสุดท้าย: ยังไม่แบ่งล็อต', async () => {
@@ -138,7 +207,9 @@ test('อนุมัติขั้นที่ยังไม่ใช่ข�
     assert.equal(env.request.status, 'pending');
     assert.equal(env.created.length, 0);
     assert.equal(env.getParent().lifecycle, 'active');
-  } finally { restore(); }
+  } finally {
+    restore();
+  }
 });
 
 test('คำขอเดิมที่ไม่ได้ระบุจำนวน (ไม่มี splitQuantity) ทำงานเหมือนเดิม: เปลี่ยนที่ครุภัณฑ์เดิมทั้งรายการ', async () => {
@@ -151,5 +222,7 @@ test('คำขอเดิมที่ไม่ได้ระบุจำน�
     assert.equal(env.getParent().condition, 'repair');
     assert.equal(env.getParent().lifecycle, 'active');
     assert.equal(env.request.assetId, 'parent-1');
-  } finally { restore(); }
+  } finally {
+    restore();
+  }
 });

@@ -13,7 +13,7 @@ type QrAsset = { id: string; code: string; name: string; quantity: number };
 function renderModal(toDataURL: (url: string) => Promise<string>) {
   const source = readFileSync(new URL('../../frontend/features/inventory/qr-label-modal.tsx', import.meta.url), 'utf8');
   const code = ts.transpileModule(source, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX }
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   const states: any[] = [];
   const effects: Effect[] = [];
@@ -30,15 +30,19 @@ function renderModal(toDataURL: (url: string) => Promise<string>) {
       useState(initial: unknown) {
         const index = stateIndex++;
         if (!(index in states)) states[index] = typeof initial === 'function' ? initial() : initial;
-        return [states[index], (value: unknown) => {
-          states[index] = typeof value === 'function' ? value(states[index]) : value;
-        }];
+        return [
+          states[index],
+          (value: unknown) => {
+            states[index] = typeof value === 'function' ? value(states[index]) : value;
+          },
+        ];
       },
       // useMemo: คำนวณใหม่เมื่อ deps เปลี่ยน เหมือน React จริง (ใช้แบ่งป้าย QR เป็นชุดละ 100)
       useMemo(factory: () => unknown, deps: unknown[]) {
         const index = memoIndex++;
         const previous = memos[index];
-        if (!previous || deps.some((value, i) => !Object.is(value, previous.deps[i]))) memos[index] = { deps, value: factory() };
+        if (!previous || deps.some((value, i) => !Object.is(value, previous.deps[i])))
+          memos[index] = { deps, value: factory() };
         return memos[index].value;
       },
       useEffect(effect: () => (() => void) | undefined, deps: unknown[]) {
@@ -50,16 +54,18 @@ function renderModal(toDataURL: (url: string) => Promise<string>) {
             effects[index] = { deps, cleanup: effect() };
           });
         }
-      }
+      },
     },
     'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
     'react-dom': { createPortal: (children: Node) => jsx('portal', { children }) },
     'lucide-react': { Printer: 'Printer' },
     '@/components/ui/button': { Button: 'Button' },
-    '@/components/ui/dialog': Object.fromEntries(['Dialog', 'DialogContent', 'DialogHeader', 'DialogTitle', 'DialogDescription'].map(name => [name, name])),
+    '@/components/ui/dialog': Object.fromEntries(
+      ['Dialog', 'DialogContent', 'DialogHeader', 'DialogTitle', 'DialogDescription'].map(name => [name, name]),
+    ),
     '@/components/ui/skeleton': { Skeleton: 'Skeleton' },
     sonner: { toast: { error: (message: string) => errors.push(message) } },
-    qrcode: { toDataURL }
+    qrcode: { toDataURL },
   };
   const module = { exports: {} as { default: (props: unknown) => Node } };
   runInNewContext(code, {
@@ -71,11 +77,13 @@ function renderModal(toDataURL: (url: string) => Promise<string>) {
     },
     location: { origin: 'https://assets.example.test' },
     window: { print: () => prints++ },
-    document: { body: {} }
+    document: { body: {} },
   });
   return {
     errors,
-    get prints() { return prints; },
+    get prints() {
+      return prints;
+    },
     render(open: boolean, assets: QrAsset[]) {
       stateIndex = 0;
       effectIndex = 0;
@@ -86,7 +94,7 @@ function renderModal(toDataURL: (url: string) => Promise<string>) {
       // for one render between a new selection and its generation effect.
       pendingEffects.forEach(effect => effect());
       return tree;
-    }
+    },
   };
 }
 
@@ -140,7 +148,12 @@ test('QR selection changes never display or print the previous selection', async
 
 test('unfinished QR generation cannot restore labels or errors after close', async () => {
   let rejectQr!: (error: Error) => void;
-  const modal = renderModal(() => new Promise((_resolve, reject) => { rejectQr = reject; }));
+  const modal = renderModal(
+    () =>
+      new Promise((_resolve, reject) => {
+        rejectQr = reject;
+      }),
+  );
   const assets = [asset('pending')];
   modal.render(true, assets);
   await settle();

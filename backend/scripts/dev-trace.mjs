@@ -6,7 +6,9 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const next = require.resolve('next/dist/bin/next');
 const level = process.argv[2] === 'full' ? '2' : '1';
-console.log(`\n[หลังบ้าน] โหมดดูการทำงานหลังบ้านเปิดอยู่ (DEBUG_TRACE=${level}) · เปิดเว็บที่ http://127.0.0.1:3000 แล้วดูข้อความในหน้าต่างนี้\n`);
+console.log(
+  `\n[หลังบ้าน] โหมดดูการทำงานหลังบ้านเปิดอยู่ (DEBUG_TRACE=${level}) · เปิดเว็บที่ http://127.0.0.1:3000 แล้วดูข้อความในหน้าต่างนี้\n`,
+);
 const child = spawn(process.execPath, [next, 'dev', 'frontend', '--hostname', '127.0.0.1', '--port', '3000'], {
   stdio: 'inherit',
   env: { ...process.env, DEBUG_TRACE: level },

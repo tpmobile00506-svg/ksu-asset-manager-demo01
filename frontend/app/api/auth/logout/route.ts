@@ -11,9 +11,12 @@ export async function POST(request: Request) {
       return Response.json({ error: err.message }, { status: err.status, headers: { 'Cache-Control': 'no-store' } });
     }
     console.error('Logout error:', err);
-    return Response.json({ error: 'ล้างการเข้าสู่ระบบบนอุปกรณ์นี้แล้ว แต่ยังยืนยันการปิดเซสชันบนเซิร์ฟเวอร์ไม่ได้ กรุณาลองใหม่ภายหลัง' }, {
-      status: 503, headers: { 'Set-Cookie': sessionCookie('', 0), 'Cache-Control': 'no-store' },
-    });
+    return Response.json(
+      { error: 'ล้างการเข้าสู่ระบบบนอุปกรณ์นี้แล้ว แต่ยังยืนยันการปิดเซสชันบนเซิร์ฟเวอร์ไม่ได้ กรุณาลองใหม่ภายหลัง' },
+      {
+        status: 503,
+        headers: { 'Set-Cookie': sessionCookie('', 0), 'Cache-Control': 'no-store' },
+      },
+    );
   }
 }
-

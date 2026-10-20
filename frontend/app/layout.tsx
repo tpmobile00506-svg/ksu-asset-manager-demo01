@@ -1,18 +1,18 @@
-import type { Metadata, Viewport } from "next";
-import "@/frontend/styles/globals.css";
-import "@/frontend/styles/source-sheet-grid.css";
-import "@/frontend/styles/registry-table.css";
+import type { Metadata, Viewport } from 'next';
+import '@/frontend/styles/globals.css';
+import '@/frontend/styles/source-sheet-grid.css';
+import '@/frontend/styles/registry-table.css';
 
 export const metadata: Metadata = {
-  title: "ทะเบียนครุภัณฑ์ · คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม",
-  description: "ทะเบียนครุภัณฑ์ การตรวจนับ การโอนย้าย และการอนุมัติ มหาวิทยาลัยกาฬสินธุ์",
+  title: 'ทะเบียนครุภัณฑ์ · คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม',
+  description: 'ทะเบียนครุภัณฑ์ การตรวจนับ การโอนย้าย และการอนุมัติ มหาวิทยาลัยกาฬสินธุ์',
   icons: {
-    icon: "/logo-faculty.png",
+    icon: '/logo-faculty.png',
   },
 };
 
 export const viewport: Viewport = {
-  width: "device-width",
+  width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
 };

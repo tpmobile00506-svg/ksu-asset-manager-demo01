@@ -10,5 +10,5 @@ export type {
   AuditRecord,
   ImportFileRecord,
   CurrentUser,
-  WorkspaceData
+  WorkspaceData,
 } from '@/shared/models';

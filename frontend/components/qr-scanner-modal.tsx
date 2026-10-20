@@ -1,25 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  Camera,
-  CameraOff,
-  RefreshCw,
-  Zap,
-  ZapOff,
-  Upload,
-  X,
-  Search,
-  ScanLine,
-  AlertTriangle
-} from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from '@/components/ui/dialog';
+import { Camera, CameraOff, RefreshCw, Zap, ZapOff, Upload, X, Search, ScanLine, AlertTriangle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -31,7 +14,6 @@ interface QrScannerModalProps {
   title?: string;
   description?: string;
 }
-
 
 // html5-qrcode เรียก video.play() เองโดยไม่ดักผล ถ้าปิดหน้าต่างก่อนวิดีโอเริ่มเล่น เบราว์เซอร์ยกเลิก play()
 // เป็น AbortError ที่ไม่มีผลเสีย (กล้องถูกปิดอยู่แล้ว) แต่ Next.js ขึ้นหน้าแดง จึงดักผลเฉพาะวิดีโอของตัวสแกนนี้
@@ -51,7 +33,7 @@ export default function QrScannerModal({
   onClose,
   onScan,
   title = 'สแกน QR Code / Barcode ครุภัณฑ์',
-  description = 'หันกล้องไปที่ฉลาก QR Code หรือ Barcode บนตัวครุภัณฑ์'
+  description = 'หันกล้องไปที่ฉลาก QR Code หรือ Barcode บนตัวครุภัณฑ์',
 }: QrScannerModalProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +52,8 @@ export default function QrScannerModal({
   // เล่นเสียง Beep สัญญาณการสแกนสำเร็จ
   const playBeep = useCallback(() => {
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
       const osc = ctx.createOscillator();
@@ -99,32 +82,35 @@ export default function QrScannerModal({
     }
   }, []);
 
-  const handleScanSuccess = useCallback(async (decodedText: string) => {
-    if (isLockedRef.current || !decodedText) return;
-    isLockedRef.current = true;
-    setIsProcessing(true);
+  const handleScanSuccess = useCallback(
+    async (decodedText: string) => {
+      if (isLockedRef.current || !decodedText) return;
+      isLockedRef.current = true;
+      setIsProcessing(true);
 
-    playBeep();
-    triggerHaptic();
+      playBeep();
+      triggerHaptic();
 
-    try {
-      const result = await onScan(decodedText);
-      // หาก handler คืนค่า false แปลว่าไม่พบรายการหรือยังต้องการสแกนต่อ
-      if (result === false) {
+      try {
+        const result = await onScan(decodedText);
+        // หาก handler คืนค่า false แปลว่าไม่พบรายการหรือยังต้องการสแกนต่อ
+        if (result === false) {
+          setTimeout(() => {
+            isLockedRef.current = false;
+            setIsProcessing(false);
+          }, 1500);
+        } else {
+          setIsProcessing(false);
+        }
+      } catch {
         setTimeout(() => {
           isLockedRef.current = false;
           setIsProcessing(false);
         }, 1500);
-      } else {
-        setIsProcessing(false);
       }
-    } catch {
-      setTimeout(() => {
-        isLockedRef.current = false;
-        setIsProcessing(false);
-      }, 1500);
-    }
-  }, [onScan, playBeep, triggerHaptic]);
+    },
+    [onScan, playBeep, triggerHaptic],
+  );
 
   // รอบการเปิดกล้อง: ปิดหน้าต่างหรือสลับกล้องระหว่างที่กล้องกำลังเปิด ต้องไม่ปล่อยกล้องค้างไว้
   const startGeneration = useRef(0);
@@ -150,113 +136,134 @@ export default function QrScannerModal({
     }
   }, []);
 
-  const startScanner = useCallback(async (cameraIdOrFacing: string | { facingMode: string }) => {
-    setError(null);
-    setLoading(true);
-    setTorchOn(false);
-    setTorchAvailable(false);
+  const startScanner = useCallback(
+    async (cameraIdOrFacing: string | { facingMode: string }) => {
+      setError(null);
+      setLoading(true);
+      setTorchOn(false);
+      setTorchAvailable(false);
 
-    try {
-      await stopScanner();
-      const generation = startGeneration.current;
-      const cancelled = () => generation !== startGeneration.current;
-
-      // ตรวจสอบ secure context
-      if (typeof window !== 'undefined' && !window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-        throw new Error('เบราว์เซอร์อนุญาตให้เปิดกล้องเฉพาะเว็บไซต์ที่ใช้ HTTPS เท่านั้น');
-      }
-
-      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
-
-      // ตรวจสอบว่า container พร้อมใน DOM หรือไม่
-      const container = document.getElementById(containerId);
-      if (!container) {
-        throw new Error('ไม่พบพื้นที่แสดงผลกล้อง');
-      }
-      videoObserver.current?.disconnect();
-      videoObserver.current = new MutationObserver(records => {
-        for (const r of records) r.addedNodes.forEach(n => { if (n instanceof HTMLVideoElement) guardVideoPlay(n); });
-      });
-      videoObserver.current.observe(container, { childList: true, subtree: true });
-
-      const scanner = new Html5Qrcode(containerId, {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E
-        ],
-        verbose: false
-      });
-
-      scannerRef.current = scanner;
-
-      // ค้นหากล้องที่สามารถใช้ได้
       try {
-        const devs = await Html5Qrcode.getCameras();
-        if (devs && devs.length > 0) {
-          setCameras(devs);
+        await stopScanner();
+        const generation = startGeneration.current;
+        const cancelled = () => generation !== startGeneration.current;
+
+        // ตรวจสอบ secure context
+        if (
+          typeof window !== 'undefined' &&
+          !window.isSecureContext &&
+          location.hostname !== 'localhost' &&
+          location.hostname !== '127.0.0.1'
+        ) {
+          throw new Error('เบราว์เซอร์อนุญาตให้เปิดกล้องเฉพาะเว็บไซต์ที่ใช้ HTTPS เท่านั้น');
         }
-      } catch {
-        // กล้องอาจยังไม่ได้รับสิทธิ์ getCameras
-      }
 
-      const qrConfig = {
-        fps: 15,
-        qrbox: (w: number, h: number) => {
-          // html5-qrcode โยน error ถ้า qrbox เล็กกว่า 50px (เกิดเมื่อพื้นที่กล้องยังไม่ถูกจัดขนาดหรือหน้าต่างแคบมาก)
-          const size = Math.max(50, Math.floor(Math.min(w, h) * 0.75));
-          return { width: size, height: size };
-        },
-        aspectRatio: 1.0  // ต้องมี: ทำให้ html5-qrcode รอก่อนเรียก play() ตัวดัก AbortError (videoObserver) จึงทันจับวิดีโอ
-      };
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
 
-      await scanner.start(
-        cameraIdOrFacing,
-        qrConfig,
-        (decodedText: string) => {
-          handleScanSuccess(decodedText);
-        },
-        () => {
-          // ignore frame decode errors
+        // ตรวจสอบว่า container พร้อมใน DOM หรือไม่
+        const container = document.getElementById(containerId);
+        if (!container) {
+          throw new Error('ไม่พบพื้นที่แสดงผลกล้อง');
         }
-      );
+        videoObserver.current?.disconnect();
+        videoObserver.current = new MutationObserver(records => {
+          for (const r of records)
+            r.addedNodes.forEach(n => {
+              if (n instanceof HTMLVideoElement) guardVideoPlay(n);
+            });
+        });
+        videoObserver.current.observe(container, { childList: true, subtree: true });
 
-      // หน้าต่างถูกปิด (หรือเริ่มกล้องใหม่) ระหว่างรอกล้องเปิด: ปิดกล้องตัวนี้ทิ้ง ไม่ให้ไฟกล้องค้าง
-      if (cancelled()) {
-        try { await scanner.stop(); } catch { /* กล้องหยุดแล้ว */ }
-        try { scanner.clear(); } catch { /* ล้างแล้ว */ }
-        return;
-      }
-      setLoading(false);
+        const scanner = new Html5Qrcode(containerId, {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+          ],
+          verbose: false,
+        });
 
-      // ตรวจสอบการรองรับไฟฉาย (Torch)
-      try {
-        const capabilities = scanner.getRunningTrackCapabilities();
-        if (capabilities && (capabilities as unknown as { torch?: boolean }).torch) {
-          setTorchAvailable(true);
+        scannerRef.current = scanner;
+
+        // ค้นหากล้องที่สามารถใช้ได้
+        try {
+          const devs = await Html5Qrcode.getCameras();
+          if (devs && devs.length > 0) {
+            setCameras(devs);
+          }
+        } catch {
+          // กล้องอาจยังไม่ได้รับสิทธิ์ getCameras
         }
-      } catch {
-        setTorchAvailable(false);
-      }
-    } catch (err: unknown) {
-      setLoading(false);
-      const errMsg = err instanceof Error ? err.message : String(err);
 
-      if (errMsg.includes('NotAllowedError') || errMsg.includes('Permission') || errMsg.includes('denied')) {
-        setError('เบราว์เซอร์ไม่ได้รับอนุญาตให้เข้าถึงกล้อง กรุณากดอนุญาตสิทธิ์การใช้กล้อง (Camera Permission) ในการตั้งค่าเบราว์เซอร์ หรือใช้วิธีถ่ายรูป/อัปโหลดไฟล์แทน');
-      } else if (errMsg.includes('NotFoundError') || errMsg.includes('DevicesNotFoundError')) {
-        setError('ไม่พบอุปกรณ์กล้องบนเครื่องนี้ คุณสามารถใช้วิธีถ่ายภาพหรืออัปโหลดรูปภาพแทนได้');
-      } else if (errMsg.includes('NotReadableError') || errMsg.includes('TrackStartError')) {
-        setError('กล้องกำลังถูกใช้งานโดยแอปพลิเคชันอื่น กรุณาปิดแอปอื่นที่เปิดกล้องค้างไว้แล้วลองใหม่');
-      } else {
-        setError(errMsg || 'ไม่สามารถเปิดกล้องได้');
+        const qrConfig = {
+          fps: 15,
+          qrbox: (w: number, h: number) => {
+            // html5-qrcode โยน error ถ้า qrbox เล็กกว่า 50px (เกิดเมื่อพื้นที่กล้องยังไม่ถูกจัดขนาดหรือหน้าต่างแคบมาก)
+            const size = Math.max(50, Math.floor(Math.min(w, h) * 0.75));
+            return { width: size, height: size };
+          },
+          aspectRatio: 1.0, // ต้องมี: ทำให้ html5-qrcode รอก่อนเรียก play() ตัวดัก AbortError (videoObserver) จึงทันจับวิดีโอ
+        };
+
+        await scanner.start(
+          cameraIdOrFacing,
+          qrConfig,
+          (decodedText: string) => {
+            handleScanSuccess(decodedText);
+          },
+          () => {
+            // ignore frame decode errors
+          },
+        );
+
+        // หน้าต่างถูกปิด (หรือเริ่มกล้องใหม่) ระหว่างรอกล้องเปิด: ปิดกล้องตัวนี้ทิ้ง ไม่ให้ไฟกล้องค้าง
+        if (cancelled()) {
+          try {
+            await scanner.stop();
+          } catch {
+            /* กล้องหยุดแล้ว */
+          }
+          try {
+            scanner.clear();
+          } catch {
+            /* ล้างแล้ว */
+          }
+          return;
+        }
+        setLoading(false);
+
+        // ตรวจสอบการรองรับไฟฉาย (Torch)
+        try {
+          const capabilities = scanner.getRunningTrackCapabilities();
+          if (capabilities && (capabilities as unknown as { torch?: boolean }).torch) {
+            setTorchAvailable(true);
+          }
+        } catch {
+          setTorchAvailable(false);
+        }
+      } catch (err: unknown) {
+        setLoading(false);
+        const errMsg = err instanceof Error ? err.message : String(err);
+
+        if (errMsg.includes('NotAllowedError') || errMsg.includes('Permission') || errMsg.includes('denied')) {
+          setError(
+            'เบราว์เซอร์ไม่ได้รับอนุญาตให้เข้าถึงกล้อง กรุณากดอนุญาตสิทธิ์การใช้กล้อง (Camera Permission) ในการตั้งค่าเบราว์เซอร์ หรือใช้วิธีถ่ายรูป/อัปโหลดไฟล์แทน',
+          );
+        } else if (errMsg.includes('NotFoundError') || errMsg.includes('DevicesNotFoundError')) {
+          setError('ไม่พบอุปกรณ์กล้องบนเครื่องนี้ คุณสามารถใช้วิธีถ่ายภาพหรืออัปโหลดรูปภาพแทนได้');
+        } else if (errMsg.includes('NotReadableError') || errMsg.includes('TrackStartError')) {
+          setError('กล้องกำลังถูกใช้งานโดยแอปพลิเคชันอื่น กรุณาปิดแอปอื่นที่เปิดกล้องค้างไว้แล้วลองใหม่');
+        } else {
+          setError(errMsg || 'ไม่สามารถเปิดกล้องได้');
+        }
       }
-    }
-  }, [handleScanSuccess, stopScanner]);
+    },
+    [handleScanSuccess, stopScanner],
+  );
 
   // สลับกล้อง (หน้า/หลัง)
   const handleSwitchCamera = useCallback(async () => {
@@ -276,7 +283,7 @@ export default function QrScannerModal({
     try {
       const nextState = !torchOn;
       await scannerRef.current.applyVideoConstraints({
-        advanced: [{ torch: nextState }]
+        advanced: [{ torch: nextState }],
       });
       setTorchOn(nextState);
     } catch {
@@ -285,39 +292,44 @@ export default function QrScannerModal({
   }, [torchAvailable, torchOn]);
 
   // สแกนจากไฟล์รูปภาพหรือภาพที่ถ่ายจากกล้องมือถือ (File Fallback)
-  const handleFileScan = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileScan = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-    setLoading(true);
-    setIsProcessing(true);
+      setLoading(true);
+      setIsProcessing(true);
 
-    try {
-      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
-      const tempScanner = scannerRef.current || new Html5Qrcode(containerId, {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.EAN_13
-        ],
-        verbose: false
-      });
+      try {
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
+        const tempScanner =
+          scannerRef.current ||
+          new Html5Qrcode(containerId, {
+            formatsToSupport: [
+              Html5QrcodeSupportedFormats.QR_CODE,
+              Html5QrcodeSupportedFormats.CODE_128,
+              Html5QrcodeSupportedFormats.CODE_39,
+              Html5QrcodeSupportedFormats.EAN_13,
+            ],
+            verbose: false,
+          });
 
-      const decodedText = await tempScanner.scanFile(file, false);
-      if (decodedText) {
-        await handleScanSuccess(decodedText);
+        const decodedText = await tempScanner.scanFile(file, false);
+        if (decodedText) {
+          await handleScanSuccess(decodedText);
+        }
+      } catch {
+        toast.error('ไม่พบ QR Code หรือ Barcode ในรูปภาพนี้ กรุณาถ่ายภาพให้ชัดเจนหรือลองใหม่');
+      } finally {
+        setLoading(false);
+        setIsProcessing(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
-    } catch {
-      toast.error('ไม่พบ QR Code หรือ Barcode ในรูปภาพนี้ กรุณาถ่ายภาพให้ชัดเจนหรือลองใหม่');
-    } finally {
-      setLoading(false);
-      setIsProcessing(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  }, [handleScanSuccess]);
+    },
+    [handleScanSuccess],
+  );
 
   // เมื่อเปิด Modal ให้เริ่มเปิดกล้อง
   useEffect(() => {
@@ -350,7 +362,10 @@ export default function QrScannerModal({
   return (
     <Dialog open={open} onOpenChange={isOpen => !isOpen && onClose()}>
       {/* ปุ่มปิดของ header ด้านล่างใช้แทนปุ่มปิดมาตรฐาน จึงปิดตัวมาตรฐานเพื่อไม่ให้มี X ซ้อนสองปุ่ม */}
-      <DialogContent showCloseButton={false} className="sm:max-w-md w-[95vw] p-0 overflow-hidden bg-slate-950 text-white border-slate-800 rounded-2xl shadow-2xl">
+      <DialogContent
+        showCloseButton={false}
+        className="sm:max-w-md w-[95vw] p-0 overflow-hidden bg-slate-950 text-white border-slate-800 rounded-2xl shadow-2xl"
+      >
         <style>{`
           #${containerId} {
             width: 100% !important;
@@ -390,9 +405,7 @@ export default function QrScannerModal({
               <DialogTitle className="text-sm font-bold tracking-wide" style={{ color: '#fff' }}>
                 {title}
               </DialogTitle>
-              <DialogDescription className="text-[11px] text-slate-400">
-                {description}
-              </DialogDescription>
+              <DialogDescription className="text-[11px] text-slate-400">{description}</DialogDescription>
             </div>
           </div>
           <button
@@ -427,9 +440,7 @@ export default function QrScannerModal({
                   <CameraOff size={24} />
                 </div>
                 <h4 className="text-xs font-bold text-white mb-1.5">ไม่สามารถเปิดกล้องได้</h4>
-                <p className="text-[11.5px] text-slate-400 leading-relaxed max-w-xs mb-4">
-                  {error}
-                </p>
+                <p className="text-[11.5px] text-slate-400 leading-relaxed max-w-xs mb-4">{error}</p>
                 <div className="flex flex-col gap-2 w-full max-w-[240px]">
                   <Button
                     size="sm"
@@ -494,7 +505,11 @@ export default function QrScannerModal({
                 }`}
                 title={torchOn ? 'ปิดไฟฉาย' : 'เปิดไฟฉาย'}
               >
-                {torchOn ? <Zap size={14} className="mr-1.5 fill-amber-400" /> : <ZapOff size={14} className="mr-1.5" />}
+                {torchOn ? (
+                  <Zap size={14} className="mr-1.5 fill-amber-400" />
+                ) : (
+                  <ZapOff size={14} className="mr-1.5" />
+                )}
                 {torchOn ? 'ปิดไฟ' : 'เปิดไฟ'}
               </Button>
             )}
@@ -536,9 +551,7 @@ export default function QrScannerModal({
 
           {/* Manual Input Fallback */}
           <form onSubmit={handleManualSubmit} className="w-full mt-4 pt-3 border-t border-slate-800/80">
-            <span className="text-[11px] text-slate-400 block mb-1.5 font-medium">
-              หรือกรอกรหัสครุภัณฑ์ด้วยตนเอง:
-            </span>
+            <span className="text-[11px] text-slate-400 block mb-1.5 font-medium">หรือกรอกรหัสครุภัณฑ์ด้วยตนเอง:</span>
             <div className="flex gap-2">
               <Input
                 placeholder="เช่น 254-034-01-01.93-1-4"

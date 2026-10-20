@@ -8,27 +8,38 @@ import { readApiResponse } from '../../frontend/components/common';
 
 // Run the actual component handlers with isolated hooks and UI boundaries. This
 // catches form wiring regressions without a browser, server, or database write.
-const compiled = ts.transpileModule(readFileSync(new URL('../../frontend/features/inventory/asset-form-modal.tsx', import.meta.url), 'utf8'), {
-  compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText;
+const compiled = ts.transpileModule(
+  readFileSync(new URL('../../frontend/features/inventory/asset-form-modal.tsx', import.meta.url), 'utf8'),
+  {
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  },
+).outputText;
 
 type Element = { type: unknown; props: Record<string, any> };
 function mount(kind: 'create' | 'edit' | 'import', asset: Record<string, unknown> = {}, uploadFails = false) {
   const slots: any[] = [];
   let cursor = 0;
   let effects: (() => void)[] = [];
-  const writes: any[] = [], uploads: RequestInit[] = [], warnings: string[] = [], errors: string[] = [];
+  const writes: any[] = [],
+    uploads: RequestInit[] = [],
+    warnings: string[] = [],
+    errors: string[] = [];
   let reloads = 0;
   const jsx = (type: unknown, props: Element['props']) => ({ type, props });
   const react = {
     useState(initial: unknown) {
       const index = cursor++;
       if (!(index in slots)) slots[index] = initial;
-      return [slots[index], (value: unknown) => { slots[index] = value; }];
+      return [
+        slots[index],
+        (value: unknown) => {
+          slots[index] = value;
+        },
+      ];
     },
     useRef(initial: unknown) {
       const index = cursor++;
-      return slots[index] ??= { current: initial };
+      return (slots[index] ??= { current: initial });
     },
     useEffect(effect: () => void, deps: unknown[]) {
       const index = cursor++;
@@ -62,17 +73,38 @@ function mount(kind: 'create' | 'edit' | 'import', asset: Record<string, unknown
     if (id === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'Fragment' };
     if (id === '@/shared/domain') return domain;
     if (id === '@/frontend/components/common') return common;
-    if (id === 'sonner') return { toast: { error: (message: string) => errors.push(message), warning: (message: string) => warnings.push(message) } };
+    if (id === 'sonner')
+      return {
+        toast: {
+          error: (message: string) => errors.push(message),
+          warning: (message: string) => warnings.push(message),
+        },
+      };
     return new Proxy({}, { get: (_, name) => name });
   };
   runInNewContext(compiled, { module, exports: module.exports, require, FormData: BrowserFormData, URL });
   const props = {
-    open: true, onClose() {},
-    modal: { kind, token: 'form-token', sourceId: 'source', row: kind === 'import' ? { key: 'sheet:2' } : undefined, asset },
+    open: true,
+    onClose() {},
+    modal: {
+      kind,
+      token: 'form-token',
+      sourceId: 'source',
+      row: kind === 'import' ? { key: 'sheet:2' } : undefined,
+      asset,
+    },
     data: { assets: [{ branch: 'สาขาจากทะเบียน' }] },
-    write: async (body: unknown) => { writes.push(body); return { ok: true, id: 'saved-asset' }; },
-    busy: false, setSelected() {}, onPhotoChanged: async () => { reloads++; },
-    error: '', setError: (message: string) => errors.push(message),
+    write: async (body: unknown) => {
+      writes.push(body);
+      return { ok: true, id: 'saved-asset' };
+    },
+    busy: false,
+    setSelected() {},
+    onPhotoChanged: async () => {
+      reloads++;
+    },
+    error: '',
+    setError: (message: string) => errors.push(message),
   };
   let elements: Element[] = [];
   const render = () => {
@@ -82,7 +114,10 @@ function mount(kind: 'create' | 'edit' | 'import', asset: Record<string, unknown
     elements = [];
     const walk = (value: any) => {
       if (!value || typeof value !== 'object') return;
-      if (Array.isArray(value)) { value.forEach(walk); return; }
+      if (Array.isArray(value)) {
+        value.forEach(walk);
+        return;
+      }
       elements.push(value);
       walk(value.props?.children);
     };
@@ -93,25 +128,54 @@ function mount(kind: 'create' | 'edit' | 'import', asset: Record<string, unknown
   render();
   const named = (name: string) => elements.find(element => element.props?.name === name)!;
   return {
-    render, named, writes, uploads, warnings, errors,
+    render,
+    named,
+    writes,
+    uploads,
+    warnings,
+    errors,
     elements: () => elements,
     reloads: () => reloads,
     choosePhoto() {
-      elements.find(element => element.type === 'input' && element.props.type === 'file')!.props.onChange({
-        target: { files: [new File(['synthetic-photo'], 'test.png', { type: 'image/png' })], value: 'test.png' },
-      });
+      elements
+        .find(element => element.type === 'input' && element.props.type === 'file')!
+        .props.onChange({
+          target: { files: [new File(['synthetic-photo'], 'test.png', { type: 'image/png' })], value: 'test.png' },
+        });
       render();
     },
     async submit(overrides: Record<string, string> = {}) {
-      const fields = { code: 'TEST', name: 'Test asset', quantity: '2', unitPrice: '10', totalPrice: '20', branch: 'วิทยาศาสตร์', location: 'room', category: 'test', condition: 'damaged', reviewed: 'on', reason: 'ตรวจสอบข้อมูล', ...overrides };
-      await elements.find(element => element.type === 'form')!.props.onSubmit({ preventDefault() {}, currentTarget: { fields } });
+      const fields = {
+        code: 'TEST',
+        name: 'Test asset',
+        quantity: '2',
+        unitPrice: '10',
+        totalPrice: '20',
+        branch: 'วิทยาศาสตร์',
+        location: 'room',
+        category: 'test',
+        condition: 'damaged',
+        reviewed: 'on',
+        reason: 'ตรวจสอบข้อมูล',
+        ...overrides,
+      };
+      await elements
+        .find(element => element.type === 'form')!
+        .props.onSubmit({ preventDefault() {}, currentTarget: { fields } });
     },
   };
 }
 
 // สาขาบังคับเลือกจากรายการมาตรฐาน และหมวดคิดจากประเภท แก้เองไม่ได้ (ผู้ใช้ตัดสินใจ 15–16 ต.ค. 2569)
 test('asset form picks branches from the standard list, derives the group, and protects registered amounts', async () => {
-  const form = mount('edit', { id: 'original-id', branch: 'วิศวกรรมไฟฟ้า (วฟ)', condition: 'normal', quantity: 2, unitSatang: 1000, totalSatang: 2000 });
+  const form = mount('edit', {
+    id: 'original-id',
+    branch: 'วิศวกรรมไฟฟ้า (วฟ)',
+    condition: 'normal',
+    quantity: 2,
+    unitSatang: 1000,
+    totalSatang: 2000,
+  });
   assert.equal(form.named('branch').props.defaultValue, 'วิศวกรรมไฟฟ้า (วฟ)');
   assert.equal(form.named('branch').type.name, 'BranchSelect');
   assert.equal(form.named('groupName'), undefined);
@@ -120,7 +184,13 @@ test('asset form picks branches from the standard list, derives the group, and p
   assert.equal(condition.defaultValue, 'normal');
   assert.ok(condition.options.some(([value]: string[]) => value === 'damaged'));
   assert.ok(!condition.options.some(([value]: string[]) => value === 'repair'));
-  assert.deepEqual(Array.from(mount('edit', { condition: 'repair' }).named('condition').props.options, (option: string[]) => option[0]), ['repair']);
+  assert.deepEqual(
+    Array.from(
+      mount('edit', { condition: 'repair' }).named('condition').props.options,
+      (option: string[]) => option[0],
+    ),
+    ['repair'],
+  );
   assert.equal(form.named('lifecycle'), undefined);
   for (const name of ['quantity', 'unitPrice', 'totalPrice']) assert.equal(form.named(name).props.readOnly, true);
   await form.submit({ branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', condition: 'damaged' });
@@ -130,7 +200,10 @@ test('asset form picks branches from the standard list, derives the group, and p
 
 test('automatic form total clears invalid or empty input and recovers using exact cents', () => {
   const form = mount('create', { quantity: 2, unitSatang: 100000, totalSatang: 200000 });
-  const change = (name: string, value: string) => { form.named(name).props.onChange({ target: { value } }); form.render(); };
+  const change = (name: string, value: string) => {
+    form.named(name).props.onChange({ target: { value } });
+    form.render();
+  };
   assert.equal(form.named('totalPrice').props.value, '2000.00');
   for (const invalid of ['', '1e3', '12.345']) {
     change('unitPrice', invalid);

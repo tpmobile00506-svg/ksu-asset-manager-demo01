@@ -123,7 +123,10 @@ export interface CurrentUser extends UserRecord {
   role: Role;
 }
 
-export interface FundRecord { id: string; name: string }
+export interface FundRecord {
+  id: string;
+  name: string;
+}
 export interface WorkspaceData {
   me: CurrentUser;
   assets: Asset[];

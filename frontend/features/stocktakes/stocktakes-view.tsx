@@ -5,14 +5,7 @@ import { QrCode, Search, Plus, CheckCircle2, Clock, AlertTriangle, XCircle, Scan
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell
-} from '@/components/ui/table';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { api, Badge, Empty, Pager, date } from '@/frontend/components/common';
 import type { StocktakeItem, StocktakeResponse, WorkspaceData } from '@/shared/models';
@@ -27,11 +20,15 @@ const checkResults: Record<string, { label: string; style: string }> = {
   damaged: { label: 'พบแต่ชำรุด', style: 'bg-orange-50 text-orange-700 border-orange-200' },
   missing: { label: 'ไม่พบ', style: 'bg-rose-50 text-rose-700 border-rose-200' },
   mismatch: { label: 'ข้อมูลไม่ตรง', style: 'bg-purple-50 text-purple-700 border-purple-200' },
-  pending: { label: 'ยังไม่ตรวจ', style: 'bg-slate-100 text-slate-600 border-slate-200' }
+  pending: { label: 'ยังไม่ตรวจ', style: 'bg-slate-100 text-slate-600 border-slate-200' },
 };
 function CheckResultBadge({ result, className = 'text-xs' }: { result: string; className?: string }) {
   const r = checkResults[result] || checkResults.pending;
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-bold border ${r.style} ${className}`}>{r.label}</span>;
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-bold border ${r.style} ${className}`}>
+      {r.label}
+    </span>
+  );
 }
 
 export default function StocktakesView({
@@ -39,7 +36,7 @@ export default function StocktakesView({
   open,
   write,
   busy,
-  revision
+  revision,
 }: {
   data: Pick<WorkspaceData, 'me' | 'rounds'>;
   open: (k: string, a?: Record<string, unknown>) => void;
@@ -96,7 +93,7 @@ export default function StocktakesView({
 
   const filtered = useMemo(() => {
     return (loadedRound === roundId ? items : []).filter(i =>
-      (i.code + ' ' + i.name + ' ' + (i.notes || '')).toLowerCase().includes(search.trim().toLowerCase())
+      (i.code + ' ' + i.name + ' ' + (i.notes || '')).toLowerCase().includes(search.trim().toLowerCase()),
     );
   }, [items, loadedRound, roundId, search]);
 
@@ -105,7 +102,9 @@ export default function StocktakesView({
     const checked = round?.checked || 0;
     const percent = total > 0 ? ((checked / total) * 100).toFixed(1) : '0.0';
     const normalCount = items.filter(i => i.result === 'normal').length;
-    const damagedCount = items.filter(i => i.result === 'damaged' || i.result === 'repair' || i.result === 'missing').length;
+    const damagedCount = items.filter(
+      i => i.result === 'damaged' || i.result === 'repair' || i.result === 'missing',
+    ).length;
     const pendingCount = Math.max(0, total - checked);
 
     return { total, checked, percent, normalCount, damagedCount, pendingCount };
@@ -164,18 +163,18 @@ export default function StocktakesView({
       if (editable && round?.status === 'open') {
         open('check', { item: found });
         toast.success(`พบครุภัณฑ์: ${found.name}`, {
-          description: `รหัส: ${found.code}`
+          description: `รหัส: ${found.code}`,
         });
       } else {
         setSearch(found.code);
         toast.info(`พบครุภัณฑ์: ${found.name}`, {
-          description: round?.status !== 'open' ? 'รอบตรวจนับนี้ปิดรอบแล้ว' : `รหัส: ${found.code}`
+          description: round?.status !== 'open' ? 'รอบตรวจนับนี้ปิดรอบแล้ว' : `รหัส: ${found.code}`,
         });
       }
       return true;
     } else {
       toast.error('ไม่พบครุภัณฑ์ในรอบตรวจนับนี้', {
-        description: `รหัสที่สแกนได้: ${scannedText}`
+        description: `รหัสที่สแกนได้: ${scannedText}`,
       });
       return false;
     }
@@ -291,7 +290,9 @@ export default function StocktakesView({
             </div>
             <strong className="text-lg sm:text-2xl font-bold text-slate-900 block mb-2 leading-none">
               {stats.checked.toLocaleString('th-TH')}{' '}
-              <span className="text-xs sm:text-sm font-normal text-slate-400">/ {stats.total.toLocaleString('th-TH')}</span>
+              <span className="text-xs sm:text-sm font-normal text-slate-400">
+                / {stats.total.toLocaleString('th-TH')}
+              </span>
             </strong>
             <Progress value={Number(stats.percent)} className="h-1.5 sm:h-2 bg-slate-100" />
           </div>
@@ -357,9 +358,7 @@ export default function StocktakesView({
           </div>
 
           {itemsLoading ? (
-            <div className="p-12 text-center text-xs text-slate-500">
-              กำลังโหลดรายการครุภัณฑ์ในรอบนี้…
-            </div>
+            <div className="p-12 text-center text-xs text-slate-500">กำลังโหลดรายการครุภัณฑ์ในรอบนี้…</div>
           ) : filtered.length ? (
             <>
               {/* Desktop Table View (md and up) */}
@@ -452,9 +451,7 @@ export default function StocktakesView({
                         </div>
                         <div>
                           <span className="text-slate-400 text-[10.5px] block">หมายเหตุ</span>
-                          <span className="font-semibold text-slate-800">
-                            {isChecked ? (i.notes || '—') : '—'}
-                          </span>
+                          <span className="font-semibold text-slate-800">{isChecked ? i.notes || '—' : '—'}</span>
                         </div>
                       </div>
 
@@ -481,7 +478,8 @@ export default function StocktakesView({
 
               <div className="p-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
                 <span>
-                  แสดงรายการที่ {page * 40 + 1} - {Math.min((page + 1) * 40, filtered.length)} จากทั้งหมด {filtered.length} รายการ
+                  แสดงรายการที่ {page * 40 + 1} - {Math.min((page + 1) * 40, filtered.length)} จากทั้งหมด{' '}
+                  {filtered.length} รายการ
                 </span>
                 <Pager page={page} total={filtered.length} onChange={setPage} />
               </div>

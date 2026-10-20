@@ -28,8 +28,8 @@ test('ไม่มีวันรับ ไม่มีอายุใช้ง�
 test('ช่วงอายุคงเหลือ: ไม่ระบุ / ครบอายุ / ไม่เกิน 1 ปี / 1-3 ปี / มากกว่า 3 ปี', () => {
   assert.equal(lifeBucket({ receivedDate: '', lifeYears: 5 }, at('2026-01-01')), 'unknown');
   assert.equal(lifeBucket({ receivedDate: '2024-01-01', lifeYears: 1 }, at('2026-01-01')), 'expired');
-  assert.equal(lifeBucket({ receivedDate: '2024-01-01', lifeYears: 1 }, at('2024-04-10')), 'within1');   // เหลือ 0.73
-  assert.equal(lifeBucket({ receivedDate: '2024-01-01', lifeYears: 3 }, at('2025-01-01')), 'within3');   // ผ่าน 366 วัน เหลือ 729.75 วัน = 1.998 ปี
-  assert.equal(lifeBucket({ receivedDate: '2024-01-01', lifeYears: 10 }, at('2026-01-01')), 'over3');     // ผ่าน 731 วัน เหลือ 3,652.5-731 = 2,921.5 วัน = 7.998 ปี
-  assert.equal(lifeBucket({ receivedDate: '2024-01-01', lifeYears: 3 }, at('2024-01-01')), 'within3');   // เหลือเต็ม 3.0 ปี ตกช่วง ≤ 3
+  assert.equal(lifeBucket({ receivedDate: '2024-01-01', lifeYears: 1 }, at('2024-04-10')), 'within1'); // เหลือ 0.73
+  assert.equal(lifeBucket({ receivedDate: '2024-01-01', lifeYears: 3 }, at('2025-01-01')), 'within3'); // ผ่าน 366 วัน เหลือ 729.75 วัน = 1.998 ปี
+  assert.equal(lifeBucket({ receivedDate: '2024-01-01', lifeYears: 10 }, at('2026-01-01')), 'over3'); // ผ่าน 731 วัน เหลือ 3,652.5-731 = 2,921.5 วัน = 7.998 ปี
+  assert.equal(lifeBucket({ receivedDate: '2024-01-01', lifeYears: 3 }, at('2024-01-01')), 'within3'); // เหลือเต็ม 3.0 ปี ตกช่วง ≤ 3
 });

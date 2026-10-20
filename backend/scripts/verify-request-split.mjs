@@ -13,7 +13,7 @@ async function main() {
   const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password }),
   });
 
   if (!loginRes.ok) {
@@ -25,7 +25,7 @@ async function main() {
 
   console.log('2. Fetching current workspace assets...');
   const dataRes = await fetch(`${baseUrl}/api/data`, {
-    headers: { cookie: cookie || '' }
+    headers: { cookie: cookie || '' },
   });
   if (!dataRes.ok) {
     throw new Error(`Failed to fetch workspace: ${dataRes.status}`);
@@ -41,14 +41,16 @@ async function main() {
     throw new Error('Target 200-unit asset not found for test');
   }
 
-  console.log(`   Found target asset: ${parentAsset.code} - ${parentAsset.name} (qty: ${parentAsset.quantity}, total: ${parentAsset.totalSatang / 100} THB, version: ${parentAsset.version})`);
+  console.log(
+    `   Found target asset: ${parentAsset.code} - ${parentAsset.name} (qty: ${parentAsset.quantity}, total: ${parentAsset.totalSatang / 100} THB, version: ${parentAsset.version})`,
+  );
 
   console.log('3. Submitting request with partial lot split (50 units for repair)...');
   const reqRes = await fetch(`${baseUrl}/api/data`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      cookie: cookie || ''
+      cookie: cookie || '',
     },
     body: JSON.stringify({
       action: 'request',
@@ -56,8 +58,8 @@ async function main() {
       version: parentAsset.version,
       kind: 'repair',
       splitQuantity: 50,
-      reason: 'เบาะขาด 50 ตัว ต้องการส่งซ่อมบำรุงเร่งด่วน'
-    })
+      reason: 'เบาะขาด 50 ตัว ต้องการส่งซ่อมบำรุงเร่งด่วน',
+    }),
   });
 
   const reqResult = await reqRes.json();
@@ -68,14 +70,18 @@ async function main() {
 
   console.log('4. Verifying database state (rule: NO split at request time, split happens at final approval)...');
   const afterRes = await fetch(`${baseUrl}/api/data`, {
-    headers: { cookie: cookie || '' }
+    headers: { cookie: cookie || '' },
   });
   const afterData = await afterRes.json();
 
   const oldParent = afterData.assets.find(a => a.id === parentAsset.id);
-  console.log(`   Parent asset status: lifecycle=${oldParent.lifecycle}, quantity=${oldParent.quantity}, version=${oldParent.version}`);
+  console.log(
+    `   Parent asset status: lifecycle=${oldParent.lifecycle}, quantity=${oldParent.quantity}, version=${oldParent.version}`,
+  );
   if (oldParent.lifecycle !== 'active' || oldParent.quantity !== parentAsset.quantity) {
-    throw new Error(`Expected parent to stay active with ${parentAsset.quantity} units, got lifecycle='${oldParent.lifecycle}' quantity=${oldParent.quantity}`);
+    throw new Error(
+      `Expected parent to stay active with ${parentAsset.quantity} units, got lifecycle='${oldParent.lifecycle}' quantity=${oldParent.quantity}`,
+    );
   }
   if (afterData.assets.some(a => a.parentId === parentAsset.id)) {
     throw new Error('No child lots should exist before final approval');
@@ -87,9 +93,13 @@ async function main() {
   }
   const reqPayload = JSON.parse(pendingReq.payload || '{}');
   if (pendingReq.assetId !== parentAsset.id || reqPayload.splitQuantity !== 50) {
-    throw new Error(`Request should reference the original asset with splitQuantity=50, got assetId=${pendingReq.assetId} payload=${pendingReq.payload}`);
+    throw new Error(
+      `Request should reference the original asset with splitQuantity=50, got assetId=${pendingReq.assetId} payload=${pendingReq.payload}`,
+    );
   }
-  console.log(`   Pending request: id=${pendingReq.id}, kind=${pendingReq.kind}, status=${pendingReq.status}, splitQuantity=${reqPayload.splitQuantity}`);
+  console.log(
+    `   Pending request: id=${pendingReq.id}, kind=${pendingReq.kind}, status=${pendingReq.status}, splitQuantity=${reqPayload.splitQuantity}`,
+  );
 
   const auditEvents = afterData.events.slice(0, 3);
   console.log('   Recent Audit events:');

@@ -6,7 +6,22 @@ import { trace } from '../debug/trace';
 import { parseWorkbook } from '../imports/workbook';
 import { readFileBytes, putFile } from '../storage/files';
 import { withAssetImages } from '../storage/asset-image-metadata';
-import { type Asset, type Source, type RowOverride, isRowOverride, classify, conditions, roles, normalizeBranch, UNKNOWN_ASSET_TYPE, assetGroupOfType, codeKey, markExistingCodes, branchAbbr, requestNumbers } from '../contracts/domain';
+import {
+  type Asset,
+  type Source,
+  type RowOverride,
+  isRowOverride,
+  classify,
+  conditions,
+  roles,
+  normalizeBranch,
+  UNKNOWN_ASSET_TYPE,
+  assetGroupOfType,
+  codeKey,
+  markExistingCodes,
+  branchAbbr,
+  requestNumbers,
+} from '../contracts/domain';
 import type { SourceViewResponse } from '../contracts/imports';
 import type { StocktakeResponse, WorkspaceData } from '../contracts/models';
 
@@ -32,10 +47,24 @@ export function allow(member: Member, allowed: string[]) {
 }
 export function validated(input: Record<string, unknown>): Partial<Asset> {
   const a: Record<string, any> = {};
-  for (const key of ['code', 'name', 'notes', 'location', 'branch', 'groupName', 'category', 'receivedDate', 'serial', 'brand', 'custodian']) a[key] = clean(input[key] ?? '');
+  for (const key of [
+    'code',
+    'name',
+    'notes',
+    'location',
+    'branch',
+    'groupName',
+    'category',
+    'receivedDate',
+    'serial',
+    'brand',
+    'custodian',
+  ])
+    a[key] = clean(input[key] ?? '');
   for (const key of ['quantity', 'unitSatang', 'totalSatang', 'lifeYears', 'salvageSatang']) {
     const n = Number(input[key] ?? 0);
-    if (!Number.isSafeInteger(n) || n < 0 || n > 100000000000000) throw new ApiError('จำนวนและมูลค่าต้องเป็นตัวเลขที่ถูกต้อง');
+    if (!Number.isSafeInteger(n) || n < 0 || n > 100000000000000)
+      throw new ApiError('จำนวนและมูลค่าต้องเป็นตัวเลขที่ถูกต้อง');
     a[key] = n;
   }
   if (!a.code || !a.name) throw new ApiError('กรุณาระบุรหัสและชื่อครุภัณฑ์');
@@ -47,7 +76,13 @@ export function validated(input: Record<string, unknown>): Partial<Asset> {
   a.groupName = assetGroupOfType(a.category);
   if (a.quantity < 1 || a.quantity > 1000000) throw new ApiError('จำนวนต้องเป็นจำนวนเต็ม 1–1,000,000');
   if (a.salvageSatang > a.totalSatang || a.lifeYears > 100) throw new ApiError('ตรวจสอบอายุใช้งานและมูลค่าซาก');
-  if (a.receivedDate && (!/^\d{4}-\d{2}-\d{2}$/.test(a.receivedDate) || !Number.isFinite(Date.parse(a.receivedDate)) || new Date(a.receivedDate).toISOString().slice(0, 10) !== a.receivedDate)) throw new ApiError('วันที่รับไม่ถูกต้อง');
+  if (
+    a.receivedDate &&
+    (!/^\d{4}-\d{2}-\d{2}$/.test(a.receivedDate) ||
+      !Number.isFinite(Date.parse(a.receivedDate)) ||
+      new Date(a.receivedDate).toISOString().slice(0, 10) !== a.receivedDate)
+  )
+    throw new ApiError('วันที่รับไม่ถูกต้อง');
   a.condition = clean(input.condition ?? 'normal');
   if (!Object.hasOwn(conditions, a.condition)) throw new ApiError('สถานะไม่ถูกต้อง');
   return a;
@@ -63,14 +98,39 @@ export async function dimensions(tx: Transaction, a: Partial<Asset>) {
   await tx.assetGroup.createMany({ data: [{ name: group, description: group }], skipDuplicates: true });
 }
 export function financialData(a: Partial<Asset>) {
-  return { ...a, unitSatang: BigInt(a.unitSatang ?? 0), totalSatang: BigInt(a.totalSatang ?? 0), salvageSatang: BigInt(a.salvageSatang ?? 0) };
+  return {
+    ...a,
+    unitSatang: BigInt(a.unitSatang ?? 0),
+    totalSatang: BigInt(a.totalSatang ?? 0),
+    salvageSatang: BigInt(a.salvageSatang ?? 0),
+  };
 }
 export async function insertAsset(tx: Transaction, a: Asset) {
   return tx.asset.create({ data: financialData(a) as Prisma.AssetUncheckedCreateInput });
 }
-export function audit(tx: Transaction, m: Member, action: string, assetId: string | null, before: unknown, after: unknown, reason = '') {
+export function audit(
+  tx: Transaction,
+  m: Member,
+  action: string,
+  assetId: string | null,
+  before: unknown,
+  after: unknown,
+  reason = '',
+) {
   trace.step(`บันทึกประวัติ (audit): “${action}” — เก็บว่าใครทำ เมื่อไหร่ ข้อมูลก่อนและหลัง`);
-  return tx.audit.create({ data: { id: id(), assetId, actor: m.id, actorName: m.name, action, before: json(before), after: json(after), reason, createdAt: now() } });
+  return tx.audit.create({
+    data: {
+      id: id(),
+      assetId,
+      actor: m.id,
+      actorName: m.name,
+      action,
+      before: json(before),
+      after: json(after),
+      reason,
+      createdAt: now(),
+    },
+  });
 }
 export async function asset(tx: Transaction, assetId: string): Promise<Asset> {
   const a = await tx.asset.findUnique({ where: { id: assetId } });
@@ -80,21 +140,31 @@ export async function asset(tx: Transaction, assetId: string): Promise<Asset> {
 // หมายเลขครุภัณฑ์ทั้งหมดในทะเบียน (รวมที่จำหน่ายแล้ว) สำหรับเตือนแถวนำเข้าที่ซ้ำ
 export async function registeredCodes(db: Pick<Transaction, 'asset'>) {
   const list = await db.asset.findMany({ select: { code: true, name: true, branch: true, lifecycle: true } });
-  return new Map(list.map(a => [codeKey(a.code), `${a.code} · ${a.name} · ${branchAbbr(a.branch)}${a.lifecycle === 'disposed' ? ' (จำหน่ายแล้ว)' : ''}`]));
+  return new Map(
+    list.map(a => [
+      codeKey(a.code),
+      `${a.code} · ${a.name} · ${branchAbbr(a.branch)}${a.lifecycle === 'disposed' ? ' (จำหน่ายแล้ว)' : ''}`,
+    ]),
+  );
 }
 // ประเภทแถวที่เจ้าหน้าที่เปลี่ยนเอง เก็บเป็นไฟล์คู่กับไฟล์ต้นฉบับ (ไม่ต้องเพิ่มตาราง)
 export const overridesKey = (sourceId: string) => `imports/${sourceId}-overrides.json`;
 // เครื่องหมาย "เก็บไฟล์ต้นฉบับเข้าคลัง" (มีไฟล์นี้ = อยู่ในคลัง) ไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล
 export const ARCHIVED_SUFFIX = '-archived.json';
 export const archivedKey = (sourceId: string) => `imports/${sourceId}${ARCHIVED_SUFFIX}`;
-export async function loadOverrides(sourceId: string, db: Pick<Transaction, 'storedFile'> = prisma): Promise<Record<string, RowOverride>> {
+export async function loadOverrides(
+  sourceId: string,
+  db: Pick<Transaction, 'storedFile'> = prisma,
+): Promise<Record<string, RowOverride>> {
   if (!/^[a-zA-Z0-9-]+$/.test(sourceId)) return {};
   const file = await db.storedFile.findUnique({ where: { key: overridesKey(sourceId) } });
   if (!file) return {};
   try {
     const parsed = JSON.parse(Buffer.from(file.body).toString('utf8')) as Record<string, unknown>;
     return Object.fromEntries(Object.entries(parsed).filter((e): e is [string, RowOverride] => isRowOverride(e[1])));
-  } catch { return {}; }
+  } catch {
+    return {};
+  }
 }
 export async function getSource(sourceId: string): Promise<Source> {
   const file = await prisma.importFile.findUnique({ where: { id: sourceId } });
@@ -119,7 +189,7 @@ export async function getData(m: Member, url: URL) {
       priceIssues: assetRows.filter(x => x.issueType === 'price' && !done.has(x.key)).length,
       dupIssues: assetRows.filter(x => x.issueType === 'duplicate' && !done.has(x.key)).length,
       annotations: rows.filter(x => x.kind !== 'asset').length,
-      imported: done.size
+      imported: done.size,
     };
     const sheet = url.searchParams.get('sheet');
     const branch = url.searchParams.get('branch');
@@ -130,73 +200,148 @@ export async function getData(m: Member, url: URL) {
     if (search) rows = rows.filter(x => JSON.stringify(x.values).toLowerCase().includes(search));
     if (kind === 'pending') rows = rows.filter(x => x.kind === 'asset' && !done.has(x.key));
     else if (kind === 'ready') rows = rows.filter(x => x.kind === 'asset' && !x.issue && !done.has(x.key));
-    else if (kind === 'issue-range') rows = rows.filter(x => x.kind === 'asset' && x.issueType === 'range' && !done.has(x.key));
-    else if (kind === 'issue-name') rows = rows.filter(x => x.kind === 'asset' && x.issueType === 'name' && !done.has(x.key));
-    else if (kind === 'issue-price') rows = rows.filter(x => x.kind === 'asset' && x.issueType === 'price' && !done.has(x.key));
-    else if (kind === 'issue-duplicate') rows = rows.filter(x => x.kind === 'asset' && x.issueType === 'duplicate' && !done.has(x.key));
+    else if (kind === 'issue-range')
+      rows = rows.filter(x => x.kind === 'asset' && x.issueType === 'range' && !done.has(x.key));
+    else if (kind === 'issue-name')
+      rows = rows.filter(x => x.kind === 'asset' && x.issueType === 'name' && !done.has(x.key));
+    else if (kind === 'issue-price')
+      rows = rows.filter(x => x.kind === 'asset' && x.issueType === 'price' && !done.has(x.key));
+    else if (kind === 'issue-duplicate')
+      rows = rows.filter(x => x.kind === 'asset' && x.issueType === 'duplicate' && !done.has(x.key));
     else if (kind === 'review') rows = rows.filter(x => x.kind === 'asset' && !!x.issue && !done.has(x.key));
     else if (kind === 'annotations') rows = rows.filter(x => x.kind !== 'asset');
     // grid=1: หน้านำเข้าแบบ Excel โหลดทีละ 500 แถวของแผ่นเดียว (มุมมองรายการเดิมทีละ 40)
     const size = url.searchParams.get('grid') === '1' ? 500 : 40;
     const page = Math.max(0, Math.floor(Number(url.searchParams.get('page')) || 0));
     const activeSheets = s.sheets.filter(x => x.rows.length > 0).map(x => x.name);
-    return { id: s.id, name: s.name, hash: s.hash, sheets: activeSheets, stats, total: rows.length, rows: rows.slice(page * size, (page + 1) * size).map(x => ({ ...x, done: done.has(x.key) })) } satisfies SourceViewResponse;
+    return {
+      id: s.id,
+      name: s.name,
+      hash: s.hash,
+      sheets: activeSheets,
+      stats,
+      total: rows.length,
+      rows: rows.slice(page * size, (page + 1) * size).map(x => ({ ...x, done: done.has(x.key) })),
+    } satisfies SourceViewResponse;
   }
   // ประวัติการทำงานทั้งระบบที่เก่ากว่าที่โหลดมาแล้ว (หน้า Audit โหลดเพิ่มทีละชุด)
   if (view === 'audit') {
     // ตัวชี้ตำแหน่ง = เวลา + id (บันทึกที่เขียนใน transaction เดียวกันมีเวลาเท่ากันหลายร้อยรายการ เทียบเวลาอย่างเดียวจะข้ามไปทั้งกลุ่ม)
-    const before = url.searchParams.get('before') || '', beforeId = url.searchParams.get('beforeId') || '';
+    const before = url.searchParams.get('before') || '',
+      beforeId = url.searchParams.get('beforeId') || '';
     // ตัวชี้ต้องเป็นเวลา ISO และ id ที่ระบบสร้าง (ค่าแปลกปลอมตอบ 400 แทนการนำไปเทียบเป็นข้อความ)
-    if (before && (!Number.isFinite(Date.parse(before)) || new Date(before).toISOString() !== before)) throw new ApiError('ตำแหน่งประวัติไม่ถูกต้อง', 400);
+    if (before && (!Number.isFinite(Date.parse(before)) || new Date(before).toISOString() !== before))
+      throw new ApiError('ตำแหน่งประวัติไม่ถูกต้อง', 400);
     if (beforeId && !/^[A-Za-z0-9-]{1,100}$/.test(beforeId)) throw new ApiError('ตำแหน่งประวัติไม่ถูกต้อง', 400);
     const take = 200;
-    const where = !before ? {} : beforeId
-      ? { OR: [{ createdAt: { lt: before } }, { createdAt: before, id: { lt: beforeId } }] }
-      : { createdAt: { lt: before } };
-    const events = await prisma.audit.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: take + 1 });
+    const where = !before
+      ? {}
+      : beforeId
+        ? { OR: [{ createdAt: { lt: before } }, { createdAt: before, id: { lt: beforeId } }] }
+        : { createdAt: { lt: before } };
+    const events = await prisma.audit.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: take + 1,
+    });
     return { events: events.slice(0, take), more: events.length > take, total: await prisma.audit.count() };
   }
-  if (view === 'history') return {
-    events: await prisma.audit.findMany({ where: { assetId: url.searchParams.get('asset') || '' }, orderBy: { createdAt: 'desc' } }),
-    children: await withAssetImages(await prisma.asset.findMany({ where: { parentId: url.searchParams.get('asset') || '' } })),
-    repairs: await prisma.repairRecord.findMany({ where: { assetId: url.searchParams.get('asset') || '' }, orderBy: { createdAt: 'desc' } }),
-  };
+  if (view === 'history')
+    return {
+      events: await prisma.audit.findMany({
+        where: { assetId: url.searchParams.get('asset') || '' },
+        orderBy: { createdAt: 'desc' },
+      }),
+      children: await withAssetImages(
+        await prisma.asset.findMany({ where: { parentId: url.searchParams.get('asset') || '' } }),
+      ),
+      repairs: await prisma.repairRecord.findMany({
+        where: { assetId: url.searchParams.get('asset') || '' },
+        orderBy: { createdAt: 'desc' },
+      }),
+    };
   if (view === 'stocktake') {
     const items = await prisma.stocktakeItem.findMany({ where: { roundId: url.searchParams.get('round') || '' } });
-    return { items: items.map(item => {
-      const snapshot = JSON.parse(item.snapshot) as Pick<Asset, 'code' | 'name'>;
-      return { ...item, code: snapshot.code, name: snapshot.name };
-    }).sort((a, b) => a.code.localeCompare(b.code, 'th')) } satisfies StocktakeResponse;
+    return {
+      items: items
+        .map(item => {
+          const snapshot = JSON.parse(item.snapshot) as Pick<Asset, 'code' | 'name'>;
+          return { ...item, code: snapshot.code, name: snapshot.name };
+        })
+        .sort((a, b) => a.code.localeCompare(b.code, 'th')),
+    } satisfies StocktakeResponse;
   }
-  const [assets, requests, rounds, users, invites, events, imports, settings, approvals, names, sessions, funds] = await Promise.all([
-    prisma.asset.findMany({ orderBy: { createdAt: 'desc' }, include: { setRef: { select: { name: true, kind: true } }, fundRef: { select: { name: true } } } }),
-    prisma.assetRequest.findMany({ include: { asset: { select: { code: true, name: true } } }, orderBy: { createdAt: 'desc' } }),
-    prisma.stocktake.findMany({ include: { items: { select: { result: true } } }, orderBy: { createdAt: 'desc' } }),
-    m.role === 'admin' ? prisma.user.findMany({ select: publicUserFields }) : [],
-    m.role === 'admin' ? prisma.invite.findMany() : [],
-    prisma.audit.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100 }), importFilesWithStatus(),
-    prisma.setting.findMany({ where: { key: { not: 'bootstrap' } } }),
-    prisma.approval.findMany({ orderBy: { createdAt: 'asc' } }), prisma.user.findMany({ select: { id: true, name: true } }),
-    m.role === 'admin' ? prisma.session.findMany({ where: { expiresAt: { gt: new Date() } }, select: { userId: true } }) : [],
-    prisma.assetSet.findMany({ where: { kind: 'fund' }, select: { id: true, name: true }, orderBy: [{ createdAt: 'asc' }, { name: 'asc' }] }),
-  ]);
+  const [assets, requests, rounds, users, invites, events, imports, settings, approvals, names, sessions, funds] =
+    await Promise.all([
+      prisma.asset.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: { setRef: { select: { name: true, kind: true } }, fundRef: { select: { name: true } } },
+      }),
+      prisma.assetRequest.findMany({
+        include: { asset: { select: { code: true, name: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.stocktake.findMany({ include: { items: { select: { result: true } } }, orderBy: { createdAt: 'desc' } }),
+      m.role === 'admin' ? prisma.user.findMany({ select: publicUserFields }) : [],
+      m.role === 'admin' ? prisma.invite.findMany() : [],
+      prisma.audit.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100 }),
+      importFilesWithStatus(),
+      prisma.setting.findMany({ where: { key: { not: 'bootstrap' } } }),
+      prisma.approval.findMany({ orderBy: { createdAt: 'asc' } }),
+      prisma.user.findMany({ select: { id: true, name: true } }),
+      m.role === 'admin'
+        ? prisma.session.findMany({ where: { expiresAt: { gt: new Date() } }, select: { userId: true } })
+        : [],
+      prisma.assetSet.findMany({
+        where: { kind: 'fund' },
+        select: { id: true, name: true },
+        orderBy: [{ createdAt: 'asc' }, { name: 'asc' }],
+      }),
+    ]);
   const actorNames = new Map(names.map(u => [u.id, u.name]));
   const requestNos = requestNumbers(requests);
   const onlineUserIds = new Set(sessions.map(s => s.userId));
   onlineUserIds.add(m.id);
   const usersWithOnline = users.map(u => ({ ...u, isOnline: onlineUserIds.has(u.id) }));
   return {
-    me: m, assets: await withAssetImages(assets.map(({ setRef, fundRef, ...a }) => ({ ...a, branch: normalizeBranch(a.branch || '', '', ''), setName: setRef?.name ?? null, setKind: setRef?.kind ?? null, fundName: fundRef?.name ?? null }))), requests: requests.map(({ asset, ...r }) => ({ ...r, ...asset, requestNo: requestNos.get(r.id) || '', requesterName: actorNames.get(r.actor) || '' })),
-    rounds: rounds.map(({ items, ...r }) => ({ ...r, total: items.length, checked: items.filter(i => i.result !== 'pending').length })),
-    users: usersWithOnline, invites, events, imports, funds,
-    settings: Object.fromEntries(settings.map(s => [s.key, s.value])), approvals: approvals.map(a => ({ ...a, actorName: actorNames.get(a.actor) || '' })),
+    me: m,
+    assets: await withAssetImages(
+      assets.map(({ setRef, fundRef, ...a }) => ({
+        ...a,
+        branch: normalizeBranch(a.branch || '', '', ''),
+        setName: setRef?.name ?? null,
+        setKind: setRef?.kind ?? null,
+        fundName: fundRef?.name ?? null,
+      })),
+    ),
+    requests: requests.map(({ asset, ...r }) => ({
+      ...r,
+      ...asset,
+      requestNo: requestNos.get(r.id) || '',
+      requesterName: actorNames.get(r.actor) || '',
+    })),
+    rounds: rounds.map(({ items, ...r }) => ({
+      ...r,
+      total: items.length,
+      checked: items.filter(i => i.result !== 'pending').length,
+    })),
+    users: usersWithOnline,
+    invites,
+    events,
+    imports,
+    funds,
+    settings: Object.fromEntries(settings.map(s => [s.key, s.value])),
+    approvals: approvals.map(a => ({ ...a, actorName: actorNames.get(a.actor) || '' })),
   } satisfies WorkspaceDatabaseData;
 }
 // ไฟล์ต้นฉบับพร้อมสถานะ: อยู่ในคลังไหม และนำเข้าทะเบียนไปแล้วกี่แถว (หน้าเว็บใช้ตัดสินว่าให้ลบหรือเก็บเข้าคลัง)
 async function importFilesWithStatus() {
   const [files, archived, decided] = await Promise.all([
     prisma.importFile.findMany({ orderBy: { createdAt: 'desc' } }),
-    prisma.storedFile.findMany({ where: { key: { startsWith: 'imports/', endsWith: ARCHIVED_SUFFIX } }, select: { key: true } }),
+    prisma.storedFile.findMany({
+      where: { key: { startsWith: 'imports/', endsWith: ARCHIVED_SUFFIX } },
+      select: { key: true },
+    }),
     prisma.sourceRow.groupBy({ by: ['sourceId'], _count: { _all: true } }),
   ]);
   const archivedIds = new Set(archived.map(f => f.key.slice('imports/'.length, -ARCHIVED_SUFFIX.length)));
@@ -206,29 +351,51 @@ async function importFilesWithStatus() {
 export async function upload(m: Member, form: FormData) {
   allow(m, ['staff', 'admin']);
   const file = form.get('file');
-  if (!(file instanceof File) || file.size > 4 * 1024 * 1024 || !file.name.toLowerCase().endsWith('.xlsx')) throw new ApiError('รองรับไฟล์ .xlsx ไม่เกิน 4 MB');
-  const bytes = new Uint8Array(await file.arrayBuffer()), hash = createHash('sha256').update(bytes).digest('hex');
+  if (!(file instanceof File) || file.size > 4 * 1024 * 1024 || !file.name.toLowerCase().endsWith('.xlsx'))
+    throw new ApiError('รองรับไฟล์ .xlsx ไม่เกิน 4 MB');
+  const bytes = new Uint8Array(await file.arrayBuffer()),
+    hash = createHash('sha256').update(bytes).digest('hex');
   const old = await prisma.importFile.findUnique({ where: { hash } });
   if (old) return { ok: true, id: old.id, duplicate: true };
   let s: Source;
-  try { s = await parseWorkbook(file); } catch { throw new ApiError('อ่านไฟล์ Excel ไม่สำเร็จ กรุณาตรวจสอบไฟล์ .xlsx'); }
+  try {
+    s = await parseWorkbook(file);
+  } catch {
+    throw new ApiError('อ่านไฟล์ Excel ไม่สำเร็จ กรุณาตรวจสอบไฟล์ .xlsx');
+  }
   const count = s.sheets.reduce((n, sh) => n + sh.rows.length, 0);
-  if (!count || count > 20000 || s.sheets.length > 100) throw new ApiError('โครงสร้างไฟล์ไม่ถูกต้อง หรือเกิน 20,000 แถว');
-  s.id = id(); s.hash = hash; s.name = clean(file.name, 200);
+  if (!count || count > 20000 || s.sheets.length > 100)
+    throw new ApiError('โครงสร้างไฟล์ไม่ถูกต้อง หรือเกิน 20,000 แถว');
+  s.id = id();
+  s.hash = hash;
+  s.name = clean(file.name, 200);
   for (const sh of s.sheets) {
     clean(sh.name, 200);
-    for (const row of sh.rows) if (!Number.isInteger(row.row) || row.row < 1 || row.values.length > 100 || JSON.stringify(row.values).length > 50000) throw new ApiError('โครงสร้างแถวไม่ถูกต้อง');
+    for (const row of sh.rows)
+      if (
+        !Number.isInteger(row.row) ||
+        row.row < 1 ||
+        row.values.length > 100 ||
+        JSON.stringify(row.values).length > 50000
+      )
+        throw new ApiError('โครงสร้างแถวไม่ถูกต้อง');
   }
   const key = 'imports/' + s.id;
   try {
-    await prisma.$transaction(async tx => {
-      const user = await tx.user.findUnique({ where: { id: m.id }, select: publicUserFields });
-      if (!user?.active) throw new ApiError('บัญชีนี้ถูกระงับสิทธิ์', 403);
-      allow(user as Member, ['staff', 'admin']);
-      await putFile(key, bytes, tx); await putFile(key + '.json', JSON.stringify(s), tx);
-      await tx.importFile.create({ data: { id: s.id, name: s.name, hash, objectKey: key, rowCount: count, createdAt: now(), actor: m.id } });
-      await audit(tx, m, 'อัปโหลด Excel', null, null, { id: s.id, name: s.name, rows: count });
-    }, { isolationLevel: 'Serializable', maxWait: 20000, timeout: 90000 });
+    await prisma.$transaction(
+      async tx => {
+        const user = await tx.user.findUnique({ where: { id: m.id }, select: publicUserFields });
+        if (!user?.active) throw new ApiError('บัญชีนี้ถูกระงับสิทธิ์', 403);
+        allow(user as Member, ['staff', 'admin']);
+        await putFile(key, bytes, tx);
+        await putFile(key + '.json', JSON.stringify(s), tx);
+        await tx.importFile.create({
+          data: { id: s.id, name: s.name, hash, objectKey: key, rowCount: count, createdAt: now(), actor: m.id },
+        });
+        await audit(tx, m, 'อัปโหลด Excel', null, null, { id: s.id, name: s.name, rows: count });
+      },
+      { isolationLevel: 'Serializable', maxWait: 20000, timeout: 90000 },
+    );
   } catch (error) {
     // File bytes and metadata rolled back together; a concurrent upload may already exist.
     const duplicate = await prisma.importFile.findUnique({ where: { hash } });

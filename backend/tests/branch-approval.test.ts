@@ -7,20 +7,83 @@ import type { Member } from '../auth/sessions';
 const branchCom = 'วิศวกรรมคอมพิวเตอร์ (วค)';
 const branchElec = 'วิศวกรรมไฟฟ้า (วฟ)';
 
-const adminUser: Member = { id: 'admin-1', email: 'admin@example.test', name: 'Admin', role: 'admin', branch: null, active: 1, createdAt: '' };
-const headCom: Member = { id: 'head-com', email: 'headcom@example.test', name: 'Head Com', role: 'head', branch: branchCom, active: 1, createdAt: '' };
-const headElec: Member = { id: 'head-elec', email: 'headelec@example.test', name: 'Head Elec', role: 'head', branch: branchElec, active: 1, createdAt: '' };
-const headNullBranch: Member = { id: 'head-null', email: 'headnull@example.test', name: 'Head Null', role: 'head', branch: null, active: 1, createdAt: '' };
-const deputyUser: Member = { id: 'deputy-1', email: 'deputy@example.test', name: 'Deputy', role: 'deputy', branch: null, active: 1, createdAt: '' };
-const deanUser: Member = { id: 'dean-1', email: 'dean@example.test', name: 'Dean', role: 'dean', branch: null, active: 1, createdAt: '' };
-const staffUser: Member = { id: 'staff-1', email: 'staff@example.test', name: 'Staff', role: 'staff', branch: branchCom, active: 1, createdAt: '' };
+const adminUser: Member = {
+  id: 'admin-1',
+  email: 'admin@example.test',
+  name: 'Admin',
+  role: 'admin',
+  branch: null,
+  active: 1,
+  createdAt: '',
+};
+const headCom: Member = {
+  id: 'head-com',
+  email: 'headcom@example.test',
+  name: 'Head Com',
+  role: 'head',
+  branch: branchCom,
+  active: 1,
+  createdAt: '',
+};
+const headElec: Member = {
+  id: 'head-elec',
+  email: 'headelec@example.test',
+  name: 'Head Elec',
+  role: 'head',
+  branch: branchElec,
+  active: 1,
+  createdAt: '',
+};
+const headNullBranch: Member = {
+  id: 'head-null',
+  email: 'headnull@example.test',
+  name: 'Head Null',
+  role: 'head',
+  branch: null,
+  active: 1,
+  createdAt: '',
+};
+const deputyUser: Member = {
+  id: 'deputy-1',
+  email: 'deputy@example.test',
+  name: 'Deputy',
+  role: 'deputy',
+  branch: null,
+  active: 1,
+  createdAt: '',
+};
+const deanUser: Member = {
+  id: 'dean-1',
+  email: 'dean@example.test',
+  name: 'Dean',
+  role: 'dean',
+  branch: null,
+  active: 1,
+  createdAt: '',
+};
+const staffUser: Member = {
+  id: 'staff-1',
+  email: 'staff@example.test',
+  name: 'Staff',
+  role: 'staff',
+  branch: branchCom,
+  active: 1,
+  createdAt: '',
+};
 
 const hasStatus = (status: number) => (error: unknown) => error instanceof ApiError && error.status === status;
 
 function useMemoryDatabase(client: object) {
   const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
   const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy({}, { get() { throw new Error('Real database access is forbidden in this test'); } });
+  cache.assetPool = new Proxy(
+    {},
+    {
+      get() {
+        throw new Error('Real database access is forbidden in this test');
+      },
+    },
+  );
   cache.assetPrisma = new Proxy(client, {
     get(target, property) {
       if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
@@ -28,8 +91,10 @@ function useMemoryDatabase(client: object) {
     },
   });
   return () => {
-    if (previous.pool === undefined) delete cache.assetPool; else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma; else cache.assetPrisma = previous.client;
+    if (previous.pool === undefined) delete cache.assetPool;
+    else cache.assetPool = previous.pool;
+    if (previous.client === undefined) delete cache.assetPrisma;
+    else cache.assetPrisma = previous.client;
   };
 }
 
@@ -106,7 +171,8 @@ function createMockEnvironment(overrides?: { requestStage?: number; requestKind?
       update: async ({ data }: { data: any }) => Object.assign(asset, data),
     },
     assetRequest: {
-      findUnique: async ({ where }: { where: { id: string } }) => (where.id === request.id ? structuredClone(request) : null),
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        where.id === request.id ? structuredClone(request) : null,
       update: async ({ data }: { data: any }) => {
         const { version, ...rest } = data;
         if (version?.increment) request.version += version.increment;
@@ -183,7 +249,7 @@ test('head คนละสาขา ถูกปฏิเสธ (403) ทั้�
         id: request.id,
         version: request.version,
       }),
-      hasStatus(403)
+      hasStatus(403),
     );
 
     // คนละสาขา พยายาม reject
@@ -194,7 +260,7 @@ test('head คนละสาขา ถูกปฏิเสธ (403) ทั้�
         version: request.version,
         reason: 'ปฏิเสธข้ามสาขา',
       }),
-      hasStatus(403)
+      hasStatus(403),
     );
   } finally {
     restore();
@@ -211,7 +277,7 @@ test('head ที่ branch เป็น null ถูกปฏิเสธ (403) 
         id: request.id,
         version: request.version,
       }),
-      hasStatus(403)
+      hasStatus(403),
     );
 
     await assert.rejects(
@@ -221,7 +287,7 @@ test('head ที่ branch เป็น null ถูกปฏิเสธ (403) 
         version: request.version,
         reason: 'ไม่มีสังกัดสาขา',
       }),
-      hasStatus(403)
+      hasStatus(403),
     );
   } finally {
     restore();
@@ -239,7 +305,7 @@ test('บทบาทที่ไม่มีสิทธิ์ใน stage น�
         id: request.id,
         version: request.version,
       }),
-      hasStatus(403)
+      hasStatus(403),
     );
 
     // deputy พยายามอนุมัติใน stage 0 ของ head
@@ -249,7 +315,7 @@ test('บทบาทที่ไม่มีสิทธิ์ใน stage น�
         id: request.id,
         version: request.version,
       }),
-      hasStatus(403)
+      hasStatus(403),
     );
   } finally {
     restore();
@@ -295,7 +361,7 @@ test('คำขอโอนย้ายตรวจที่สาขาต้�
         id: request.id,
         version: request.version,
       }),
-      hasStatus(403)
+      hasStatus(403),
     );
 
     // head ต้นทาง (headCom) อนุมัติได้
@@ -345,9 +411,16 @@ test('สร้างหรือแก้บัญชีหัวหน้า�
   const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
   try {
     const before = usersMap.size;
-    await assert.rejects(mutate(adminUser, {
-      action: 'user', email: 'nobranch-head@ksu.ac.th', name: 'หัวหน้าไม่มีสาขา', role: 'head', password: 'StrongPassword2026!',
-    }), /หัวหน้าสาขาต้องระบุสาขา/);
+    await assert.rejects(
+      mutate(adminUser, {
+        action: 'user',
+        email: 'nobranch-head@ksu.ac.th',
+        name: 'หัวหน้าไม่มีสาขา',
+        role: 'head',
+        password: 'StrongPassword2026!',
+      }),
+      /หัวหน้าสาขาต้องระบุสาขา/,
+    );
     assert.equal(usersMap.size, before);
   } finally {
     restore();
@@ -358,23 +431,23 @@ test('awaitsApprovalBy: กระดิ่งและหน้าคำขอ�
   const { awaitsApprovalBy } = await import('../contracts/domain');
   const req = { status: 'pending', chain: '["head","deputy","dean"]', stage: 0, actor: 'staff-1' };
   const headVk = { id: 'h1', role: 'head', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)' };
-  assert.equal(awaitsApprovalBy(req, headVk, 'วค'), true);                                   // สาขาเดียวกัน (ชื่อย่อ)
-  assert.equal(awaitsApprovalBy(req, { ...headVk, branch: null }, 'วค'), false);            // หัวหน้าไม่มีสาขา
-  assert.equal(awaitsApprovalBy(req, headVk, 'วิศวกรรมไฟฟ้า (วฟ)'), false);                 // คนละสาขา
-  assert.equal(awaitsApprovalBy(req, { id: 'd1', role: 'deputy' }, 'วค'), false);          // ยังไม่ถึงขั้นรองคณบดี
+  assert.equal(awaitsApprovalBy(req, headVk, 'วค'), true); // สาขาเดียวกัน (ชื่อย่อ)
+  assert.equal(awaitsApprovalBy(req, { ...headVk, branch: null }, 'วค'), false); // หัวหน้าไม่มีสาขา
+  assert.equal(awaitsApprovalBy(req, headVk, 'วิศวกรรมไฟฟ้า (วฟ)'), false); // คนละสาขา
+  assert.equal(awaitsApprovalBy(req, { id: 'd1', role: 'deputy' }, 'วค'), false); // ยังไม่ถึงขั้นรองคณบดี
   assert.equal(awaitsApprovalBy({ ...req, stage: 1 }, { id: 'd1', role: 'deputy' }, 'วค'), true);
-  assert.equal(awaitsApprovalBy({ ...req, actor: 'h1' }, headVk, 'วค'), false);             // คำขอของตัวเอง
+  assert.equal(awaitsApprovalBy({ ...req, actor: 'h1' }, headVk, 'วค'), false); // คำขอของตัวเอง
   assert.equal(awaitsApprovalBy({ ...req, status: 'approved' }, headVk, 'วค'), false);
 });
 
 test('approvalChainOf: ค่าตั้งสายอนุมัติที่เสียใช้ค่าเริ่มต้น 3 ระดับ (คำขอใหม่ต้องมีผู้อนุมัติเสมอ)', async () => {
   const { approvalChainOf } = await import('../contracts/domain');
   const fallback = { chain: ['head', 'deputy', 'dean'], valid: false };
-  assert.deepEqual(approvalChainOf('[]'), fallback);                         // ค่าที่พบในฐาน dev
+  assert.deepEqual(approvalChainOf('[]'), fallback); // ค่าที่พบในฐาน dev
   assert.deepEqual(approvalChainOf(undefined), fallback);
   assert.deepEqual(approvalChainOf('ไม่ใช่ JSON'), fallback);
-  assert.deepEqual(approvalChainOf('["head","head"]'), fallback);            // ซ้ำ
-  assert.deepEqual(approvalChainOf('["admin"]'), fallback);                  // admin อนุมัติไม่ได้
+  assert.deepEqual(approvalChainOf('["head","head"]'), fallback); // ซ้ำ
+  assert.deepEqual(approvalChainOf('["admin"]'), fallback); // admin อนุมัติไม่ได้
   assert.deepEqual(approvalChainOf('["head","dean"]'), { chain: ['head', 'dean'], valid: true });
   assert.deepEqual(approvalChainOf('["dean"]'), { chain: ['dean'], valid: true });
 });
