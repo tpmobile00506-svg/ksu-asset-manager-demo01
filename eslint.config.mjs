@@ -16,7 +16,7 @@ export default defineConfig([
         'warn',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_', ignoreRestSiblings: true },
       ],
-      // หนี้ที่ยังทยอยแก้: any ~160 จุด และ setState ใน useEffect ~25 จุด (โค้ดเดิมทำงานถูก แต่ไม่ใช่แบบที่ React แนะนำ)
+      // หนี้ที่ยังทยอยแก้: any ~50 จุดในโค้ดแอป และ setState ใน useEffect ~25 จุด (ทำงานถูก แต่ไม่ใช่แบบที่ React แนะนำ)
       '@typescript-eslint/no-explicit-any': 'warn',
       'react-hooks/set-state-in-effect': 'warn',
     },
