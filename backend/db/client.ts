@@ -86,6 +86,21 @@ export async function checkDatabase({ fresh = false } = {}) {
 }
 export type Transaction = Prisma.TransactionClient;
 export { Prisma };
+
+// Serializable ยกเลิก transaction ที่ชนกับของคนอื่น (รหัส Postgres 40001 / deadlock 40P01) ทุกอย่างถูกย้อนกลับแล้ว ลองใหม่ได้ปลอดภัย
+// Prisma แจ้งได้ 2 แบบ: P2034 (ชนระหว่างคำสั่ง) หรือ DriverAdapterError ที่ cause.kind = TransactionWriteConflict (ชนตอน COMMIT)
+// เดิมเช็กแค่ P2034 → แบบที่สองตอบ 500 ทันที (เจอจากการทดสอบโหลด 18 ต.ค. 2569: เพิ่มพร้อมกัน 5 คน ล้ม 64%)
+export function isWriteConflict(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const { code, cause } = error as { code?: unknown; cause?: { kind?: unknown; originalCode?: unknown } };
+  if (code === 'P2034') return true;
+  if (!cause || typeof cause !== 'object') return false;
+  return cause.kind === 'TransactionWriteConflict' || cause.originalCode === '40001' || cause.originalCode === '40P01';
+}
+// รอแบบสุ่ม (full jitter) ก่อนลองใหม่: ถ้ารอเท่ากันทุกคน คำขอที่ชนกันจะตื่นพร้อมกันแล้วชนซ้ำอีก
+export function writeConflictDelay(attempt: number, random = Math.random): number {
+  return Math.floor(random() * Math.min(1000, 50 * 2 ** attempt));
+}
 export function json(value: unknown): string {
   return JSON.stringify(value, (_key, item) => {
     if (typeof item !== 'bigint') return item;
