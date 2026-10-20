@@ -1,4 +1,5 @@
 import { money, roles, requestTypes, type Role } from './domain';
+import { escapeHtml } from './html';
 
 // เอกสารอนุมัติ (โอนย้าย / ซ่อมบำรุง / จำหน่าย) สำหรับพิมพ์ — ฟังก์ชันล้วน ไม่แตะ DOM จึงทดสอบได้ใน Node
 
@@ -23,12 +24,7 @@ export type ApprovalDocumentInput = {
   approvals: Array<{ stage: number; actorName: string; decision: string; note: string; createdAt: string }>;
 };
 
-const esc = (value: unknown) =>
-  String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+const esc = escapeHtml;
 
 const thaiDate = (iso: string) => {
   const d = new Date(iso);
