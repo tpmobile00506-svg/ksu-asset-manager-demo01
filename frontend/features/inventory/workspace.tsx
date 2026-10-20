@@ -444,14 +444,11 @@ export default function Workspace() {
         </main>
       </SidebarInset>
       <Editor
-        historyRevision={revision}
         onPhotoChanged={reload}
         data={data}
-        selected={selected}
         setSelected={setSelected}
         modal={modal}
         setModal={setModal}
-        open={open}
         write={write}
         busy={busy}
         error={formError}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, FormEvent } from 'react';
+import { useState, FormEvent } from 'react';
 import { Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Asset,
-  Role,
   roles,
   conditions,
   requestTypes,
@@ -59,47 +58,40 @@ const titleMap: Record<string, string> = {
 
 export default function Editor({
   data,
-  selected,
   setSelected,
   modal: currentModal,
   setModal,
-  open,
   write,
   busy,
   error,
   setError,
   onPhotoChanged,
-  historyRevision,
 }: {
   data: WorkspaceData;
-  selected: Asset | null;
   setSelected: (a: Asset | null) => void;
   modal: Any | null;
   setModal: (m: Any | null) => void;
-  open: (k: string, a?: Any) => void;
   write: (b: Any) => Promise<any>;
   busy: boolean;
   error: string;
   setError: (s: string) => void;
   onPhotoChanged: () => Promise<void>;
-  historyRevision: number;
 }) {
   // ระหว่างแอนิเมชันปิดหน้าต่าง ยังแสดงเนื้อหาเดิมไว้ (ไม่งั้นเห็นกรอบว่าง "หน้าต่างรายการ" แวบหนึ่ง)
   // การเปิด/ปิดหน้าต่างใช้ currentModal ส่วนเนื้อหาใช้ modal
-  const lastModal = useRef<Any | null>(null);
-  if (currentModal) lastModal.current = currentModal;
-  const modal = currentModal ?? lastModal.current;
+  // จำหน้าต่างล่าสุดไว้ใน state (ปรับระหว่าง render ตามแบบ "เก็บค่าจาก render ก่อน" ของ React)
+  // เดิมใช้ useRef แล้วอ่าน .current ระหว่าง render ซึ่ง React ไม่รับรองว่าจะได้ค่าที่ถูก
+  const [lastModal, setLastModal] = useState<Any | null>(currentModal);
+  if (currentModal && currentModal !== lastModal) setLastModal(currentModal);
+  const modal = currentModal ?? lastModal;
   const [take, setTake] = useState(1);
   const [splitOption, setSplitOption] = useState<'all' | 'partial'>('all');
   const [requestSplitTake, setRequestSplitTake] = useState(1);
   const [requestKind, setRequestKind] = useState<string>('transfer');
-  const user = modal?.user;
-  const creatingUser = !user?.id || !!user.invited;
-
-  const editable = ['staff', 'admin'].includes(data.me.role);
-  const active: Asset[] = data.assets.filter((a: Asset) => a.lifecycle === 'active');
-
-  useEffect(() => {
+  // เปิดหน้าต่างใหม่ (token ใหม่) → ล้างค่าที่กรอกค้างในฟอร์มแบ่งล็อต/ยื่นคำขอ
+  const [formToken, setFormToken] = useState(modal?.token);
+  if (modal?.token !== formToken) {
+    setFormToken(modal?.token);
     if (modal?.kind === 'split') {
       setTake(1);
     }
@@ -108,7 +100,9 @@ export default function Editor({
       setRequestSplitTake(1);
       setRequestKind('transfer');
     }
-  }, [modal?.token]);
+  }
+  const user = modal?.user;
+  const creatingUser = !user?.id || !!user.invited;
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -725,7 +719,7 @@ export default function Editor({
                     <div className="notice">
                       <b>{modal.asset.name}</b>
                       <p className="mono">{modal.asset.code}</p>
-                      <p className="mt-1">สถานะปัจจุบัน: กำลังซ่อม · เมื่อบันทึกจะเปลี่ยนสถานะเป็น "ปกติ"</p>
+                      <p className="mt-1">สถานะปัจจุบัน: กำลังซ่อม · เมื่อบันทึกจะเปลี่ยนสถานะเป็น “ปกติ”</p>
                     </div>
                     <Field
                       label="ผู้ซ่อม / ร้านที่ซ่อม"
@@ -760,7 +754,7 @@ export default function Editor({
                       ใช้เมื่อ<b>บันทึกผิด</b>เท่านั้น เช่น เพิ่มซ้ำ เพิ่มผิดชิ้น หรือใส่ราคา/จำนวนผิด
                       (ถ้าของถูกจำหน่ายจริง ให้ยื่นคำขอจำหน่ายแทน)
                       <ul className="mt-1 list-disc pl-5">
-                        <li>รายการจะย้ายไปหมวด "ข้อมูลผิดพลาด" ไม่นับในทะเบียน รายงาน และไฟล์ Excel</li>
+                        <li>รายการจะย้ายไปหมวด “ข้อมูลผิดพลาด” ไม่นับในทะเบียน รายงาน และไฟล์ Excel</li>
                         <li>รหัสเดิมว่างให้เพิ่มรายการที่ถูกต้องใหม่ได้ · ประวัติการยกเลิกยังเก็บไว้ตรวจย้อนหลัง</li>
                         <li>ทำย้อนกลับไม่ได้</li>
                       </ul>
