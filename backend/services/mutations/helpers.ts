@@ -132,14 +132,21 @@ export async function splitLotForRequest(
   await tx.asset.update({ where: { id: a.id }, data: { lifecycle: 'split', version: { increment: 1 } } });
   await insertAsset(tx, target);
   await insertAsset(tx, remainder);
-  const parentPhoto = await tx.storedFile.findUnique({ where: { key: assetImageKey(a.id) } });
-  if (parentPhoto) {
-    for (const child of [target, remainder]) {
-      await tx.storedFile.create({ data: { key: assetImageKey(child.id), body: parentPhoto.body } }).catch(() => {});
-    }
-  }
+  await copyPhoto(tx, a.id, [target.id, remainder.id]);
   await audit(tx, m, 'แบ่งล็อตเมื่ออนุมัติคำขอ', a.id, a, [target, remainder], reason);
   return target;
+}
+
+// แบ่งล็อตแล้วรายการลูกใช้รูปเดียวกับแม่ (คัดลอกไฟล์รูปใน stored_files)
+// skipDuplicates = ถ้ามีรูปของลูกอยู่แล้วให้ข้ามในระดับ SQL (ON CONFLICT DO NOTHING)
+// เดิมใช้ .catch(() => {}) กลืน error ไว้ ซึ่งใช้ไม่ได้ใน Postgres: คำสั่งที่ล้มทำให้ transaction ทั้งก้อนใช้ต่อไม่ได้แล้ว
+export async function copyPhoto(tx: Transaction, parentId: string, childIds: string[]) {
+  const photo = await tx.storedFile.findUnique({ where: { key: assetImageKey(parentId) } });
+  if (!photo) return;
+  await tx.storedFile.createMany({
+    data: childIds.map(id => ({ key: assetImageKey(id), body: photo.body })),
+    skipDuplicates: true,
+  });
 }
 
 // ขั้นตรวจร่วมของคำสั่งที่แก้ครุภัณฑ์ 1 รายการ (แก้ไข แบ่งล็อต ยื่นคำขอ ซ่อมเสร็จ ยกเลิก):
