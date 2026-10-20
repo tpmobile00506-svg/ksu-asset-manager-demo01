@@ -339,7 +339,7 @@ function FundPicker({
     ? usable.filter(
         a =>
           a.fundHintId !== fund.id &&
-          (!fBranch || normalizeBranch(a.branch || '', '', '') === fBranch) &&
+          (!fBranch || normalizeBranch(a.branch || '') === fBranch) &&
           (!fType || a.category === fType) &&
           (!hideAssigned || !a.fundId) &&
           [a.code, a.name, a.serial, a.location].join(' ').toLowerCase().includes(q),

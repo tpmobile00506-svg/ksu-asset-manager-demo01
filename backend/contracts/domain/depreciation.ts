@@ -1,4 +1,5 @@
 import type { Asset } from './types.ts';
+import { isoDateStart } from './dates.ts';
 
 // ค่าเสื่อมราคาแบบเส้นตรง และอายุการใช้งานคงเหลือ (1 ปี = 365.25 วัน)
 export function bookValue(
@@ -6,24 +7,22 @@ export function bookValue(
   at = new Date(),
 ): number | null {
   if (!a.receivedDate || !a.lifeYears) return null;
-  const d = a.receivedDate.trim();
-  const start = new Date(d + 'T00:00:00Z');
-  if (!Number.isFinite(start.getTime()) || start.toISOString().slice(0, 10) !== d) return null;
-  const days = Math.max(0, Math.floor((at.getTime() - start.getTime()) / 86400000));
+  const days = elapsedDays(a.receivedDate, at);
+  if (days === null) return null;
   return Math.max(
     a.salvageSatang,
     a.totalSatang - Math.floor((a.totalSatang - a.salvageSatang) * Math.min(days / (a.lifeYears * 365.25), 1)),
   );
 }
 
-// อายุการใช้งานคงเหลือ (ปี) ใช้ฐานวันเดียวกับ bookValue (1 ปี = 365.25 วัน) คืน null ถ้าไม่มีวันรับหรืออายุใช้งาน
+// จำนวนวันเต็มตั้งแต่วันรับถึงวันที่คำนวณ (ไม่ติดลบ) · วันที่รับว่างหรือไม่มีจริง → null
 function elapsedDays(receivedDate: string, at: Date): number | null {
-  const d = (receivedDate || '').trim();
-  if (!d) return null;
-  const start = new Date(d + 'T00:00:00Z');
-  if (!Number.isFinite(start.getTime()) || start.toISOString().slice(0, 10) !== d) return null;
+  const start = isoDateStart(receivedDate);
+  if (!start) return null;
   return Math.max(0, Math.floor((at.getTime() - start.getTime()) / 86400000));
 }
+
+// อายุการใช้งานคงเหลือ (ปี) ใช้ฐานวันเดียวกับ bookValue (1 ปี = 365.25 วัน) คืน null ถ้าไม่มีวันรับหรืออายุใช้งาน
 export function remainingLifeYears(a: Pick<Asset, 'receivedDate' | 'lifeYears'>, at = new Date()): number | null {
   if (!a.lifeYears) return null;
   const days = elapsedDays(a.receivedDate, at);

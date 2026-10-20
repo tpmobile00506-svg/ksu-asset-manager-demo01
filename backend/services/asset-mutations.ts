@@ -870,7 +870,7 @@ async function perform(
         kind === 'transfer'
           ? {
               location: validatedReq.payload.location,
-              branch: normalizeBranch(validatedReq.payload.branch, '', ''),
+              branch: normalizeBranch(validatedReq.payload.branch),
               ...(validatedReq.payload.custodian ? { custodian: validatedReq.payload.custodian } : {}),
             }
           : {};
@@ -878,7 +878,7 @@ async function perform(
       if (
         kind === 'transfer' &&
         payload.location === a.location &&
-        payload.branch === normalizeBranch(a.branch, '', '') &&
+        payload.branch === normalizeBranch(a.branch) &&
         (!payload.custodian || payload.custodian === a.custodian)
       ) {
         throw new ApiError('สถานที่ สาขา และผู้รับผิดชอบปลายทางเหมือนเดิม กรุณาแก้ปลายทางก่อนยื่นคำขอโอนย้าย');
@@ -1070,8 +1070,8 @@ async function perform(
       throw new ApiError('ข้อมูลครุภัณฑ์เปลี่ยนแล้ว คำขอเดิมใช้ไม่ได้', 409);
 
     if (!skipper && chain[r.stage] === 'head') {
-      const userBranch = m.branch ? normalizeBranch(m.branch, '', '') : null;
-      const assetBranch = a.branch ? normalizeBranch(a.branch, '', '') : null;
+      const userBranch = m.branch ? normalizeBranch(m.branch) : null;
+      const assetBranch = a.branch ? normalizeBranch(a.branch) : null;
       if (!userBranch || !assetBranch || userBranch !== assetBranch) {
         throw new ApiError('คุณไม่มีสิทธิ์ดำเนินการคำขอของสาขาอื่น หรือยังไม่ได้กำหนดสาขาสังกัด', 403);
       }
@@ -1135,7 +1135,7 @@ async function perform(
       if (r.kind === 'transfer') {
         // แปลงชื่อสาขาปลายทางเป็นชื่อมาตรฐานก่อนเขียน (รวมคำขอเก่าที่เก็บชื่อแบบย่อไว้)
         const location = clean(payload.location),
-          branch = normalizeBranch(clean(payload.branch), '', '');
+          branch = normalizeBranch(clean(payload.branch));
         const custodian = payload.custodian ? clean(payload.custodian, 200) : '';
         await tx.location.createMany({ data: [{ name: location }], skipDuplicates: true });
         await tx.branch.createMany({ data: [{ name: branch }], skipDuplicates: true });
