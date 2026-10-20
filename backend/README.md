@@ -6,14 +6,14 @@ Backend รันบน Node.js ผ่าน route adapters ของ Next.js �
 | --- | --- |
 | `auth/sessions.ts` | ตรวจรหัสผ่าน hash จัดการ session cookie และตรวจผู้ใช้ |
 | `config/` | Environment และการตั้งค่า server |
-| `contracts/domain.ts` | ชนิดข้อมูลและกฎคำนวณร่วมกับ frontend |
+| `contracts/domain.ts` + `contracts/domain/` | ชนิดข้อมูลและกฎคำนวณร่วมกับ frontend แยกไฟล์ตามเรื่อง (เงิน วันที่ ค่าเสื่อม สาขา คำขอ ฯลฯ) |
 | `db/client.ts` | PostgreSQL pool, Prisma Client และ BigInt/JSON |
 | `prisma/schema.prisma` | โครงสร้างข้อมูลของระบบ |
 | `prisma/migrations/` | ประวัติการเปลี่ยน schema |
 | `prisma/seed.ts` | เตรียมบัญชี Admin จาก environment |
 | `routes/` | API ฝั่ง server |
 | `services/asset-service.ts` | อ่านทะเบียน ตรวจข้อมูล นำเข้า และประวัติ |
-| `services/asset-mutations.ts` | บันทึก แบ่งล็อต คำขอ อนุมัติ ตรวจนับ และผู้ใช้ |
+| `services/mutations/` | คำสั่งบันทึกทั้งหมด: `index.ts` (transaction + กันกดซ้ำ + ตารางคำสั่ง) และไฟล์ตามเรื่อง users / assets / imports / funds / requests / stocktakes |
 | `imports/workbook.ts` | อ่าน XLSX และเก็บค่าต้นฉบับไว้ตรวจทาน |
 | `storage/files.ts` | เก็บ/อ่านไฟล์ผ่าน PostgreSQL `StoredFile` |
 | `data/` | ต้นฉบับส่วนตัวในเครื่อง ไม่รวมใน Git สาธารณะ |

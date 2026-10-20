@@ -7,7 +7,8 @@
 | `app/page.tsx`, `app/layout.tsx` | จุดเริ่มหน้าเว็บและ layout |
 | `app/login/` | หน้าเข้าสู่ระบบ |
 | `app/api/` | ตัวเชื่อม Next.js ไปยัง API ฝั่ง backend |
-| `features/inventory/` | ทะเบียน ตัวกรอง ฟอร์ม รายละเอียด QR และแบ่งล็อต |
+| `features/inventory/` | `workspace.tsx` (ตัวควบคุมหลัก) ทะเบียน (`registry-view` + `use-registry`) ภาพรวม ฟอร์ม รายละเอียด QR และแบ่งล็อต |
+| `features/shell/`, `features/auth/` | เมนูข้าง กระดิ่งแจ้งเตือน รายการเมนู และหน้าเข้าสู่ระบบ |
 | `features/imports/` | ตรวจทาน Excel ก่อนนำเข้าทะเบียน |
 | `features/operations/` | คำขอ อนุมัติ ตรวจนับ รายงาน และบัญชีผู้ใช้ |
 | `components/common.tsx` | ส่วนประกอบร่วมและ HTTP client |

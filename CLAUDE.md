@@ -14,7 +14,7 @@
 
 ## 2. Tech Stack และโครงสร้างโฟลเดอร์ (Architecture & Directory Structure)
 - **Runtime & Language**: Node.js >= 22.13.0 (ESM, `"type": "module"`), TypeScript 5.9.3
-- **Frontend Framework**: Next.js 16.4.0 (App Router), React 19.2.6, Tailwind CSS 4.2.1, Radix UI, Base UI, Lucide React, Sonner
+- **Frontend Framework**: Next.js 16.4.1 (App Router), React 19.2.6, Tailwind CSS 4.2.1, Radix UI, Base UI, Lucide React, Sonner
 - **Backend & Database**: Next.js API Routes เชื่อมต่อ Node route handlers ในโปรเซสเดียวกัน, PostgreSQL บน Neon Cloud, Prisma ORM 7.10.0 (`@prisma/adapter-pg` + `pg` 8.23.0)
 - **Image Processing**: Sharp 0.35.5 (แปลงไฟล์เป็น WebP, ขนาดด้านยาวสุดไม่เกิน 1,600px, ลบ EXIF/GPS)
 - **Excel & Documents**: ExcelJS 4.4.0 (ส่งออก 10 คอลัมน์ และ parser รองรับไฟล์ดั้งเดิม 11 คอลัมน์)
@@ -22,28 +22,32 @@
 
 ### โครงสร้างโฟลเดอร์สำคัญ
 - `frontend/`:
-  - `features/inventory/`: หน้าทะเบียนครุภัณฑ์, รายละเอียด, ฟอร์มเพิ่ม/แก้ไข, แบ่งล็อต (`workspace.tsx`, `editor.tsx`, `asset-detail-sheet.tsx`, `qr-label-modal.tsx`)
+  - `features/inventory/`: `workspace.tsx` (ตัวควบคุมหลัก: เซสชัน โหลดข้อมูล URL modal), หน้าทะเบียน (`registry-view.tsx` + `use-registry.ts`), ภาพรวม (`overview-dashboard.tsx`), หน้าต่างฟอร์ม (`editor.tsx`, `asset-form-modal.tsx`), รายละเอียด, QR
+  - `features/shell/`: เมนูข้าง (`app-sidebar.tsx`), กระดิ่งแจ้งเตือน, รายการเมนู (`navigation.ts`) · `features/auth/`: หน้าเข้าสู่ระบบ
   - `features/requests/`: หน้าคำขออนุมัติและการติดตามสถานะ (`requests-view.tsx`)
   - `features/stocktakes/`: หน้าตรวจนับพัสดุประจำปีและเครื่องสแกน QR (`stocktakes-view.tsx`)
   - `features/reports/`: หน้ารายงานสรุปและคำนวณค่าเสื่อมราคา (`reports-view.tsx`)
   - `features/users/`: หน้าจัดการบัญชีผู้ใช้และสิทธิ์ (`users-view.tsx`)
   - `features/audit/`: หน้าตรวจสอบประวัติกิจกรรม (`audit-view.tsx`)
 - `backend/`:
-  - `contracts/`: โค้ด Domain logic และ Types ที่ใช้ร่วมกันทั้งหน้าบ้านและหลังบ้าน (`domain.ts`, `models.ts`)
+  - `contracts/`: Domain logic และ Types ที่ใช้ร่วมกันทั้งหน้าบ้านและหลังบ้าน — `domain.ts` เป็นไฟล์รวมส่งออก โค้ดจริงอยู่ใน `domain/` (money, dates, depreciation, branches, asset-types, requests, assets, import-classify, constants, types) · ไฟล์ใน `domain/` import กันเองแบบมีนามสกุล `.ts` (ให้ `test:domain` รันด้วย Node ตรงๆ)
   - `routes/`: Next.js API route handlers (`data.ts`, `source.ts`)
-  - `services/`: ตรรกะฝั่งเซิร์ฟเวอร์ (`asset-service.ts`, `asset-mutations.ts`, `asset-images.ts`)
+  - `services/`: `asset-service.ts` (getData + ตัวช่วย), `mutations/` (คำสั่งบันทึกทั้งหมด: `index.ts` = transaction/กันกดซ้ำ/ลองใหม่/ตารางคำสั่ง + ไฟล์ตามเรื่อง users, assets, imports, funds, requests, stocktakes), `asset-images.ts` · `asset-mutations.ts` เหลือเป็นจุดเข้าเดิม
   - `auth/`: ระบบยืนยันตัวตน เซสชัน และสิทธิ์ (`sessions.ts`)
   - `validation/`: Zod schemas แยกไฟล์ (`auth.ts`, `users.ts`, `requests.ts`, `helpers.ts`, `index.ts`)
   - `prisma/`: Prisma schema และประวัติ Migration (`schema.prisma`, `migrations/`)
   - `storage/`: จัดเก็บไฟล์รูปภาพและไฟล์นำเข้าลงตาราง `stored_files` (bytea ใน PostgreSQL)
-  - `tests/`: ชุดทดสอบ Unit tests และ Regression tests (`*.test.ts`, `critical-workflows.mjs`)
+  - `tests/`: ชุดทดสอบ (`*.test.ts`, `critical-workflows.mjs`) · ฐานข้อมูลจำลองใช้ `tests/helpers/memory-db.ts`
+- เอกสารส่งต่องาน: `ARCHITECTURE.md` (โครงสร้าง/การไหลของข้อมูล), `CONTRIBUTING.md` (คำสั่ง กฎ วิธีเพิ่ม action)
 
 ---
 
 ## 3. คำสั่งที่ใช้บ่อย (Common Commands)
 *หมายเหตุบน Windows: หากติด Execution Policy ของ PowerShell ให้รันผ่าน `cmd.exe /c "npm ..."`*
 
-- **รันเซิร์ฟเวอร์พัฒนา**: `npm run dev` (เปิดที่ `http://127.0.0.1:3000` ห้ามเปลี่ยนพอร์ตเนื่องจาก Origin check)
+- **รันเซิร์ฟเวอร์พัฒนา**: `npm run dev` (เปิดที่ `http://127.0.0.1:3000` ห้ามเปลี่ยนพอร์ตเนื่องจาก Origin check · เปิดด้วย `localhost` แล้วหน้าค้างโหลด เพราะ Next 16 บล็อก dev resource ข้าม origin)
+- **ดูการทำงานหลังบ้าน**: `npm run dev:trace` (พิมพ์ขั้นตรวจสิทธิ์/transaction/SQL)
+- **ตรวจคุณภาพโค้ด**: `npm run lint` (ต้อง 0 error) · `npm run format` / `npm run format:check` (Prettier)
 - **รัน Unit Tests ทั้งหมด**: `npm test` (`node --import tsx --test backend/tests/*.test.ts`)
 - **รัน Domain Tests**: `npm run test:domain` (ทดสอบคณิตศาสตร์สตางค์, แปลงคอลัมน์ Excel, ช่วงรหัส)
 - **ตรวจสอบ Type TypeScript**: `npm run typecheck` (ตรวจทั้ง frontend และ backend แบบ `--noEmit`)
@@ -71,8 +75,9 @@
 
 ## 5. กฎธุรกิจและการตัดสินใจทางสถาปัตยกรรม (Business Rules & Decisions Made)
 
-1. **บทบาท 5 ระดับ และการควบคุมสิทธิ์ตามสาขา (Role & Branch Authorization)**:
-   - บทบาท: `staff` (เจ้าหน้าที่พัสดุ), `head` (หัวหน้าสาขาวิชา), `deputy` (รองคณบดี), `dean` (คณบดี), `admin` (ผู้ดูแลระบบ)
+1. **บทบาท 6 แบบ และการควบคุมสิทธิ์ตามสาขา (Role & Branch Authorization)**:
+   - บทบาท: `staff` (เจ้าหน้าที่พัสดุ), `head` (หัวหน้าสาขาวิชา), `deputy` (รองคณบดี), `dean` (คณบดี), `admin` (ผู้ดูแลระบบ), `tester` (บัญชีสาธิต: อนุมัติข้ามขั้นได้ ระบบติดหมายเหตุว่าข้ามขั้น)
+   - สวิตช์ `ADMIN_APPROVES_ALL` (`contracts/domain/constants.ts`) ต้องเป็น `false` — เปิดชั่วคราวเฉพาะวันสอบ 18 ต.ค. 2569 ปิดแล้ว
    - สายอนุมัติเริ่มต้น: `head` -> `deputy` -> `dean`
    - **การป้องกัน BOLA/IDOR สำหรับ `head`**:
      - `head` สามารถอนุมัติหรือปฏิเสธได้ **เฉพาะคำขอของสาขาตนเองเท่านั้น** โดยตรวจเทียบกับสาขาเจ้าของครุภัณฑ์ (`asset.branch` ต้นทาง)
@@ -97,12 +102,15 @@
    - `202610080002_add_user_branch`: เพิ่มคอลัมน์ `branch String?` ใน `User` และ `Invite`
    - `202610080003_add_database_indexes`: เพิ่ม index 3 ตัว (`audit_created_at`, `request_asset_id`, `stocktake_item_asset_id`)
    - `202610090004_add_repair_records`: เพิ่มตาราง `repair_records` (ประวัติผลซ่อม)
-5. **สูตรการคำนวณค่าเสื่อมราคา (`bookValue` ใน `domain.ts`)**:
+   - `202610130005_add_asset_sets`: ชุดครุภัณฑ์ห้ามแยก (`asset_sets`, `setId`/`setRole`)
+   - `202610130006_add_asset_funds`: ทุน/โครงการ (`fundId`, `fundHintId`)
+   - `202610170007_user_branch_fk`: `users.branch` อ้างอิงตาราง `branches`
+5. **สูตรการคำนวณค่าเสื่อมราคา (`bookValue` ใน `contracts/domain/depreciation.ts`)**:
    - **วิธีเส้นตรง**: คำนวณตามจำนวนวันจริง `days = Math.max(0, Math.floor((at - start) / 86400000))`
    - **อายุการใช้งานรวมเป็นวัน**: `lifeYears * 365.25` วัน (เฉลี่ยปีอธิกสุรทิน)
    - **การปัดเศษ**: ปัดเศษสตางค์ของค่าเสื่อมสะสมทิ้งด้วย `Math.floor(...)`
    - **Floor Value**: ไม่ต่ำกว่ามูลค่าซาก (`salvageSatang`) แม้ใช้งานเกินอายุ
-   - **Calendar Validation**: ตรวจสอบวันที่จริงในปฏิทิน (`start.toISOString().slice(0, 10) === d`) หากเป็นวันที่ไม่มีจริง เช่น `2024-02-31` จะคืนค่า `null`
+   - **Calendar Validation**: `isoDateStart()` ใน `domain/dates.ts` ตรวจวันที่จริงในปฏิทิน หากเป็นวันที่ไม่มีจริง เช่น `2024-02-31` จะคืนค่า `null` (ใช้ตัวเดียวกันทั้งค่าเสื่อม อายุคงเหลือ และการแสดงวันที่)
 6. **ความปลอดภัยทางการเงินและความสอดคล้องของข้อมูล**:
    - ยอดเงินทุกจุดจัดเก็บเป็นจำนวนเต็มสตางค์ (`BigInt` / `Number.isSafeInteger`) ห้ามใช้เลขทศนิยม float ในฐานข้อมูล
    - การแก้ไขข้อมูลใช้ Prisma `$transaction` ระดับ `Serializable` พร้อมตรวจจับการชนกันด้วย `version` (Optimistic Concurrency Control)
@@ -117,8 +125,9 @@
    - ปัจจุบันฝังค่า fallback ไว้ที่ `2569` รอยืนยันว่าจะปรับเป็น Dynamic คำนวณตามวันที่ปัจจุบัน (ตัดรอบ 1 ต.ค.) หรือไม่
 3. **ประสิทธิภาพของ `getData()`**:
    - ปัจจุบัน `getData()` ดึงข้อมูลครุภัณฑ์ทุกรายการขึ้นมาทั้งหมด รวมถึงรายการที่จำหน่ายแล้ว (`disposed`) ควรวางแผนทำ pagination หรือแยกโหลดเมื่อฐานข้อมูลมีขนาดใหญ่ขึ้น
-4. **การ Refactor โค้ด Frontend**:
-   - `frontend/features/inventory/workspace.tsx` มีขนาดใหญ่เกินไป ควรแยก Tab views และ Modal components ออกเป็นโมดูลย่อย
+4. **การ Refactor โค้ด Frontend** (20 ต.ค. 2569 แยก `workspace.tsx` 1,712 → ~500 บรรทัดแล้ว):
+   - ไฟล์ที่ยังยาว: `audit-view.tsx`, `services/excel-export.ts`, `import-view.tsx`, `asset-form-modal.tsx`, `requests-view.tsx`
+   - lint warning ที่เหลือ (any, setState ใน useEffect) ดูรายการใน `ARCHITECTURE.md` ข้อ 7
    - Audit Trail ปัจจุบันแสดงผล JSON ดิบ ควรทำ Diff Viewer ที่อ่านง่าย
 5. **การปรับปรุงคู่มือและข้อมูลนำเข้า**:
    - อัปเดต `README.md` ให้สะท้อนขั้นตอนการติดตั้งและโครงสร้างปัจจุบัน
