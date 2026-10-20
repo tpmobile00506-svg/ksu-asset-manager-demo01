@@ -216,7 +216,7 @@ export default function FundEditor({ assets, selection, funds, editable, write, 
         {editable && hints.length > 0 && (
           <div className="border-t border-amber-100 bg-amber-50/40 px-3 py-1.5 text-xs text-amber-800">
             <Star size={12} className="mr-1 inline" />
-            มีรายการแนะนำจากไฟล์ต้นฉบับอีก {hints.length} รายการ — กด "เพิ่มครุภัณฑ์เข้าทุนนี้" เพื่อตรวจและติ๊กยืนยัน
+            มีรายการแนะนำจากไฟล์ต้นฉบับอีก {hints.length} รายการ — กด “เพิ่มครุภัณฑ์เข้าทุนนี้” เพื่อตรวจและติ๊กยืนยัน
           </div>
         )}
       </div>
@@ -272,7 +272,7 @@ export default function FundEditor({ assets, selection, funds, editable, write, 
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-bold text-slate-900">ลบหัวทุนนี้?</AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-slate-600 mt-2">
-              "{deleting?.fund.name}"
+              “{deleting?.fund.name}”
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="bg-amber-50 border border-amber-200/80 rounded-lg p-3 text-xs text-amber-900 my-2">

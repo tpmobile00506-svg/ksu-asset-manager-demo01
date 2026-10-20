@@ -170,7 +170,7 @@ export default function ExportView({
               checked={excludeDamaged}
               onChange={e => setExcludeDamaged(e.target.checked)}
             />
-            <span>ไม่รวมครุภัณฑ์สภาพ "ชำรุด" ในรายงานคงเหลือ (แยกไปอยู่รายงานพัสดุชำรุดแนบท้ายแทน)</span>
+            <span>ไม่รวมครุภัณฑ์สภาพ “ชำรุด” ในรายงานคงเหลือ (แยกไปอยู่รายงานพัสดุชำรุดแนบท้ายแทน)</span>
           </label>
         )}
       </div>
@@ -202,7 +202,7 @@ export default function ExportView({
         {showDamaged && (
           <div>
             รายงานพัสดุชำรุด: <b>{sel.damaged.length.toLocaleString('th-TH')}</b> รายการ · ยอดรวม{' '}
-            <b>{money(sel.damagedSatang)}</b> บาท · เริ่ม "แนบท้ายหน้า {sel.mainPages + 1}"
+            <b>{money(sel.damagedSatang)}</b> บาท · เริ่ม “แนบท้ายหน้า {sel.mainPages + 1}”
           </div>
         )}
         <div className="text-xs text-slate-500">ชื่อไฟล์: {reportFileName(request)}</div>

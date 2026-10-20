@@ -429,7 +429,7 @@ export default function QrScannerModal({
               <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center text-center p-4 z-10">
                 <div className="w-12 h-12 rounded-full border-3 border-blue-500/20 border-t-blue-500 animate-spin mb-3" />
                 <span className="text-xs font-semibold text-slate-300">กำลังเชื่อมต่อกล้อง…</span>
-                <span className="text-[11px] text-slate-500 mt-1">กรุณากด "อนุญาต" หากมีป็อปอัปขอสิทธิ์</span>
+                <span className="text-[11px] text-slate-500 mt-1">กรุณากด “อนุญาต” หากมีป็อปอัปขอสิทธิ์</span>
               </div>
             )}
 

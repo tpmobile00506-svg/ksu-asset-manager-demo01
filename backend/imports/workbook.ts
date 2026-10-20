@@ -1,8 +1,8 @@
 import type { Source } from '@/shared/domain';
 export async function parseWorkbook(file: File): Promise<Source> {
   if (file.size > 10 * 1024 * 1024) throw Error('ไฟล์ต้องไม่เกิน 10 MB');
-  const module = await import('exceljs/dist/exceljs.min.js');
-  const Excel = module.default;
+  const excel = await import('exceljs/dist/exceljs.min.js');
+  const Excel = excel.default;
   const wb = new Excel.Workbook();
   await wb.xlsx.load(await file.arrayBuffer());
   const sheets: Source['sheets'] = [];

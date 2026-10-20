@@ -844,6 +844,8 @@ export default function AuditView({
   const [tab, setTab] = useState<TabKey>('all');
   const [search, setSearch] = useState('');
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
+  // เวลาอ้างอิงของตัวกรองช่วงเวลา: จับตอนเปิดหน้าและตอนเลือกช่วงใหม่ (ห้ามเรียก Date.now() ระหว่าง render)
+  const [now, setNow] = useState(() => Date.now());
   const [page, setPage] = useState(0);
 
   // getData ส่งมาแค่ 100 รายการล่าสุด ประวัติเก่ากว่านั้นโหลดเพิ่มทีละ 200 รายการ
@@ -887,7 +889,7 @@ export default function AuditView({
 
   // สถิติ KPI ด้านบน 4 ใบ
   const stats = useMemo(() => {
-    let total = events.length;
+    const total = events.length;
     let editCount = 0;
     let movementCount = 0;
     let systemCount = 0;
@@ -920,7 +922,7 @@ export default function AuditView({
       // 2. กรองตามช่วงเวลา
       if (timeRange !== 'all') {
         const d = new Date(e.createdAt);
-        const diffMs = Date.now() - d.getTime();
+        const diffMs = now - d.getTime();
         const days = diffMs / (1000 * 60 * 60 * 24);
         if (timeRange === 'today' && days > 1) return false;
         if (timeRange === '7days' && days > 7) return false;
@@ -950,7 +952,7 @@ export default function AuditView({
 
       return true;
     });
-  }, [events, tab, timeRange, search, assets]);
+  }, [events, tab, timeRange, now, search, assets]);
 
   const pageSize = 15;
   const paginated = useMemo(() => {
@@ -1082,6 +1084,7 @@ export default function AuditView({
             value={timeRange}
             onChange={e => {
               setTimeRange(e.target.value as TimeRange);
+              setNow(Date.now());
               setPage(0);
             }}
             className="h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-700 font-medium outline-none cursor-pointer hover:border-slate-300"

@@ -132,6 +132,8 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
   const mutationBusy = useRef(false);
   const lifetime = useRef<AbortController | null>(null);
   const prevSearch = useRef(search);
+  // ตัวนำเข้าสร้างครั้งเดียว ฟังก์ชันข้างในอ่าน lifetime.current ตอนกดนำเข้า (ไม่ได้อ่านระหว่าง render)
+  // eslint-disable-next-line react-hooks/refs
   const [batchImport] = useState(() =>
     createBatchImporter(body => api('', body, { signal: lifetime.current?.signal })),
   );

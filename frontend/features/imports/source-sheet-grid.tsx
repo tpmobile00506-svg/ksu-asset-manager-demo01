@@ -193,7 +193,7 @@ export default function SourceSheetGrid({
         </span>
         <span className="xls-hint">
           ลากที่เลขแถวเพื่อครอบ · Shift+คลิกเลือกเป็นช่วง · ติ๊กทีละแถว · แถวสีเหลืองนำเข้าได้ ระบบติดหมายเหตุ
-          "ต้องตรวจ" ให้
+          “ต้องตรวจ” ให้
         </span>
         <div className="xls-actions">
           <Button
