@@ -1,0 +1,13 @@
+# ไฟล์ที่เครื่องมือสร้างเอง หรือข้อมูล ไม่ต้องจัดรูปแบบ
+node_modules/
+frontend/.next/
+backend/generated/
+backend/.cache/
+backend/data/
+backend/prisma/migrations/
+graphify-out/
+scratch/
+docs/
+package-lock.json
+next-env.d.ts
+*.md
