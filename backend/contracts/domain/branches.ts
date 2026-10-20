@@ -23,7 +23,8 @@ export const isStandardBranch = (value: string): value is StandardBranch =>
 
 // แปลงข้อความสาขาในไฟล์ (ตัวย่อ ชื่อเต็ม หรือชื่อสาขารุ่นเก่าในฐานข้อมูล) เป็นสาขามาตรฐาน
 // ไม่เดาสาขาจากชื่อแผ่นงาน เพราะแผ่นงานคือประเภทครุภัณฑ์ (แผ่น "คอม" มีคอมพิวเตอร์ของทุกสาขา)
-export function normalizeBranch(raw: string, note: string, _sheet: string): string {
+// raw = ช่องสาขาในไฟล์/ฟอร์ม · note = หมายเหตุ (ใช้เดาเมื่อช่องสาขาว่าง)
+export function normalizeBranch(raw: string, note = ''): string {
   // Prefer an explicit department over incidental department names in the notes.
   const identify = (text: string): string | undefined => {
     const alias = (codes: string) =>
@@ -58,7 +59,7 @@ const branchAbbreviation: Record<StandardBranch, string> = {
 export function branchAbbr(branch: string): string {
   const raw = (branch || '').trim();
   if (!raw) return '';
-  return branchAbbreviation[normalizeBranch(raw, '', '') as StandardBranch] ?? raw;
+  return branchAbbreviation[normalizeBranch(raw) as StandardBranch] ?? raw;
 }
 
 // สาขามาตรฐานทั้งหมดที่ช่องสาขาระบุไว้ เช่น "วอ /คจก" ได้ 2 สาขา — มากกว่า 1 ต้องให้เจ้าหน้าที่เลือก ไม่เดา
@@ -68,7 +69,7 @@ export function branchCandidates(raw: string): StandardBranch[] {
   if (standard.includes(text)) return [text as StandardBranch];
   const found = new Set<StandardBranch>();
   for (const part of text.split('/')) {
-    const branch = part.trim() && normalizeBranch(part.trim(), '', '');
+    const branch = part.trim() && normalizeBranch(part.trim());
     if (branch && standard.includes(branch)) found.add(branch as StandardBranch);
   }
   return [...found];
@@ -87,5 +88,5 @@ const categoryByStandardBranch: Record<StandardBranch, (typeof standardCategorie
 };
 
 export function resolveCategory(branch: string): string {
-  return categoryByStandardBranch[normalizeBranch(branch || '', '', '') as StandardBranch] ?? 'สำนักงานส่วนกลาง';
+  return categoryByStandardBranch[normalizeBranch(branch || '') as StandardBranch] ?? 'สำนักงานส่วนกลาง';
 }

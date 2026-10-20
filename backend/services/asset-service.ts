@@ -69,7 +69,7 @@ export function validated(input: Record<string, unknown>): Partial<Asset> {
   }
   if (!a.code || !a.name) throw new ApiError('กรุณาระบุรหัสและชื่อครุภัณฑ์');
   if (!a.branch) a.branch = 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
-  else a.branch = normalizeBranch(a.branch, '', '');
+  else a.branch = normalizeBranch(a.branch);
   if (!a.category) a.category = UNKNOWN_ASSET_TYPE;
   if (!a.location) a.location = 'ไม่ระบุสถานที่';
   // หมวด = ชื่อแผ่นงานของประเภทครุภัณฑ์เสมอ (ไม่รับค่าที่ส่งมา)
@@ -308,7 +308,7 @@ export async function getData(m: Member, url: URL) {
     assets: await withAssetImages(
       assets.map(({ setRef, fundRef, ...a }) => ({
         ...a,
-        branch: normalizeBranch(a.branch || '', '', ''),
+        branch: normalizeBranch(a.branch || ''),
         setName: setRef?.name ?? null,
         setKind: setRef?.kind ?? null,
         fundName: fundRef?.name ?? null,

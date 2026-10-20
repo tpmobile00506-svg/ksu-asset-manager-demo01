@@ -27,7 +27,7 @@ export const userMutationSchema = z.object({
     .refine(
       val => {
         if (!val) return true;
-        const normalized = normalizeBranch(val, '', '');
+        const normalized = normalizeBranch(val);
         return standardBranches.includes(normalized as any);
       },
       { message: 'สาขาไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน' },
@@ -35,7 +35,7 @@ export const userMutationSchema = z.object({
     .transform(val => {
       if (val === undefined) return undefined;
       if (!val) return null;
-      return normalizeBranch(val, '', '');
+      return normalizeBranch(val);
     }),
   active: z
     .union([z.boolean(), z.number().int().min(0).max(1)])

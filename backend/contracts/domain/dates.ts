@@ -1,4 +1,12 @@
 // ปีงบประมาณไทย (เริ่ม 1 ต.ค.) และการแสดงวันที่แบบ พ.ศ.
+
+// วันที่แบบ ISO (yyyy-mm-dd) ที่มีอยู่จริงในปฏิทิน → Date เวลา 00:00 UTC · ว่าง หรือไม่มีจริง (เช่น 2024-02-31) → null
+// ใช้ตัวเดียวกันทุกที่ที่อ่าน "วันที่รับ" (ค่าเสื่อม อายุคงเหลือ แสดงผล) กฎตรวจวันที่จึงตรงกันเสมอ
+export function isoDateStart(value: string): Date | null {
+  const d = (value || '').trim();
+  const start = new Date(d + 'T00:00:00Z');
+  return Number.isFinite(start.getTime()) && start.toISOString().slice(0, 10) === d ? start : null;
+}
 export function fiscalYearAsOfDate(fiscalYear: number | string): Date {
   const yearBE = Number(fiscalYear) || 2569;
   const yearCE = yearBE - 543;
@@ -30,9 +38,7 @@ const thaiMonthsShort = [
   'ธ.ค.',
 ];
 export function thaiDateOnly(iso: string): string {
-  const d = (iso || '').trim();
-  const start = new Date(d + 'T00:00:00Z');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !Number.isFinite(start.getTime()) || start.toISOString().slice(0, 10) !== d)
-    return iso;
+  const start = isoDateStart(iso);
+  if (!start) return iso;
   return `${start.getUTCDate()} ${thaiMonthsShort[start.getUTCMonth()]} ${start.getUTCFullYear() + 543}`;
 }

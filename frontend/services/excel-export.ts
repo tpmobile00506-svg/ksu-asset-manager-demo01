@@ -492,7 +492,7 @@ export function assetReportPageCount(assets: Asset[], layout: PageLayout = 'port
 
 // ชื่อหัวข้อของสาขาในรายงาน เช่น "สาขาวิชาวิศวกรรมคอมพิวเตอร์"
 export function branchTitle(branch: string): string {
-  const standard = normalizeBranch(branch || '', '', '');
+  const standard = normalizeBranch(branch || '');
   return damagedSections.find(([b]) => b === standard)?.[1] ?? standard;
 }
 
@@ -527,11 +527,11 @@ export async function createDamagedWorkbook(assets: Asset[], options: DamagedExp
   const known = new Set(damagedSections.map(([b]) => b));
   const sections: Array<[string, Asset[]]> = damagedSections.map(([b, title]) => [
     title,
-    assets.filter(a => normalizeBranch(a.branch || '', '', '') === b),
+    assets.filter(a => normalizeBranch(a.branch || '') === b),
   ]);
   const others = new Map<string, Asset[]>();
   for (const a of assets) {
-    const b = normalizeBranch(a.branch || '', '', '');
+    const b = normalizeBranch(a.branch || '');
     if (known.has(b)) continue;
     const title = b || 'ไม่ระบุสาขา';
     if (!others.has(title)) others.set(title, []);
@@ -686,7 +686,7 @@ export function reportSelection(all: Asset[], r: ReportRequest) {
   const base = all.filter(
     a =>
       a.lifecycle === 'active' &&
-      (!r.branch || normalizeBranch(a.branch || '', '', '') === r.branch) &&
+      (!r.branch || normalizeBranch(a.branch || '') === r.branch) &&
       (!r.type || a.category === r.type),
   );
   const damaged = base.filter(a => a.condition === 'damaged');

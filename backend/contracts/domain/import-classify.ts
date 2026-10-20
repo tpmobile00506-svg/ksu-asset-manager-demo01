@@ -192,7 +192,7 @@ export function classify(source: Source, overrides: Record<string, RowOverride> 
         const vGroup = str(v[columns.group]);
         rawGroup = vGroup;
         const vOffice = columns.category >= 0 ? str(v[columns.category]) : '';
-        if (standardCategories.includes(vGroup as any)) {
+        if ((standardCategories as readonly string[]).includes(vGroup)) {
           // ไฟล์ที่ Export จากเว็บรุ่นก่อน: หมวดหมู่ตามสาขาอยู่ในคอลัมน์หมวด
           explicitCat = vGroup;
         } else {
@@ -216,7 +216,7 @@ export function classify(source: Source, overrides: Record<string, RowOverride> 
       // ข้อความชุด/โครงการเก็บแยกในชุด (detectSets) และใน groupName ของแถว (หมวดคิดจากประเภทด้านล่าง)
       const groupName = columns ? rawGroup : [group, ...v.slice(8).map(str)].filter(Boolean).join(' • ');
       const rawBranch = columns ? str(v[columns.branch]) : str(v[7]) || str(v[8]);
-      const branch = normalizeBranch(rawBranch, str(v[6]), sheet.name);
+      const branch = normalizeBranch(rawBranch, str(v[6]));
       // ชีตชำรุด/ประวัติไม่บอกประเภท จึงใช้ประเภทของรหัสเดียวกันในแผ่นหลัก
       const category =
         explicitCat ||

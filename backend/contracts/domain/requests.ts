@@ -114,7 +114,7 @@ export function awaitsApprovalBy(
   if (r.actor === me.id) return false;
   // บัญชีผู้ทดสอบ (ผู้ใช้ตัดสินใจ 18 ต.ค. 2569): อนุมัติได้ทุกคำขอทุกสาขา กดครั้งเดียวจบทุกขั้นที่เหลือ
   if (me.role === 'tester') return true;
-  let chain: string[] = ['head', 'deputy', 'dean'];
+  let chain: string[] = [...DEFAULT_APPROVAL_CHAIN];
   try {
     chain = JSON.parse(r.chain);
   } catch {
@@ -123,5 +123,5 @@ export function awaitsApprovalBy(
   const stageRole = chain[r.stage];
   if (stageRole !== me.role) return false;
   if (stageRole !== 'head') return true;
-  return !!me.branch && !!assetBranch && normalizeBranch(me.branch, '', '') === normalizeBranch(assetBranch, '', '');
+  return !!me.branch && !!assetBranch && normalizeBranch(me.branch) === normalizeBranch(assetBranch);
 }
