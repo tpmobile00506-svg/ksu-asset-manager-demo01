@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { getData } from '../services/asset-service';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 // ตัวชี้หน้าประวัติ Audit: รับเฉพาะเวลา ISO และ id ที่ระบบสร้าง (ทดสอบ 15 ต.ค. 2569 ด้วยค่าแบบ SQL injection)
 const admin: Member = {
@@ -14,29 +15,9 @@ const admin: Member = {
   createdAt: '',
 };
 
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = client;
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
-
 test('ตัวชี้หน้าประวัติที่แปลกปลอมตอบ 400 ก่อนถึงฐานข้อมูล และตัวชี้ที่ถูกต้องใช้ได้', async () => {
   let queried = 0;
-  const restore = useMemoryDatabase({
+  const restore = installMemoryDatabase({
     audit: {
       findMany: async () => {
         queried++;

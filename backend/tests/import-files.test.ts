@@ -2,32 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mutate } from '../services/asset-mutations';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 const staff: Member = { id: 'staff-a', email: 'a@example.test', name: 'A', role: 'staff', active: 1, createdAt: '' };
 const dean: Member = { ...staff, id: 'dean-a', role: 'dean' };
-
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = new Proxy(client, {
-    get(target, property) {
-      if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
-      return (target as Record<PropertyKey, unknown>)[property];
-    },
-  });
-  return () => {
-    cache.assetPool = previous.pool;
-    cache.assetPrisma = previous.client;
-  };
-}
 
 // ไฟล์ "src-1" ที่นำเข้าทะเบียนไปแล้ว imported แถว
 function setup(imported: number, who: Member = staff) {
@@ -73,10 +51,13 @@ function setup(imported: number, who: Member = staff) {
       },
     },
   };
-  const restore = useMemoryDatabase({
-    user: { findUnique: async () => who },
-    $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
-  });
+  const restore = installMemoryDatabase(
+    {
+      user: { findUnique: async () => who },
+      $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+    },
+    { strict: true },
+  );
   return { restore, deletedKeys, createdKeys, audits, wasDeleted: () => fileDeleted };
 }
 

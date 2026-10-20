@@ -4,6 +4,7 @@ import { mutate } from '../services/asset-mutations';
 import { getData } from '../services/asset-service';
 import { ApiError } from '../services/errors';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 const staff: Member = { id: 'staff-a', email: 'a@example.test', name: 'A', role: 'staff', active: 1, createdAt: '' };
 const secondStaff: Member = { ...staff, id: 'staff-b' };
@@ -11,30 +12,6 @@ const hasStatus = (status: number) => (error: unknown) => error instanceof ApiEr
 
 // The application's Prisma proxy uses this cache. Unknown methods and any pool
 // access throw, so these tests cannot fall through to a real database connection.
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = new Proxy(client, {
-    get(target, property) {
-      if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
-      return Reflect.get(target, property);
-    },
-  });
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
 
 test('stocktake versions reject stale forms and advance even within one millisecond', async () => {
   let item = {
@@ -56,7 +33,10 @@ test('stocktake versions reject stale forms and advance even within one millisec
     },
     audit: { create: async () => ({}) },
   };
-  const restore = useMemoryDatabase({ $transaction: async (callback: (client: typeof tx) => unknown) => callback(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (callback: (client: typeof tx) => unknown) => callback(tx) },
+    { strict: true },
+  );
   const originalNow = Date.now;
   Date.now = () => Date.parse('2026-09-26T00:00:00.000Z');
   try {
@@ -96,14 +76,17 @@ test('stocktake display and ordering use the names and codes saved in the round'
     { id: 'one', snapshot: JSON.stringify({ code: 'B-OLD', name: 'Name B at count' }) },
     { id: 'two', snapshot: JSON.stringify({ code: 'A-OLD', name: 'Name A at count' }) },
   ];
-  const restore = useMemoryDatabase({
-    stocktakeItem: {
-      findMany: async (query: object) => {
-        assert.equal('include' in query, false, 'Historical identity must not join the mutable asset record');
-        return items;
+  const restore = installMemoryDatabase(
+    {
+      stocktakeItem: {
+        findMany: async (query: object) => {
+          assert.equal('include' in query, false, 'Historical identity must not join the mutable asset record');
+          return items;
+        },
       },
     },
-  });
+    { strict: true },
+  );
   try {
     const data = await getData(staff, new URL('http://test.invalid/?view=stocktake&round=closed'));
     assert.ok('items' in data);
@@ -172,31 +155,34 @@ test('bulk import prepares immutable sources before its transaction and checks d
     assetGroup: dimensions,
     audit: { create: async () => ({}) },
   };
-  const restore = useMemoryDatabase({
-    user: { findUnique: async () => staff },
-    importFile: {
-      findUnique: async () => {
-        assert.equal(inTransaction, false);
-        sourceReads++;
-        return { objectKey: 'imports/source' };
+  const restore = installMemoryDatabase(
+    {
+      user: { findUnique: async () => staff },
+      importFile: {
+        findUnique: async () => {
+          assert.equal(inTransaction, false);
+          sourceReads++;
+          return { objectKey: 'imports/source' };
+        },
+      },
+      storedFile: {
+        findUnique: async () => {
+          assert.equal(inTransaction, false);
+          return { body: Buffer.from(JSON.stringify(source)) };
+        },
+      },
+      $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => {
+        assert.equal(sourceReads, 1);
+        inTransaction = true;
+        try {
+          return await callback(tx);
+        } finally {
+          inTransaction = false;
+        }
       },
     },
-    storedFile: {
-      findUnique: async () => {
-        assert.equal(inTransaction, false);
-        return { body: Buffer.from(JSON.stringify(source)) };
-      },
-    },
-    $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => {
-      assert.equal(sourceReads, 1);
-      inTransaction = true;
-      try {
-        return await callback(tx);
-      } finally {
-        inTransaction = false;
-      }
-    },
-  });
+    { strict: true },
+  );
   try {
     const result = await mutate(staff, { action: 'batchImport', sourceId: source.id, allReady: true });
     assert.equal(result.count, 1);
@@ -281,10 +267,13 @@ test('request action with splitQuantity does NOT split at request time (split ha
     },
     audit: { create: async () => ({}) },
   };
-  const restore = useMemoryDatabase({
-    user: { findUnique: async () => staff },
-    $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
-  });
+  const restore = installMemoryDatabase(
+    {
+      user: { findUnique: async () => staff },
+      $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+    },
+    { strict: true },
+  );
 
   try {
     // 1. Invalid splitQuantity is rejected
@@ -376,12 +365,15 @@ test('นำเข้าจากมุมมองแบบ Excel: แถว "�
     assetGroup: dimensions,
     audit: { create: async () => ({}) },
   };
-  const restore = useMemoryDatabase({
-    user: { findUnique: async () => staff },
-    importFile: { findUnique: async () => ({ objectKey: 'imports/source' }) },
-    storedFile: { findUnique: async () => ({ body: Buffer.from(JSON.stringify(source)) }) },
-    $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
-  });
+  const restore = installMemoryDatabase(
+    {
+      user: { findUnique: async () => staff },
+      importFile: { findUnique: async () => ({ objectKey: 'imports/source' }) },
+      storedFile: { findUnique: async () => ({ body: Buffer.from(JSON.stringify(source)) }) },
+      $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+    },
+    { strict: true },
+  );
   try {
     const keys = ['S:1', 'S:2', 'S:3', 'S:4'];
     // ไม่ได้ขอรวมแถวต้องตรวจ: ปฏิเสธเหมือนเดิม
@@ -443,12 +435,15 @@ test('เลือกสาขาตอนนำเข้า: ทุกแถว
     assetGroup: dimensions,
     audit: { create: async () => ({}) },
   };
-  const restore = useMemoryDatabase({
-    user: { findUnique: async () => staff },
-    importFile: { findUnique: async () => ({ objectKey: 'imports/source' }) },
-    storedFile: { findUnique: async () => ({ body: Buffer.from(JSON.stringify(source)) }) },
-    $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
-  });
+  const restore = installMemoryDatabase(
+    {
+      user: { findUnique: async () => staff },
+      importFile: { findUnique: async () => ({ objectKey: 'imports/source' }) },
+      storedFile: { findUnique: async () => ({ body: Buffer.from(JSON.stringify(source)) }) },
+      $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+    },
+    { strict: true },
+  );
   try {
     const keys = ['S:1', 'S:2'];
     await assert.rejects(
@@ -514,12 +509,15 @@ test('ติ๊กหัวทุนพร้อมรายการข้า�
       assetGroup: dimensions,
       audit: { create: async () => ({}) },
     };
-    const restore = useMemoryDatabase({
-      user: { findUnique: async () => staff },
-      importFile: { findUnique: async () => ({ objectKey: 'imports/source' }) },
-      storedFile: { findUnique: async () => ({ body: Buffer.from(JSON.stringify(source)) }) },
-      $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
-    });
+    const restore = installMemoryDatabase(
+      {
+        user: { findUnique: async () => staff },
+        importFile: { findUnique: async () => ({ objectKey: 'imports/source' }) },
+        storedFile: { findUnique: async () => ({ body: Buffer.from(JSON.stringify(source)) }) },
+        $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+      },
+      { strict: true },
+    );
     try {
       return {
         result: await mutate(staff, { action: 'batchImport', sourceId: source.id, keys, includeIssues: true }),

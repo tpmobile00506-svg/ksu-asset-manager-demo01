@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mutate } from '../services/asset-mutations';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 // กฎชุดห้ามแยก (ผู้ใช้ยืนยัน 13 ต.ค. 2569): โอนย้าย/จำหน่ายรายการใดในชุด มีผลทั้งชุดเมื่ออนุมัติครบ
 // ห้ามแบ่งจำนวนหรือแบ่งล็อตรายการในชุด ส่วนส่งซ่อมทำทีละชิ้นได้
@@ -18,31 +19,6 @@ const mk = (id: string, role: Member['role'], branch: string | null = null): Mem
 });
 const staff = mk('staff-1', 'staff'),
   dean = mk('dean-1', 'dean');
-
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = new Proxy(client, {
-    get(target, property) {
-      if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
-      return Reflect.get(target, property);
-    },
-  });
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
 
 const item = (id: string, code: string, quantity: number, totalSatang: bigint, setRole: string) => ({
   id,
@@ -139,7 +115,8 @@ function environment(
   };
   return { tx, assets, requests };
 }
-const run = (tx: object) => useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+const run = (tx: object) =>
+  installMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) }, { strict: true });
 const transfer = (id: string, extra: Record<string, unknown> = {}) => ({
   action: 'request',
   id,

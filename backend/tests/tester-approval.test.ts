@@ -4,6 +4,7 @@ import { mutate } from '../services/asset-mutations';
 import { awaitsApprovalBy } from '../contracts/domain';
 import { userMutationSchema } from '../validation';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 // บัญชีผู้ทดสอบระบบ (tester) — ผู้ใช้ตัดสินใจ 18 ต.ค. 2569:
 // อนุมัติครั้งเดียวจบทุกขั้นที่เหลือ ทุกสาขา · ห้ามอนุมัติคำขอของตัวเอง · ยื่นคำขอ/แก้ทะเบียนไม่ได้
@@ -26,26 +27,6 @@ const head: Member = {
   createdAt: '',
 };
 const CHAIN = JSON.stringify(['head', 'deputy', 'dean']);
-
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = client;
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
 
 // คำขอโอนย้ายของสาขา วค ที่ขั้น stage (0 = รอหัวหน้าสาขา)
 function environment(stage: number, actor = 'staff-1', members: Member[] = [tester, head]) {
@@ -114,7 +95,7 @@ function environment(stage: number, actor = 'staff-1', members: Member[] = [test
     location: { createMany: async () => ({}) },
     branch: { createMany: async () => ({}) },
   };
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
   return { asset, request, approvals, restore };
 }
 

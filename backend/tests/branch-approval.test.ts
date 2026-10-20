@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { mutate } from '../services/asset-mutations';
 import { ApiError } from '../services/errors';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 const branchCom = 'วิศวกรรมคอมพิวเตอร์ (วค)';
 const branchElec = 'วิศวกรรมไฟฟ้า (วฟ)';
@@ -72,31 +73,6 @@ const staffUser: Member = {
 };
 
 const hasStatus = (status: number) => (error: unknown) => error instanceof ApiError && error.status === status;
-
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = new Proxy(client, {
-    get(target, property) {
-      if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
-      return Reflect.get(target, property);
-    },
-  });
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
 
 function createMockEnvironment(overrides?: { requestStage?: number; requestKind?: string }) {
   const asset = {
@@ -207,7 +183,10 @@ function createMockEnvironment(overrides?: { requestStage?: number; requestKind?
 
 test('head สาขาเดียวกัน สามารถอนุมัติคำขอได้สำเร็จ', async () => {
   const { tx, request } = createMockEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     const res = await mutate(headCom, {
       action: 'approve',
@@ -223,7 +202,10 @@ test('head สาขาเดียวกัน สามารถอนุม�
 
 test('head สาขาเดียวกัน สามารถปฏิเสธ (reject) คำขอได้สำเร็จ', async () => {
   const { tx, request } = createMockEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     const res = await mutate(headCom, {
       action: 'reject',
@@ -240,7 +222,10 @@ test('head สาขาเดียวกัน สามารถปฏิเ�
 
 test('head คนละสาขา ถูกปฏิเสธ (403) ทั้ง approve และ reject', async () => {
   const { tx, request } = createMockEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     // คนละสาขา พยายาม approve
     await assert.rejects(
@@ -269,7 +254,10 @@ test('head คนละสาขา ถูกปฏิเสธ (403) ทั้�
 
 test('head ที่ branch เป็น null ถูกปฏิเสธ (403) ทั้ง approve และ reject', async () => {
   const { tx, request } = createMockEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await assert.rejects(
       mutate(headNullBranch, {
@@ -296,7 +284,10 @@ test('head ที่ branch เป็น null ถูกปฏิเสธ (403) 
 
 test('บทบาทที่ไม่มีสิทธิ์ใน stage นั้น ถูกปฏิเสธ (403)', async () => {
   const { tx, request } = createMockEnvironment({ requestStage: 0 }); // stage 0 คือ head
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     // staff ไม่มีสิทธิ์อนุมัติ
     await assert.rejects(
@@ -324,7 +315,10 @@ test('บทบาทที่ไม่มีสิทธิ์ใน stage น�
 
 test('deputy และ dean ข้ามเงื่อนไขสาขาได้สำเร็จ (อนุมัติได้ทุกสาขา)', async () => {
   const { tx, request } = createMockEnvironment({ requestStage: 1 }); // stage 1 คือ deputy
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     // deputy อนุมัติผ่านแม้ branch เป็น null
     const resDeputy = await mutate(deputyUser, {
@@ -352,7 +346,10 @@ test('คำขอโอนย้ายตรวจที่สาขาต้�
   // request ย้ายจาก COM -> ELEC
   // ดังนั้น headCom (ต้นทาง) อนุมัติได้ แต่ headElec (ปลายทาง) อนุมัติ stage 0 ไม่ได้
   const { tx, request } = createMockEnvironment({ requestKind: 'transfer' });
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     // head ปลายทาง (headElec) ไม่สามารถอนุมัติการปล่อยของจากสาขาต้นทางได้
     await assert.rejects(
@@ -378,7 +375,10 @@ test('คำขอโอนย้ายตรวจที่สาขาต้�
 
 test('เมื่อ invite มีการกำหนด branch ไว้ ตอนสร้าง user ค่า branch ถูกคัดลอกไปด้วย', async () => {
   const { tx, invitesMap, usersMap } = createMockEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     const inviteEmail = 'newhead@ksu.ac.th';
     invitesMap.set(inviteEmail, {
@@ -408,7 +408,10 @@ test('เมื่อ invite มีการกำหนด branch ไว้ ต
 
 test('สร้างหรือแก้บัญชีหัวหน้าสาขาโดยไม่มีสาขา ถูกปฏิเสธ (หัวหน้าที่ไม่มีสาขาอนุมัติอะไรไม่ได้)', async () => {
   const { tx, usersMap } = createMockEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     const before = usersMap.size;
     await assert.rejects(

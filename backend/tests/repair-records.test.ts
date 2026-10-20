@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { mutate } from '../services/asset-mutations';
 import { ApiError } from '../services/errors';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 const staff: Member = {
   id: 'staff-1',
@@ -24,31 +25,6 @@ const head: Member = {
 };
 
 const hasStatus = (status: number) => (error: unknown) => error instanceof ApiError && error.status === status;
-
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = new Proxy(client, {
-    get(target, property) {
-      if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
-      return Reflect.get(target, property);
-    },
-  });
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
 
 function createEnvironment(condition = 'repair') {
   const asset: Record<string, unknown> = {
@@ -110,7 +86,10 @@ const complete = (over: Record<string, unknown> = {}) => ({
 
 test('บันทึกซ่อมเสร็จ: สร้างประวัติซ่อมพร้อมผู้ซ่อมและค่าใช้จ่ายจริง แล้วคืนสถานะเป็นปกติ', async () => {
   const { tx, asset, repairRecords } = createEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     const res = await mutate(staff, complete());
     assert.equal(res.ok, true);
@@ -131,7 +110,10 @@ test('บันทึกซ่อมเสร็จ: สร้างประว
 
 test('บันทึกซ่อมเสร็จ: ไม่ระบุผู้ซ่อมถูกปฏิเสธ และไม่สร้างประวัติ', async () => {
   const { tx, asset, repairRecords } = createEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await assert.rejects(mutate(staff, complete({ repairedBy: '   ' })), hasStatus(400));
     assert.equal(repairRecords.length, 0);
@@ -143,7 +125,10 @@ test('บันทึกซ่อมเสร็จ: ไม่ระบุผู
 
 test('บันทึกซ่อมเสร็จ: ค่าซ่อมติดลบหรือไม่ใช่จำนวนเต็มถูกปฏิเสธ', async () => {
   const { tx, repairRecords } = createEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await assert.rejects(mutate(staff, complete({ costSatang: -1 })), hasStatus(400));
     await assert.rejects(mutate(staff, complete({ costSatang: 10.5 })), hasStatus(400));
@@ -155,7 +140,10 @@ test('บันทึกซ่อมเสร็จ: ค่าซ่อมติ
 
 test('บันทึกซ่อมเสร็จ: รายการที่ไม่ได้อยู่ในสถานะซ่อมถูกปฏิเสธ', async () => {
   const { tx, repairRecords } = createEnvironment('normal');
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await assert.rejects(mutate(staff, complete()), hasStatus(400));
     assert.equal(repairRecords.length, 0);
@@ -166,7 +154,10 @@ test('บันทึกซ่อมเสร็จ: รายการที่
 
 test('บันทึกซ่อมเสร็จ: บทบาท head ไม่มีสิทธิ์ (403)', async () => {
   const { tx, repairRecords } = createEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await assert.rejects(mutate(head, complete()), hasStatus(403));
     assert.equal(repairRecords.length, 0);

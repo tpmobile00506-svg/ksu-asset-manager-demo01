@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { resolveCategory, standardBranches } from '../contracts/domain';
 import { mutate } from '../services/asset-mutations';
 import type { Member } from '../auth/sessions';
+import { installMemoryDatabase } from './helpers/memory-db';
 
 // ค่าคาดหวังกำหนดมือจากตารางสาขา → หมวดหมู่ของคณะ (ไม่ได้คัดลอกจากผลของโค้ด)
 const expected: Array<[string, string]> = [
@@ -36,31 +37,6 @@ const staff: Member = {
   active: 1,
   createdAt: '',
 };
-
-function useMemoryDatabase(client: object) {
-  const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
-  const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error('Real database access is forbidden in this test');
-      },
-    },
-  );
-  cache.assetPrisma = new Proxy(client, {
-    get(target, property) {
-      if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
-      return Reflect.get(target, property);
-    },
-  });
-  return () => {
-    if (previous.pool === undefined) delete cache.assetPool;
-    else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma;
-    else cache.assetPrisma = previous.client;
-  };
-}
 
 function createEnvironment() {
   const created: Array<Record<string, any>> = [];
@@ -102,7 +78,10 @@ const newAsset = (condition: string) => ({
 
 test('เพิ่มครุภัณฑ์ด้วยสถานะ "กำลังซ่อม" ถูกปฏิเสธ (400) และไม่สร้างรายการ', async () => {
   const { tx, created } = createEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     await assert.rejects(mutate(staff, newAsset('repair')), (e: any) => e?.status === 400);
     assert.equal(created.length, 0);
@@ -113,7 +92,10 @@ test('เพิ่มครุภัณฑ์ด้วยสถานะ "กำ
 
 test('เพิ่มครุภัณฑ์ด้วยสถานะ "ปกติ" ทำได้ตามเดิม', async () => {
   const { tx, created } = createEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     const res = await mutate(staff, newAsset('normal'));
     assert.equal(res.ok, true);
@@ -134,7 +116,10 @@ test('หมายเลขครุภัณฑ์ซ้ำ (ไม่สนต
 
 test('สาขานอกรายการมาตรฐานถูกปฏิเสธตอนเพิ่มครุภัณฑ์ ชื่อย่อที่รู้จักแปลงเป็นชื่อมาตรฐาน และหมวดคิดจากประเภท', async () => {
   const { tx, created } = createEnvironment();
-  const restore = useMemoryDatabase({ $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) });
+  const restore = installMemoryDatabase(
+    { $transaction: async (cb: (t: typeof tx) => unknown) => cb(tx) },
+    { strict: true },
+  );
   try {
     const odd = newAsset('normal');
     odd.asset.branch = 'สาขามั่วๆ';
