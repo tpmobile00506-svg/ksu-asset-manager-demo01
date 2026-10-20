@@ -5,7 +5,9 @@ function validate(key: string) {
 }
 export async function putFile(key: string, body: Uint8Array | string, tx: Transaction = prisma) {
   validate(key);
-  await tx.storedFile.create({ data: { key, body: typeof body === 'string' ? Buffer.from(body, 'utf8') : Buffer.from(body) } });
+  await tx.storedFile.create({
+    data: { key, body: typeof body === 'string' ? Buffer.from(body, 'utf8') : Buffer.from(body) },
+  });
 }
 export async function readFileBytes(key: string) {
   validate(key);

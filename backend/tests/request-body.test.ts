@@ -9,7 +9,12 @@ const status = (code: number) => (error: unknown) => (error as { status?: number
 
 function streamed(...sizes: number[]) {
   let i = 0;
-  return new ReadableStream<Uint8Array>({ pull(controller) { if (i < sizes.length) controller.enqueue(new Uint8Array(sizes[i++]).fill(65)); else controller.close(); } });
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (i < sizes.length) controller.enqueue(new Uint8Array(sizes[i++]).fill(65));
+      else controller.close();
+    },
+  });
 }
 const post = (body: BodyInit | null, headers: Record<string, string> = {}) =>
   new Request('http://localhost/x', { method: 'POST', headers, body, duplex: 'half' } as RequestInit);
@@ -50,5 +55,8 @@ test('boundedFormData อ่าน multipart ได้ และ multipart ท�
   const bytes = new Uint8Array(await built.arrayBuffer());
   const parsed = await boundedFormData(post(bytes, { 'content-type': contentType }), 10_000, msg);
   assert.equal(parsed.get('k'), 'v');
-  await assert.rejects(boundedFormData(post(streamed(4), { 'content-type': 'multipart/form-data; boundary=x' }), max, msg), status(400));
+  await assert.rejects(
+    boundedFormData(post(streamed(4), { 'content-type': 'multipart/form-data; boundary=x' }), max, msg),
+    status(400),
+  );
 });

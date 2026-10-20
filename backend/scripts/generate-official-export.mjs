@@ -7,7 +7,7 @@ if (!process.env.DATABASE_URL) throw new Error('Set DATABASE_URL before exportin
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 async function generateExport() {
-  const res = await pool.query('SELECT * FROM assets WHERE lifecycle != \'split\' ORDER BY id ASC');
+  const res = await pool.query("SELECT * FROM assets WHERE lifecycle != 'split' ORDER BY id ASC");
   const assets = res.rows.map(r => ({
     id: r.id,
     code: r.code,
@@ -20,7 +20,7 @@ async function generateExport() {
     branch: r.branch,
     groupName: r.groupName,
     category: r.category,
-    lifecycle: r.lifecycle
+    lifecycle: r.lifecycle,
   }));
 
   console.log(`Fetched ${assets.length} assets from database.`);
@@ -35,7 +35,7 @@ async function generateExport() {
     'หมายเหตุ',
     'สาขา',
     'หมวด (กลุ่มต่างๆ)',
-    'สำนักงาน'
+    'สำนักงาน',
   ];
 
   const standardCategories = [
@@ -47,7 +47,7 @@ async function generateExport() {
     'โลจิสติกส์และโยธา',
     'เมคคาทรอนิกส์',
     'ออกแบบและสถาปัตย์',
-    'สำนักงานส่วนกลาง'
+    'สำนักงานส่วนกลาง',
   ];
 
   const w = new ExcelJS.Workbook();
@@ -60,8 +60,8 @@ async function generateExport() {
         rightToLeft: false,
         state: 'normal',
         showGridLines: true,
-        style: 'pageBreakPreview'
-      }
+        style: 'pageBreakPreview',
+      },
     ],
     pageSetup: {
       orientation: 'portrait',
@@ -76,26 +76,28 @@ async function generateExport() {
         top: 0.45,
         bottom: 0.45,
         header: 0.2,
-        footer: 0.2
-      }
-    }
+        footer: 0.2,
+      },
+    },
   });
   delete s.pageSetup.scale;
 
   s.columns = [
-    { width: 6.80 },   // 1: ลำดับ
-    { width: 28.00 },  // 2: หมายเลขครุภัณฑ์
-    { width: 45.00 },  // 3: รายการ
-    { width: 6.50 },   // 4: จำนวน
-    { width: 12.50 },  // 5: ราคาต่อหน่วย
-    { width: 14.50 },  // 6: จำนวนเงิน
-    { width: 36.00 },  // 7: หมายเหตุ (รวมสถานที่)
-    { width: 23.50 },  // 8: สาขา
-    { width: 11.00 },  // 9: หมวด (กลุ่มต่างๆ)
-    { width: 17.00 }   // 10: สำนักงาน
+    { width: 6.8 }, // 1: ลำดับ
+    { width: 28.0 }, // 2: หมายเลขครุภัณฑ์
+    { width: 45.0 }, // 3: รายการ
+    { width: 6.5 }, // 4: จำนวน
+    { width: 12.5 }, // 5: ราคาต่อหน่วย
+    { width: 14.5 }, // 6: จำนวนเงิน
+    { width: 36.0 }, // 7: หมายเหตุ (รวมสถานที่)
+    { width: 23.5 }, // 8: สาขา
+    { width: 11.0 }, // 9: หมวด (กลุ่มต่างๆ)
+    { width: 17.0 }, // 10: สำนักงาน
   ];
 
-  const todayThai = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+  const todayThai = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }).format(
+    new Date(),
+  );
 
   const ITEMS_PER_PAGE = 48;
   const totalPages = Math.max(1, Math.ceil(assets.length / ITEMS_PER_PAGE));
@@ -117,10 +119,7 @@ async function generateExport() {
     r1.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
     // แถว 2: รายละเอียดครุภัณฑ์คงเหลือ (ผสาน A:I กึ่งกลางตรงแนวกันเป๊ะ) และ เลขหน้า (คอลัมน์ J กึ่งกลางช่อง ใส่แค่ตัวเลข 1, 2, 3)
-    const r2 = s.addRow([
-      'รายละเอียดครุภัณฑ์คงเหลือ', '', '', '', '', '', '', '', '',
-      page
-    ]);
+    const r2 = s.addRow(['รายละเอียดครุภัณฑ์คงเหลือ', '', '', '', '', '', '', '', '', page]);
     const r2Idx = r2.number;
     s.mergeCells(`A${r2Idx}:I${r2Idx}`);
     r2.height = 24.95;
@@ -151,7 +150,7 @@ async function generateExport() {
         top: { style: 'thin' },
         bottom: { style: 'thin' },
         left: { style: 'thin' },
-        right: { style: 'thin' }
+        right: { style: 'thin' },
       };
     }
 
@@ -172,7 +171,7 @@ async function generateExport() {
           top: { style: 'thin' },
           bottom: { style: 'hair' },
           left: { style: 'thin' },
-          right: { style: 'thin' }
+          right: { style: 'thin' },
         };
       }
       r5.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
@@ -188,7 +187,7 @@ async function generateExport() {
         '',
         '',
         '',
-        ''
+        '',
       ]);
       broughtForwardRowIdx = rBrought.number;
       s.mergeCells(`A${broughtForwardRowIdx}:C${broughtForwardRowIdx}`);
@@ -200,7 +199,7 @@ async function generateExport() {
           top: { style: 'thin' },
           bottom: { style: 'hair' },
           left: { style: 'thin' },
-          right: { style: 'thin' }
+          right: { style: 'thin' },
         };
       }
       rBrought.getCell(1).font = { name: 'TH SarabunPSK', size: 12, bold: true, color: { argb: 'FF0000FF' } };
@@ -211,11 +210,10 @@ async function generateExport() {
     }
 
     // แถวข้อมูลในหน้านี้ (ตัวหนังสือ 12pt เท่ากันทุกช่อง + shrinkToFit เพื่อป้องกัน ####### เด็ดขาด)
-    pageAssets.forEach((a) => {
+    pageAssets.forEach(a => {
       currentItemIndex++;
-      const notesCombined = a.notes && a.location && a.notes !== a.location
-        ? `${a.notes} • ${a.location}`
-        : (a.notes || a.location || '—');
+      const notesCombined =
+        a.notes && a.location && a.notes !== a.location ? `${a.notes} • ${a.location}` : a.notes || a.location || '—';
 
       const cleanGroup = (a.groupName || '').replace(/^\d+\s*\|\s*/, '').trim() || '—';
 
@@ -223,7 +221,10 @@ async function generateExport() {
       let col10 = a.category || 'ทั่วไป';
       if (standardCategories.includes(a.category)) {
         col9 = a.category;
-        col10 = cleanGroup !== '—' && cleanGroup !== 'ทั่วไป' ? cleanGroup : 'ครุภัณฑ์' + (a.category === 'สำนักงานส่วนกลาง' ? 'สำนักงาน' : a.category);
+        col10 =
+          cleanGroup !== '—' && cleanGroup !== 'ทั่วไป'
+            ? cleanGroup
+            : 'ครุภัณฑ์' + (a.category === 'สำนักงานส่วนกลาง' ? 'สำนักงาน' : a.category);
       }
 
       const rowValues = [
@@ -236,7 +237,7 @@ async function generateExport() {
         notesCombined,
         a.branch,
         col9,
-        col10
+        col10,
       ];
 
       const dr = s.addRow(rowValues);
@@ -254,19 +255,19 @@ async function generateExport() {
         c.font = {
           name: 'TH SarabunPSK',
           size: 12,
-          bold: false
+          bold: false,
         };
         c.alignment = {
           vertical: 'middle',
           horizontal: isCenter ? 'center' : isNum ? 'right' : 'left',
           wrapText: false,
-          shrinkToFit: isNum
+          shrinkToFit: isNum,
         };
         c.border = {
           top: { style: 'hair' },
           bottom: { style: 'hair' },
           left: { style: 'thin' },
-          right: { style: 'thin' }
+          right: { style: 'thin' },
         };
       }
       dr.getCell(4).numFmt = '#,##0';
@@ -292,7 +293,7 @@ async function generateExport() {
           top: { style: 'thin' },
           bottom: { style: 'thin' },
           left: { style: 'thin' },
-          right: { style: 'thin' }
+          right: { style: 'thin' },
         };
       }
       rCarried.getCell(5).alignment = { vertical: 'middle', horizontal: 'center' };
@@ -303,22 +304,12 @@ async function generateExport() {
       rCarried.addPageBreak();
     } else if (isLastPage && pageStartDataRow && pageEndDataRow) {
       // แถว รวมทั้งสิ้น (ท้ายหน้าสุดท้าย)
-      const sumFormula = (totalPages === 1)
-        ? `SUM(F${pageStartDataRow}:F${pageEndDataRow})`
-        : `SUM(F${broughtForwardRowIdx}, F${pageStartDataRow}:F${pageEndDataRow})`;
+      const sumFormula =
+        totalPages === 1
+          ? `SUM(F${pageStartDataRow}:F${pageEndDataRow})`
+          : `SUM(F${broughtForwardRowIdx}, F${pageStartDataRow}:F${pageEndDataRow})`;
 
-      const totalRow = s.addRow([
-        'รวม',
-        '',
-        '',
-        '',
-        '',
-        { formula: sumFormula },
-        '',
-        '',
-        '',
-        ''
-      ]);
+      const totalRow = s.addRow(['รวม', '', '', '', '', { formula: sumFormula }, '', '', '', '']);
       const totalRowIdx = totalRow.number;
       s.mergeCells(`B${totalRowIdx}:E${totalRowIdx}`);
       s.mergeCells(`G${totalRowIdx}:J${totalRowIdx}`);
@@ -333,7 +324,7 @@ async function generateExport() {
           top: { style: 'thin' },
           bottom: { style: 'double' },
           left: { style: 'thin' },
-          right: { style: 'thin' }
+          right: { style: 'thin' },
         };
       }
       totalRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };

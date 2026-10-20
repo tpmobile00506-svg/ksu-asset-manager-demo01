@@ -6,7 +6,7 @@ import {
   assetRequestSchema,
   approvalMutationSchema,
   workflowMutationSchema,
-  validate
+  validate,
 } from '../validation';
 import { ApiError } from '../services/errors';
 
@@ -81,37 +81,42 @@ test('userMutationSchema validates role, branch, and active status', () => {
 
   // Invalid role
   assert.throws(
-    () => validate(userMutationSchema, {
-      action: 'user',
-      name: 'ผู้ใช้',
-      email: 'user@ksu.ac.th',
-      role: 'superadmin',
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ชื่อ อีเมล หรือบทบาทไม่ถูกต้อง'
+    () =>
+      validate(userMutationSchema, {
+        action: 'user',
+        name: 'ผู้ใช้',
+        email: 'user@ksu.ac.th',
+        role: 'superadmin',
+      }),
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ชื่อ อีเมล หรือบทบาทไม่ถูกต้อง',
   );
 
   // Invalid branch not in standard list
   assert.throws(
-    () => validate(userMutationSchema, {
-      action: 'user',
-      name: 'ผู้ใช้',
-      email: 'user@ksu.ac.th',
-      role: 'head',
-      branch: 'สาขาที่ไม่มีอยู่จริงในคณะ',
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'สาขาไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน'
+    () =>
+      validate(userMutationSchema, {
+        action: 'user',
+        name: 'ผู้ใช้',
+        email: 'user@ksu.ac.th',
+        role: 'head',
+        branch: 'สาขาที่ไม่มีอยู่จริงในคณะ',
+      }),
+    (err: unknown) =>
+      err instanceof ApiError && err.status === 400 && err.message === 'สาขาไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน',
   );
 
   // Password too short (< 12 chars)
   assert.throws(
-    () => validate(userMutationSchema, {
-      action: 'user',
-      name: 'ผู้ใช้',
-      email: 'user@ksu.ac.th',
-      role: 'staff',
-      password: 'short',
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'รหัสผ่านต้องมีความยาว 12–128 ตัวอักษร'
+    () =>
+      validate(userMutationSchema, {
+        action: 'user',
+        name: 'ผู้ใช้',
+        email: 'user@ksu.ac.th',
+        role: 'staff',
+        password: 'short',
+      }),
+    (err: unknown) =>
+      err instanceof ApiError && err.status === 400 && err.message === 'รหัสผ่านต้องมีความยาว 12–128 ตัวอักษร',
   );
 });
 
@@ -133,15 +138,16 @@ test('assetRequestSchema enforces discriminated union on kind', () => {
 
   // Transfer missing location/branch
   assert.throws(
-    () => validate(assetRequestSchema, {
-      action: 'request',
-      id: 'asset-1',
-      version: 1,
-      kind: 'transfer',
-      payload: { location: '', branch: '' },
-      reason: 'ย้าย',
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ระบุสถานที่และสาขาปลายทาง'
+    () =>
+      validate(assetRequestSchema, {
+        action: 'request',
+        id: 'asset-1',
+        version: 1,
+        kind: 'transfer',
+        payload: { location: '', branch: '' },
+        reason: 'ย้าย',
+      }),
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ระบุสถานที่และสาขาปลายทาง',
   );
 
   // Valid repair request
@@ -169,28 +175,30 @@ test('assetRequestSchema enforces discriminated union on kind', () => {
 
   // Repair with negative estimateSatang
   assert.throws(
-    () => validate(assetRequestSchema, {
-      action: 'request',
-      id: 'asset-1',
-      version: 1,
-      kind: 'repair',
-      payload: { estimateSatang: -100 },
-      reason: 'ซ่อม',
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ประมาณการค่าซ่อมไม่ถูกต้อง'
+    () =>
+      validate(assetRequestSchema, {
+        action: 'request',
+        id: 'asset-1',
+        version: 1,
+        kind: 'repair',
+        payload: { estimateSatang: -100 },
+        reason: 'ซ่อม',
+      }),
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ประมาณการค่าซ่อมไม่ถูกต้อง',
   );
 
   // Repair with estimateSatang exceeding 100,000,000,000,000
   assert.throws(
-    () => validate(assetRequestSchema, {
-      action: 'request',
-      id: 'asset-1',
-      version: 1,
-      kind: 'repair',
-      payload: { estimateSatang: 100_000_000_000_001 },
-      reason: 'ซ่อม',
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ประมาณการค่าซ่อมไม่ถูกต้อง'
+    () =>
+      validate(assetRequestSchema, {
+        action: 'request',
+        id: 'asset-1',
+        version: 1,
+        kind: 'repair',
+        payload: { estimateSatang: 100_000_000_000_001 },
+        reason: 'ซ่อม',
+      }),
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ประมาณการค่าซ่อมไม่ถูกต้อง',
   );
 
   // Valid disposal request
@@ -205,39 +213,42 @@ test('assetRequestSchema enforces discriminated union on kind', () => {
 
   // Invalid kind
   assert.throws(
-    () => validate(assetRequestSchema, {
-      action: 'request',
-      id: 'asset-1',
-      version: 1,
-      kind: 'unknown_kind',
-      reason: 'ทดสอบ',
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ระบุประเภทและเหตุผลของคำขอ'
+    () =>
+      validate(assetRequestSchema, {
+        action: 'request',
+        id: 'asset-1',
+        version: 1,
+        kind: 'unknown_kind',
+        reason: 'ทดสอบ',
+      }),
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ระบุประเภทและเหตุผลของคำขอ',
   );
 
   // Missing reason
   assert.throws(
-    () => validate(assetRequestSchema, {
-      action: 'request',
-      id: 'asset-1',
-      version: 1,
-      kind: 'repair',
-      reason: '',
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ระบุประเภทและเหตุผลของคำขอ'
+    () =>
+      validate(assetRequestSchema, {
+        action: 'request',
+        id: 'asset-1',
+        version: 1,
+        kind: 'repair',
+        reason: '',
+      }),
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'ระบุประเภทและเหตุผลของคำขอ',
   );
 
   // Invalid splitQuantity (0 or non-integer)
   assert.throws(
-    () => validate(assetRequestSchema, {
-      action: 'request',
-      id: 'asset-1',
-      version: 1,
-      kind: 'repair',
-      splitQuantity: 0,
-      reason: 'ทดสอบ',
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'จำนวนที่แบ่งต้องเป็นจำนวนเต็ม'
+    () =>
+      validate(assetRequestSchema, {
+        action: 'request',
+        id: 'asset-1',
+        version: 1,
+        kind: 'repair',
+        splitQuantity: 0,
+        reason: 'ทดสอบ',
+      }),
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'จำนวนที่แบ่งต้องเป็นจำนวนเต็ม',
   );
 });
 
@@ -263,13 +274,14 @@ test('approvalMutationSchema validates approve and reject', () => {
 
   // Reject without reason
   assert.throws(
-    () => validate(approvalMutationSchema, {
-      action: 'reject',
-      id: 'req-1',
-      version: 1,
-      reason: '',
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'กรุณาระบุเหตุผลส่งกลับ'
+    () =>
+      validate(approvalMutationSchema, {
+        action: 'reject',
+        id: 'req-1',
+        version: 1,
+        reason: '',
+      }),
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'กรุณาระบุเหตุผลส่งกลับ',
   );
 });
 
@@ -283,36 +295,45 @@ test('workflowMutationSchema validates approval chain', () => {
 
   // Invalid chain with unknown role
   assert.throws(
-    () => validate(workflowMutationSchema, {
-      action: 'workflow',
-      chain: ['head', 'unknown'],
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'สายอนุมัติไม่ถูกต้อง'
+    () =>
+      validate(workflowMutationSchema, {
+        action: 'workflow',
+        chain: ['head', 'unknown'],
+      }),
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'สายอนุมัติไม่ถูกต้อง',
   );
 
   // Duplicate roles in chain
   assert.throws(
-    () => validate(workflowMutationSchema, {
-      action: 'workflow',
-      chain: ['head', 'head'],
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'สายอนุมัติไม่ถูกต้อง'
+    () =>
+      validate(workflowMutationSchema, {
+        action: 'workflow',
+        chain: ['head', 'head'],
+      }),
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'สายอนุมัติไม่ถูกต้อง',
   );
 
   // Empty chain
   assert.throws(
-    () => validate(workflowMutationSchema, {
-      action: 'workflow',
-      chain: [],
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'สายอนุมัติไม่ถูกต้อง'
+    () =>
+      validate(workflowMutationSchema, {
+        action: 'workflow',
+        chain: [],
+      }),
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'สายอนุมัติไม่ถูกต้อง',
   );
 });
 
 test('checkOrigin: รับเฉพาะต้นทางของเว็บนี้ ไม่รับเว็บอื่นบน vercel.app', async () => {
   const { checkOrigin } = await import('../auth/sessions');
-  const req = (origin: string, host: string) => new Request('http://x/api/auth/login', { method: 'POST', headers: { origin, host } });
-  assert.doesNotThrow(() => checkOrigin(req('https://ksu-asset-manager-demo01.vercel.app', 'ksu-asset-manager-demo01.vercel.app')));
-  assert.throws(() => checkOrigin(req('https://attacker-site.vercel.app', 'ksu-asset-manager-demo01.vercel.app')), /ต้นทางคำขอไม่ถูกต้อง/);
+  const req = (origin: string, host: string) =>
+    new Request('http://x/api/auth/login', { method: 'POST', headers: { origin, host } });
+  assert.doesNotThrow(() =>
+    checkOrigin(req('https://ksu-asset-manager-demo01.vercel.app', 'ksu-asset-manager-demo01.vercel.app')),
+  );
+  assert.throws(
+    () => checkOrigin(req('https://attacker-site.vercel.app', 'ksu-asset-manager-demo01.vercel.app')),
+    /ต้นทางคำขอไม่ถูกต้อง/,
+  );
   assert.throws(() => checkOrigin(req('https://evil.example.com', 'localhost:3000')), /ต้นทางคำขอไม่ถูกต้อง/);
 });

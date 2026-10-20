@@ -6,13 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Asset,
   Role,
@@ -25,7 +19,7 @@ import {
   standardBranches,
   fiscalYearOf,
   ADMIN_APPROVES_ALL,
-  restoredCode
+  restoredCode,
 } from '@/shared/domain';
 import { Any, Pick, statusLabel } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
@@ -36,22 +30,14 @@ import AssetFormModal, {
   assetAmountInput,
   assetTotalInput,
   uploadCreatedAssetPhoto,
-  deleteAssetPhoto
+  deleteAssetPhoto,
 } from './asset-form-modal';
 
 // Re-export utility functions so tests and other components maintain backward compatibility
-export {
-  Field,
-  assetAmountInput,
-  assetTotalInput,
-  uploadCreatedAssetPhoto,
-  deleteAssetPhoto
-};
+export { Field, assetAmountInput, assetTotalInput, uploadCreatedAssetPhoto, deleteAssetPhoto };
 
 const prioritized = (object: Any, key: string) =>
-  Object.entries(object).sort(([a], [b]) =>
-    a === key ? -1 : b === key ? 1 : 0
-  ) as [string, string][];
+  Object.entries(object).sort(([a], [b]) => (a === key ? -1 : b === key ? 1 : 0)) as [string, string][];
 
 const titleMap: Record<string, string> = {
   create: 'เพิ่มครุภัณฑ์ใหม่',
@@ -68,7 +54,7 @@ const titleMap: Record<string, string> = {
   qr: 'ป้าย QR ประจำครุภัณฑ์',
   repairComplete: 'บันทึกผลการซ่อม',
   void: 'ยกเลิกรายการที่บันทึกผิด',
-  restore: 'กู้คืนรายการที่ยกเลิก'
+  restore: 'กู้คืนรายการที่ยกเลิก',
 };
 
 export default function Editor({
@@ -83,7 +69,7 @@ export default function Editor({
   error,
   setError,
   onPhotoChanged,
-  historyRevision
+  historyRevision,
 }: {
   data: WorkspaceData;
   selected: Asset | null;
@@ -137,7 +123,7 @@ export default function Editor({
           version: modal.asset.version,
           quantity: take,
           condition: f.condition,
-          reason: f.reason
+          reason: f.reason,
         });
       } else if (modal.kind === 'request') {
         const chosenKind = (f.requestKind as string) || requestKind || 'transfer';
@@ -158,22 +144,22 @@ export default function Editor({
             location: f.location || '',
             branch: f.branch || '',
             custodian: f.custodian || '',
-            estimateSatang: satang(f.cost || 0)
+            estimateSatang: satang(f.cost || 0),
           },
-          reason: f.reason
+          reason: f.reason,
         });
       } else if (['approve', 'reject'].includes(modal.kind)) {
         await write({
           action: modal.kind,
           id: modal.request.id,
           version: modal.request.version,
-          reason: f.reason
+          reason: f.reason,
         });
       } else if (modal.kind === 'round') {
         await write({
           action: 'round',
           name: f.name,
-          year: Number(f.year)
+          year: Number(f.year),
         });
       } else if (modal.kind === 'check') {
         await write({
@@ -182,7 +168,7 @@ export default function Editor({
           expectedCheckedAt: modal.item.checkedAt ?? null,
           result: f.result,
           quantity: Number(f.quantity),
-          reason: f.reason
+          reason: f.reason,
         });
       } else if (modal.kind === 'user') {
         await write({
@@ -190,9 +176,9 @@ export default function Editor({
           name: f.name,
           email: f.email,
           role: f.role,
-          ...(f.branch ? { branch: f.branch } : (user?.branch ? { branch: null } : {})),
+          ...(f.branch ? { branch: f.branch } : user?.branch ? { branch: null } : {}),
           active: f.active === 'on',
-          ...(f.password ? { password: f.password } : {})
+          ...(f.password ? { password: f.password } : {}),
         });
       } else if (modal.kind === 'repairComplete') {
         await write({
@@ -201,14 +187,14 @@ export default function Editor({
           version: modal.asset.version,
           costSatang: satang(f.cost),
           repairedBy: f.repairedBy,
-          reason: f.reason
+          reason: f.reason,
         });
       } else if (modal.kind === 'void' || modal.kind === 'restore') {
         await write({
           action: modal.kind,
           id: modal.asset.id,
           version: modal.asset.version,
-          reason: f.reason
+          reason: f.reason,
         });
       }
     } catch (e: any) {
@@ -219,11 +205,7 @@ export default function Editor({
   return (
     <>
       {/* 1. หน้าต่างพิมพ์ป้าย QR Code */}
-      <QrLabelModal
-        open={currentModal?.kind === 'qr'}
-        onClose={() => setModal(null)}
-        assets={modal?.assets || []}
-      />
+      <QrLabelModal open={currentModal?.kind === 'qr'} onClose={() => setModal(null)} assets={modal?.assets || []} />
 
       {/* 3. หน้าต่างเพิ่ม/แก้ไข/นำเข้าข้อมูลครุภัณฑ์ */}
       <AssetFormModal
@@ -241,9 +223,7 @@ export default function Editor({
 
       {/* 4. หน้าต่างการดำเนินงานอื่นๆ (แบ่งล็อต, คำขอ, ตรวจนับ, ผู้ใช้, ซ่อมเสร็จ, ข้อมูลต้นฉบับ) */}
       <Dialog
-        open={
-          !!currentModal && !['create', 'edit', 'import', 'qr', 'bulkEdit'].includes(currentModal.kind)
-        }
+        open={!!currentModal && !['create', 'edit', 'import', 'qr', 'bulkEdit'].includes(currentModal.kind)}
         onOpenChange={v => {
           if (!v && !busy) {
             setModal(null);
@@ -261,7 +241,11 @@ export default function Editor({
             </DialogDescription>
           </DialogHeader>
 
-          {error && <div className="error mx-7 mt-3" role="alert">{error}</div>}
+          {error && (
+            <div className="error mx-7 mt-3" role="alert">
+              {error}
+            </div>
+          )}
 
           {modal?.kind === 'source' ? (
             <div className="dialog-scroll-body">
@@ -276,13 +260,11 @@ export default function Editor({
                       </code>
                       <span>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
                     </div>
-                  )
+                  ),
               )}
               <div className="notice">
                 ชีต {modal.row.sheet} · แถว {modal.row.row} · ข้อความต้นฉบับยังอยู่ครบ
-                {modal.row.groupName && (
-                  <p className="mt-2">เสนอเก็บเป็นหมวด: {modal.row.groupName}</p>
-                )}
+                {modal.row.groupName && <p className="mt-2">เสนอเก็บเป็นหมวด: {modal.row.groupName}</p>}
               </div>
             </div>
           ) : (
@@ -291,8 +273,8 @@ export default function Editor({
                 {modal?.kind === 'split' && (
                   <>
                     <div className="notice">
-                      จำนวนเดิม {modal.asset.quantity} ชิ้น · มูลค่า{' '}
-                      {money(modal.asset.totalSatang)} บาท · รายการเดิมคงอยู่ในประวัติ
+                      จำนวนเดิม {modal.asset.quantity} ชิ้น · มูลค่า {money(modal.asset.totalSatang)} บาท ·
+                      รายการเดิมคงอยู่ในประวัติ
                     </div>
                     <div className="form-grid">
                       <label>
@@ -308,11 +290,7 @@ export default function Editor({
                       </label>
                       <label>
                         สถานะของส่วนที่แยก
-                        <Pick
-                          name="condition"
-                          label="สถานะส่วนที่แยก"
-                          options={prioritized(conditions, 'damaged')}
-                        />
+                        <Pick name="condition" label="สถานะส่วนที่แยก" options={prioritized(conditions, 'damaged')} />
                       </label>
                     </div>
                     <div className="split-preview">
@@ -320,16 +298,8 @@ export default function Editor({
                         <p>ส่วนที่แยก</p>
                         <b>{take || 0} ชิ้น</b>
                         <p>
-                          {Number.isInteger(take) &&
-                          take > 0 &&
-                          take < modal.asset.quantity
-                            ? money(
-                                splitAmounts(
-                                  modal.asset.quantity,
-                                  modal.asset.totalSatang,
-                                  take
-                                )[0]
-                              )
+                          {Number.isInteger(take) && take > 0 && take < modal.asset.quantity
+                            ? money(splitAmounts(modal.asset.quantity, modal.asset.totalSatang, take)[0])
                             : '—'}{' '}
                           บาท
                         </p>
@@ -338,16 +308,8 @@ export default function Editor({
                         <p>ส่วนที่เหลือ · {statusLabel(modal.asset.condition)}</p>
                         <b>{Math.max(0, modal.asset.quantity - take)} ชิ้น</b>
                         <p>
-                          {Number.isInteger(take) &&
-                          take > 0 &&
-                          take < modal.asset.quantity
-                            ? money(
-                                splitAmounts(
-                                  modal.asset.quantity,
-                                  modal.asset.totalSatang,
-                                  take
-                                )[1]
-                              )
+                          {Number.isInteger(take) && take > 0 && take < modal.asset.quantity
+                            ? money(splitAmounts(modal.asset.quantity, modal.asset.totalSatang, take)[1])
                             : '—'}{' '}
                           บาท
                         </p>
@@ -373,7 +335,9 @@ export default function Editor({
                         <span className="font-mono text-slate-500 shrink-0">{modal.asset.code}</span>
                       </div>
                       <div className="text-slate-500">
-                        จำนวนทั้งหมด <b>{modal.asset.quantity}</b> ชิ้น · สังกัด {modal.asset.branch} {modal.asset.location ? `(${modal.asset.location})` : ''} · มูลค่ารวม {money(modal.asset.totalSatang)} บาท
+                        จำนวนทั้งหมด <b>{modal.asset.quantity}</b> ชิ้น · สังกัด {modal.asset.branch}{' '}
+                        {modal.asset.location ? `(${modal.asset.location})` : ''} · มูลค่ารวม{' '}
+                        {money(modal.asset.totalSatang)} บาท
                       </div>
                     </div>
 
@@ -385,7 +349,7 @@ export default function Editor({
                       options={[
                         ['transfer', 'โอนย้ายสถานที่ / สาขา'],
                         ['repair', 'ส่งซ่อมบำรุง'],
-                        ['disposal', 'จำหน่าย / ตัดบัญชี']
+                        ['disposal', 'จำหน่าย / ตัดบัญชี'],
                       ]}
                     />
 
@@ -402,7 +366,9 @@ export default function Editor({
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                          <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${splitOption === 'all' ? 'bg-white border-blue-500 shadow-xs font-semibold text-blue-900 ring-1 ring-blue-500/20' : 'bg-white/70 border-slate-200 text-slate-700 hover:bg-white'}`}>
+                          <label
+                            className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${splitOption === 'all' ? 'bg-white border-blue-500 shadow-xs font-semibold text-blue-900 ring-1 ring-blue-500/20' : 'bg-white/70 border-slate-200 text-slate-700 hover:bg-white'}`}
+                          >
                             <input
                               type="radio"
                               name="splitChoice"
@@ -413,11 +379,15 @@ export default function Editor({
                             />
                             <div>
                               <div>ยื่นคำขอทั้งชุด</div>
-                              <div className="text-[11px] text-slate-500 font-normal">ทั้งหมด {modal.asset.quantity} ชิ้น</div>
+                              <div className="text-[11px] text-slate-500 font-normal">
+                                ทั้งหมด {modal.asset.quantity} ชิ้น
+                              </div>
                             </div>
                           </label>
 
-                          <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${splitOption === 'partial' ? 'bg-white border-blue-500 shadow-xs font-semibold text-blue-900 ring-1 ring-blue-500/20' : 'bg-white/70 border-slate-200 text-slate-700 hover:bg-white'}`}>
+                          <label
+                            className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${splitOption === 'partial' ? 'bg-white border-blue-500 shadow-xs font-semibold text-blue-900 ring-1 ring-blue-500/20' : 'bg-white/70 border-slate-200 text-slate-700 hover:bg-white'}`}
+                          >
                             <input
                               type="radio"
                               name="splitChoice"
@@ -428,7 +398,9 @@ export default function Editor({
                             />
                             <div>
                               <div>ยื่นคำขอบางส่วน</div>
-                              <div className="text-[11px] text-slate-500 font-normal">ระบุจำนวน (ระบบแบ่งล็อตเมื่ออนุมัติ)</div>
+                              <div className="text-[11px] text-slate-500 font-normal">
+                                ระบุจำนวน (ระบบแบ่งล็อตเมื่ออนุมัติ)
+                              </div>
                             </div>
                           </label>
                         </div>
@@ -460,7 +432,9 @@ export default function Editor({
 
                             <div className="split-preview !my-1">
                               <div>
-                                <p className="text-blue-700 font-medium">ส่วนที่ยื่นคำขอ ({requestTypes[requestKind as keyof typeof requestTypes] || 'คำขอ'})</p>
+                                <p className="text-blue-700 font-medium">
+                                  ส่วนที่ยื่นคำขอ ({requestTypes[requestKind as keyof typeof requestTypes] || 'คำขอ'})
+                                </p>
                                 <b>{requestSplitTake || 0} ชิ้น</b>
                                 <p className="text-slate-500 text-xs mt-0.5">
                                   {Number.isInteger(requestSplitTake) &&
@@ -470,8 +444,8 @@ export default function Editor({
                                         splitAmounts(
                                           modal.asset.quantity,
                                           modal.asset.totalSatang,
-                                          requestSplitTake
-                                        )[0]
+                                          requestSplitTake,
+                                        )[0],
                                       )
                                     : '—'}{' '}
                                   บาท
@@ -488,8 +462,8 @@ export default function Editor({
                                         splitAmounts(
                                           modal.asset.quantity,
                                           modal.asset.totalSatang,
-                                          requestSplitTake
-                                        )[1]
+                                          requestSplitTake,
+                                        )[1],
                                       )
                                     : '—'}{' '}
                                   บาท
@@ -497,7 +471,9 @@ export default function Editor({
                               </div>
                             </div>
                             <p className="text-[11px] text-slate-500 leading-relaxed">
-                              💡 คำขอนี้ระบุเฉพาะ {requestSplitTake} ชิ้น ระบบจะแบ่งล็อตให้เมื่ออนุมัติขั้นสุดท้าย (ระหว่างรอ รายการเดิมยังไม่เปลี่ยน และถ้าถูกส่งกลับจะไม่มีการแบ่ง) ส่วนที่เหลืออีก {modal.asset.quantity - requestSplitTake} ชิ้นใช้งานตามปกติ
+                              💡 คำขอนี้ระบุเฉพาะ {requestSplitTake} ชิ้น ระบบจะแบ่งล็อตให้เมื่ออนุมัติขั้นสุดท้าย
+                              (ระหว่างรอ รายการเดิมยังไม่เปลี่ยน และถ้าถูกส่งกลับจะไม่มีการแบ่ง) ส่วนที่เหลืออีก{' '}
+                              {modal.asset.quantity - requestSplitTake} ชิ้นใช้งานตามปกติ
                             </p>
                           </div>
                         )}
@@ -519,22 +495,21 @@ export default function Editor({
                         <Field
                           label="ผู้รับผิดชอบใหม่ (ถ้ามี)"
                           name="custodian"
-                          placeholder={modal.asset.custodian ? `ปัจจุบัน: ${modal.asset.custodian}` : 'เว้นว่างถ้าไม่เปลี่ยน'}
+                          placeholder={
+                            modal.asset.custodian ? `ปัจจุบัน: ${modal.asset.custodian}` : 'เว้นว่างถ้าไม่เปลี่ยน'
+                          }
                         />
                       </div>
                     )}
 
                     {requestKind === 'repair' && (
-                      <Field
-                        label="ประมาณการค่าซ่อม (บาท)"
-                        name="cost"
-                        placeholder="0.00"
-                      />
+                      <Field label="ประมาณการค่าซ่อม (บาท)" name="cost" placeholder="0.00" />
                     )}
 
                     {requestKind === 'disposal' && (
                       <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg p-2.5">
-                        ⚠️ เมื่อคำขอจำหน่ายได้รับการอนุมัติครบทุกระดับ ครุภัณฑ์ส่วนนี้จะถูกตัดยอดออกจากทะเบียนใช้งาน (เปลี่ยนสถานะเป็นจำหน่ายแล้ว)
+                        ⚠️ เมื่อคำขอจำหน่ายได้รับการอนุมัติครบทุกระดับ ครุภัณฑ์ส่วนนี้จะถูกตัดยอดออกจากทะเบียนใช้งาน
+                        (เปลี่ยนสถานะเป็นจำหน่ายแล้ว)
                       </div>
                     )}
 
@@ -553,35 +528,58 @@ export default function Editor({
                 {modal && ['approve', 'reject'].includes(modal.kind) && (
                   <div className="flex flex-col gap-4">
                     <div className="notice">
-                      {requestTypes[modal.request.kind as keyof typeof requestTypes]} ·{' '}
-                      {modal.request.name}
+                      {requestTypes[modal.request.kind as keyof typeof requestTypes]} · {modal.request.name}
                       <p className="mono">{modal.request.code}</p>
-                      {modal.request.requesterName && <p className="mt-1">ผู้ยื่นคำขอ: <b>{modal.request.requesterName}</b></p>}
-                      {modal.kind === 'approve' && (data.me.role === 'tester' || (ADMIN_APPROVES_ALL && data.me.role === 'admin')) && (
-                        <p className="mt-2 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-teal-800">
-                          {data.me.role === 'admin' ? 'Admin' : 'บัญชีทดลอง'}: กดบันทึกแล้วคำขอนี้จะ<b>อนุมัติครบทุกขั้นทันที</b> (ข้ามขั้นที่เหลือ) และทะเบียนจะเปลี่ยนตามคำขอ
+                      {modal.request.requesterName && (
+                        <p className="mt-1">
+                          ผู้ยื่นคำขอ: <b>{modal.request.requesterName}</b>
                         </p>
                       )}
+                      {modal.kind === 'approve' &&
+                        (data.me.role === 'tester' || (ADMIN_APPROVES_ALL && data.me.role === 'admin')) && (
+                          <p className="mt-2 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-teal-800">
+                            {data.me.role === 'admin' ? 'Admin' : 'บัญชีทดลอง'}: กดบันทึกแล้วคำขอนี้จะ
+                            <b>อนุมัติครบทุกขั้นทันที</b> (ข้ามขั้นที่เหลือ) และทะเบียนจะเปลี่ยนตามคำขอ
+                          </p>
+                        )}
                       <p className="mt-1">เหตุผลของผู้ขอ: {modal.request.reason}</p>
                       {/* สิ่งที่จะเกิดขึ้นเมื่ออนุมัติ: ผู้อนุมัติต้องเห็นปลายทาง/จำนวนก่อนตัดสินใจ */}
                       {(() => {
                         let p: Record<string, any> = {};
-                        try { p = JSON.parse(modal.request.payload || '{}'); } catch { /* ไม่มีรายละเอียด */ }
+                        try {
+                          p = JSON.parse(modal.request.payload || '{}');
+                        } catch {
+                          /* ไม่มีรายละเอียด */
+                        }
                         return (
                           <>
                             {modal.request.kind === 'transfer' && (
                               <>
-                                {p.from?.location && <p className="mt-1">จาก: <b>{p.from.location}</b> · {p.from.branch || '—'}{p.from.custodian ? ` · ผู้รับผิดชอบเดิม: ${p.from.custodian}` : ''}</p>}
-                                <p className="mt-1">ย้ายไป: <b>{p.location || '—'}</b> · {p.branch || '—'}{p.custodian ? ` · ผู้รับผิดชอบใหม่: ${p.custodian}` : ''}</p>
+                                {p.from?.location && (
+                                  <p className="mt-1">
+                                    จาก: <b>{p.from.location}</b> · {p.from.branch || '—'}
+                                    {p.from.custodian ? ` · ผู้รับผิดชอบเดิม: ${p.from.custodian}` : ''}
+                                  </p>
+                                )}
+                                <p className="mt-1">
+                                  ย้ายไป: <b>{p.location || '—'}</b> · {p.branch || '—'}
+                                  {p.custodian ? ` · ผู้รับผิดชอบใหม่: ${p.custodian}` : ''}
+                                </p>
                               </>
                             )}
                             {modal.request.kind === 'repair' && (
-                              <p className="mt-1">ประมาณการค่าซ่อม: <b>฿{money(Number(p.estimateSatang) || 0)}</b></p>
+                              <p className="mt-1">
+                                ประมาณการค่าซ่อม: <b>฿{money(Number(p.estimateSatang) || 0)}</b>
+                              </p>
                             )}
                             {p.splitQuantity ? (
-                              <p className="mt-1">จำนวน: <b>เฉพาะ {p.splitQuantity} ชิ้น</b> (ระบบแบ่งล็อตเมื่ออนุมัติขั้นสุดท้าย)</p>
+                              <p className="mt-1">
+                                จำนวน: <b>เฉพาะ {p.splitQuantity} ชิ้น</b> (ระบบแบ่งล็อตเมื่ออนุมัติขั้นสุดท้าย)
+                              </p>
                             ) : p.setId ? (
-                              <p className="mt-1">จำนวน: <b>ทั้งชุด {p.setCount ?? ''} รายการ</b> (ชุดห้ามแยก)</p>
+                              <p className="mt-1">
+                                จำนวน: <b>ทั้งชุด {p.setCount ?? ''} รายการ</b> (ชุดห้ามแยก)
+                              </p>
                             ) : null}
                           </>
                         );
@@ -641,14 +639,16 @@ export default function Editor({
                         label="ผลการตรวจนับ"
                         defaultValue={
                           modal.item.result && modal.item.result !== 'pending'
-                            ? (modal.item.result === 'matched' ? 'normal' : modal.item.result)
+                            ? modal.item.result === 'matched'
+                              ? 'normal'
+                              : modal.item.result
                             : 'normal'
                         }
                         options={[
                           ['normal', 'ตรงตามทะเบียน'],
                           ['damaged', 'พบแต่ชำรุด'],
                           ['missing', 'ไม่พบ'],
-                          ['mismatch', 'จำนวน/ข้อมูลไม่ตรง']
+                          ['mismatch', 'จำนวน/ข้อมูลไม่ตรง'],
                         ]}
                       />
                       <Field
@@ -656,9 +656,7 @@ export default function Editor({
                         name="quantity"
                         type="number"
                         min={0}
-                        defaultValue={
-                          modal.item.quantity ?? JSON.parse(modal.item.snapshot).quantity
-                        }
+                        defaultValue={modal.item.quantity ?? JSON.parse(modal.item.snapshot).quantity}
                         required
                       />
                     </div>
@@ -677,12 +675,7 @@ export default function Editor({
 
                 {modal?.kind === 'user' && (
                   <div className="flex flex-col gap-4">
-                    <Field
-                      label="ชื่อ-นามสกุล"
-                      name="name"
-                      defaultValue={user?.name ?? ''}
-                      required
-                    />
+                    <Field label="ชื่อ-นามสกุล" name="name" defaultValue={user?.name ?? ''} required />
                     <Field
                       label="อีเมล"
                       name="email"
@@ -703,7 +696,7 @@ export default function Editor({
                       defaultValue={user?.branch ?? ''}
                       options={[
                         ['', '— ไม่ระบุ / ส่วนกลาง —'],
-                        ...standardBranches.map(b => [b, b] as [string, string])
+                        ...standardBranches.map(b => [b, b] as [string, string]),
                       ]}
                     />
                     <Field
@@ -721,10 +714,7 @@ export default function Editor({
                       hint="รหัสผ่านต้องมีความยาว 12–128 ตัวอักษร"
                     />
                     <label className="flex! items-center gap-3">
-                      <Checkbox
-                        name="active"
-                        defaultChecked={Boolean(user?.active ?? true)}
-                      />
+                      <Checkbox name="active" defaultChecked={Boolean(user?.active ?? true)} />
                       <span>เปิดใช้งานบัญชีนี้</span>
                     </label>
                   </div>
@@ -735,9 +725,7 @@ export default function Editor({
                     <div className="notice">
                       <b>{modal.asset.name}</b>
                       <p className="mono">{modal.asset.code}</p>
-                      <p className="mt-1">
-                        สถานะปัจจุบัน: กำลังซ่อม · เมื่อบันทึกจะเปลี่ยนสถานะเป็น "ปกติ"
-                      </p>
+                      <p className="mt-1">สถานะปัจจุบัน: กำลังซ่อม · เมื่อบันทึกจะเปลี่ยนสถานะเป็น "ปกติ"</p>
                     </div>
                     <Field
                       label="ผู้ซ่อม / ร้านที่ซ่อม"
@@ -745,12 +733,7 @@ export default function Editor({
                       placeholder="เช่น ช่างภายในคณะ หรือ ร้านเอ บี เซอร์วิส"
                       required
                     />
-                    <Field
-                      label="ค่าซ่อมจริง (บาท)"
-                      name="cost"
-                      placeholder="0.00"
-                      required
-                    />
+                    <Field label="ค่าซ่อมจริง (บาท)" name="cost" placeholder="0.00" required />
                     <label>
                       <span>รายละเอียดการซ่อม / หมายเหตุ *</span>
                       <Textarea
@@ -769,7 +752,8 @@ export default function Editor({
                       <b>{modal.asset.name}</b>
                       <p className="mono">{modal.asset.code}</p>
                       <p className="mt-1">
-                        {modal.asset.quantity.toLocaleString('th-TH')} ชิ้น · มูลค่า {money(modal.asset.totalSatang)} บาท
+                        {modal.asset.quantity.toLocaleString('th-TH')} ชิ้น · มูลค่า {money(modal.asset.totalSatang)}{' '}
+                        บาท
                       </p>
                     </div>
                     <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
@@ -800,7 +784,8 @@ export default function Editor({
                       <p className="mono">{modal.asset.code}</p>
                       <p className="mt-1">
                         กู้คืนแล้วใช้รหัส <b className="mono">{restoredCode(modal.asset.code, modal.asset.id)}</b> ·{' '}
-                        {modal.asset.quantity.toLocaleString('th-TH')} ชิ้น · มูลค่า {money(modal.asset.totalSatang)} บาท
+                        {modal.asset.quantity.toLocaleString('th-TH')} ชิ้น · มูลค่า {money(modal.asset.totalSatang)}{' '}
+                        บาท
                       </p>
                     </div>
                     <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
@@ -812,38 +797,30 @@ export default function Editor({
                     </div>
                     <label>
                       <span>เหตุผลที่กู้คืน *</span>
-                      <Textarea
-                        required
-                        name="reason"
-                        placeholder="เช่น กดยกเลิกผิดรายการ"
-                        rows={2}
-                      />
+                      <Textarea required name="reason" placeholder="เช่น กดยกเลิกผิดรายการ" rows={2} />
                     </label>
                   </div>
                 )}
               </div>
 
               <div className="dialog-footer-sticky">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => setModal(null)}
-                >
+                <Button type="button" variant="outline" disabled={busy} onClick={() => setModal(null)}>
                   ยกเลิก
                 </Button>
                 <Button type="submit" disabled={busy} variant={modal?.kind === 'void' ? 'destructive' : 'default'}>
                   {busy
                     ? 'กำลังบันทึก…'
                     : modal?.kind === 'void'
-                    ? 'ยืนยันยกเลิกรายการ'
-                    : modal?.kind === 'restore'
-                    ? 'ยืนยันกู้คืนรายการ'
-                    : modal?.kind === 'split'
-                    ? 'ยืนยันแบ่งล็อต'
-                    : modal?.kind === 'request'
-                    ? (splitOption === 'partial' && modal.asset.quantity > 1 ? 'ส่งคำขอ (ระบุจำนวน)' : 'ส่งคำขอ')
-                    : 'บันทึก'}
+                      ? 'ยืนยันยกเลิกรายการ'
+                      : modal?.kind === 'restore'
+                        ? 'ยืนยันกู้คืนรายการ'
+                        : modal?.kind === 'split'
+                          ? 'ยืนยันแบ่งล็อต'
+                          : modal?.kind === 'request'
+                            ? splitOption === 'partial' && modal.asset.quantity > 1
+                              ? 'ส่งคำขอ (ระบุจำนวน)'
+                              : 'ส่งคำขอ'
+                            : 'บันทึก'}
                 </Button>
               </div>
             </form>

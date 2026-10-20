@@ -42,7 +42,7 @@ function expectedImageVersion(value: unknown) {
 function hasPngAnimation(bytes: Uint8Array) {
   const png = Buffer.from(bytes);
   // libvips may expose only the default PNG frame; the APNG control chunk is authoritative.
-  for (let offset = 8; offset + 12 <= png.length;) {
+  for (let offset = 8; offset + 12 <= png.length; ) {
     const size = png.readUInt32BE(offset);
     if (size > png.length - offset - 12) return false;
     if (png.toString('ascii', offset + 4, offset + 8) === 'acTL') return true;
@@ -66,15 +66,22 @@ export async function normalizeAssetImage(bytes: Uint8Array) {
     if (!['jpeg', 'png', 'webp'].includes(metadata.format || '')) {
       throw new ApiError('รองรับรูป JPEG, PNG และ WebP เท่านั้น', 415);
     }
-    if ((metadata.pages ?? 1) > 1 || metadata.loop !== undefined || (metadata.format === 'png' && hasPngAnimation(bytes))) {
+    if (
+      (metadata.pages ?? 1) > 1 ||
+      metadata.loop !== undefined ||
+      (metadata.format === 'png' && hasPngAnimation(bytes))
+    ) {
       throw new ApiError('กรุณาใช้รูปภาพนิ่งเพียงภาพเดียว', 415);
     }
     if (!metadata.width || !metadata.height || metadata.width * metadata.height > ASSET_IMAGE_MAX_PIXELS) {
       throw new ApiError('รูปภาพต้องมีขนาดไม่เกิน 25 ล้านพิกเซล');
     }
     // Sharp strips EXIF/GPS and other input metadata by default. Rotate before resizing.
-    const { data, info } = await image.rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 82 }).toBuffer({ resolveWithObject: true });
+    const { data, info } = await image
+      .rotate()
+      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer({ resolveWithObject: true });
     return { body: data, width: info.width, height: info.height };
   } catch (error) {
     if (error instanceof ApiError) throw error;
@@ -110,12 +117,26 @@ export async function saveAssetImage(member: Member, form: FormData) {
       throw new ApiError('รูปภาพเปลี่ยนแล้ว กรุณาโหลดข้อมูลใหม่ก่อนบันทึก', 409);
     }
     const createdAt = new Date(Math.max(Date.now(), (previous?.createdAt.getTime() ?? 0) + 1));
-    await tx.storedFile.upsert({ where: { key }, create: { key, body: normalized.body, createdAt },
-      update: { body: normalized.body, createdAt } });
+    await tx.storedFile.upsert({
+      where: { key },
+      create: { key, body: normalized.body, createdAt },
+      update: { body: normalized.body, createdAt },
+    });
     const version = createdAt.toISOString();
-    await audit(tx, user, previous ? 'เปลี่ยนรูปครุภัณฑ์' : 'เพิ่มรูปครุภัณฑ์', assetId,
+    await audit(
+      tx,
+      user,
+      previous ? 'เปลี่ยนรูปครุภัณฑ์' : 'เพิ่มรูปครุภัณฑ์',
+      assetId,
       previous ? { imageVersion: previous.createdAt.toISOString() } : null,
-      { imageVersion: version, contentType: 'image/webp', bytes: normalized.body.length, width: normalized.width, height: normalized.height });
+      {
+        imageVersion: version,
+        contentType: 'image/webp',
+        bytes: normalized.body.length,
+        width: normalized.width,
+        height: normalized.height,
+      },
+    );
     return version;
   }, serializable);
   return { ok: true, imageVersion, imageUrl: assetImageUrl(assetId, imageVersion) };
@@ -135,7 +156,8 @@ export async function deleteAssetImage(member: Member, input: unknown) {
     const key = assetImageKey(assetId);
     const previous = await tx.storedFile.findUnique({ where: { key }, select: { createdAt: true } });
     if (!previous) throw new ApiError('ยังไม่มีรูปครุภัณฑ์', 404);
-    if (previous.createdAt.toISOString() !== expectedVersion) throw new ApiError('รูปภาพเปลี่ยนแล้ว กรุณาโหลดข้อมูลใหม่ก่อนลบ', 409);
+    if (previous.createdAt.toISOString() !== expectedVersion)
+      throw new ApiError('รูปภาพเปลี่ยนแล้ว กรุณาโหลดข้อมูลใหม่ก่อนลบ', 409);
     await tx.storedFile.delete({ where: { key } });
     await audit(tx, user, 'ลบรูปครุภัณฑ์', assetId, { imageVersion: previous.createdAt.toISOString() }, null);
   }, serializable);

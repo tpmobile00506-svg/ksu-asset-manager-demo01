@@ -9,23 +9,42 @@ test('หมวดคิดจากประเภทครุภัณฑ์ �
   assert.equal(assetGroupOfType('ครุภัณฑ์สำนักงาน'), 'สำนักงาน');
   assert.equal(assetGroupOfType('ครุภัณฑ์โฆษณาและเผยแพร่'), 'โฆษณา');
   assert.equal(assetGroupOfType('ครุภัณฑ์งานบ้านงานครัว'), 'งานครัว');
-  assert.equal(assetGroupOfType('คอมพิวเตอร์'), 'คอม');                 // ประเภทที่บันทึกแบบสั้นในข้อมูลเก่า
+  assert.equal(assetGroupOfType('คอมพิวเตอร์'), 'คอม'); // ประเภทที่บันทึกแบบสั้นในข้อมูลเก่า
   assert.equal(assetGroupOfType('รอระบุประเภท'), 'รอจัดหมวด');
   assert.equal(assetGroupOfType(''), 'รอจัดหมวด');
 });
 
 test('หมวดไม่ขึ้นกับชื่อรายการหรือหมวดเก่าที่บันทึกไว้', () => {
   assert.equal(groupFor({ category: 'ครุภัณฑ์สำนักงาน' }), 'สำนักงาน');
-  assert.equal(groupFor({ category: 'ครุภัณฑ์การแพทย์และวิทยาศาสตร์', groupName: 'เครื่องมือวัดและทดสอบ', name: 'เครื่องวัดอุณหภูมิ' } as Partial<Asset>), 'วิทยาศาสตร์');
+  assert.equal(
+    groupFor({
+      category: 'ครุภัณฑ์การแพทย์และวิทยาศาสตร์',
+      groupName: 'เครื่องมือวัดและทดสอบ',
+      name: 'เครื่องวัดอุณหภูมิ',
+    } as Partial<Asset>),
+    'วิทยาศาสตร์',
+  );
 });
 
 test('Export ช่องหมวดเป็นชื่อแผ่นงาน ช่องสำนักงานเป็นประเภทครุภัณฑ์ และแผ่นงานใช้ชื่อสั้น', async () => {
-  const a = { id: '1', code: 'M-1', name: 'เครื่องวัดอุณหภูมิ-ความชื้นระบบดิจิตอล', quantity: 1, unitSatang: 7150000, totalSatang: 7150000,
-    notes: '', location: 'อ.ปฏิบัติการ', branch: 'คจก', groupName: '',
-    category: 'ครุภัณฑ์การแพทย์และวิทยาศาสตร์', lifecycle: 'active', condition: 'normal' } as unknown as Asset;
+  const a = {
+    id: '1',
+    code: 'M-1',
+    name: 'เครื่องวัดอุณหภูมิ-ความชื้นระบบดิจิตอล',
+    quantity: 1,
+    unitSatang: 7150000,
+    totalSatang: 7150000,
+    notes: '',
+    location: 'อ.ปฏิบัติการ',
+    branch: 'คจก',
+    groupName: '',
+    category: 'ครุภัณฑ์การแพทย์และวิทยาศาสตร์',
+    lifecycle: 'active',
+    condition: 'normal',
+  } as unknown as Asset;
   const s = (await createAssetWorkbook([a], { fiscalYear: 2570 })).worksheets[0];
   assert.equal(s.name, 'วิทยาศาสตร์');
   assert.equal(s.getCell('I6').value, 'วิทยาศาสตร์');
   assert.equal(s.getCell('J6').value, 'ครุภัณฑ์การแพทย์และวิทยาศาสตร์');
-  assert.equal(s.getCell('J6').alignment.shrinkToFit, true);   // ข้อความยาวย่อให้พอดีช่อง ไม่ล้นพื้นที่พิมพ์
+  assert.equal(s.getCell('J6').alignment.shrinkToFit, true); // ข้อความยาวย่อให้พอดีช่อง ไม่ล้นพื้นที่พิมพ์
 });

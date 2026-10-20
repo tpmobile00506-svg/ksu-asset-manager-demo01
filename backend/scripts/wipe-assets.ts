@@ -4,7 +4,7 @@ import { prisma, disconnectDatabase } from '../db/client';
 async function main() {
   console.log('--- Starting Asset & History Wipe ---');
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async tx => {
     const deletedStocktakeItems = await tx.stocktakeItem.deleteMany();
     const deletedStocktakes = await tx.stocktake.deleteMany();
     const deletedApprovals = await tx.approval.deleteMany();
@@ -56,7 +56,7 @@ async function main() {
 }
 
 main()
-  .catch((err) => {
+  .catch(err => {
     console.error('Error during wipe:', err);
     process.exit(1);
   })

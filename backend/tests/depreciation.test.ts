@@ -92,10 +92,16 @@ test('เคส 4: มูลค่าซาก 0 สตางค์ เทีย
   const dOver = new Date(at.getTime() + 800 * 86_400_000);
 
   // 4.1 ซาก 0 สตางค์ -> bookValue = 0
-  assert.equal(bookValue({ receivedDate: '2024-01-01', lifeYears: 2, salvageSatang: 0, totalSatang: 50_000 }, dOver), 0);
+  assert.equal(
+    bookValue({ receivedDate: '2024-01-01', lifeYears: 2, salvageSatang: 0, totalSatang: 50_000 }, dOver),
+    0,
+  );
 
   // 4.2 ซาก 100 สตางค์ (1 บาท) -> bookValue = 100
-  assert.equal(bookValue({ receivedDate: '2024-01-01', lifeYears: 2, salvageSatang: 100, totalSatang: 50_000 }, dOver), 100);
+  assert.equal(
+    bookValue({ receivedDate: '2024-01-01', lifeYears: 2, salvageSatang: 100, totalSatang: 50_000 }, dOver),
+    100,
+  );
 });
 
 test('เคส 5: การปัดเศษสตางค์ (ราคาที่หารไม่ลงตัว)', () => {
@@ -119,43 +125,64 @@ test('เคส 5: การปัดเศษสตางค์ (ราคา�
 test('เคส 6: วันที่ผิดรูปแบบ / วันที่อนาคต / ราคาทุน 0', () => {
   // 6.1 วันที่รับเข้าในอนาคต (at < receivedDate): คืนราคาทุนเต็ม
   assert.equal(
-    bookValue({ receivedDate: '2026-01-01', lifeYears: 5, salvageSatang: 100, totalSatang: 50_000 }, new Date('2025-01-01T00:00:00Z')),
-    50_000
+    bookValue(
+      { receivedDate: '2026-01-01', lifeYears: 5, salvageSatang: 100, totalSatang: 50_000 },
+      new Date('2025-01-01T00:00:00Z'),
+    ),
+    50_000,
   );
 
   // 6.2 วันที่ผิดรูปแบบ: สตริงที่ไม่สามารถแปลงเป็น Date ได้ คืน null
   assert.equal(
-    bookValue({ receivedDate: 'invalid-date', lifeYears: 5, salvageSatang: 100, totalSatang: 50_000 }, new Date('2025-01-01T00:00:00Z')),
-    null
+    bookValue(
+      { receivedDate: 'invalid-date', lifeYears: 5, salvageSatang: 100, totalSatang: 50_000 },
+      new Date('2025-01-01T00:00:00Z'),
+    ),
+    null,
   );
   assert.equal(
-    bookValue({ receivedDate: '', lifeYears: 5, salvageSatang: 100, totalSatang: 50_000 }, new Date('2025-01-01T00:00:00Z')),
-    null
+    bookValue(
+      { receivedDate: '', lifeYears: 5, salvageSatang: 100, totalSatang: 50_000 },
+      new Date('2025-01-01T00:00:00Z'),
+    ),
+    null,
   );
 
   // วันที่ไม่มีจริงในปฏิทิน: 2024-02-31
   // ตามการคำนวณมือ/ปฏิทินจริง วันที่ 31 ก.พ. ไม่มีอยู่จริง คาดหวัง null
   // (หาก JS Date rollover เป็น 2024-03-02 จะได้ 836 ซึ่งจะทำให้ assert นี้รายงานความต่าง)
   assert.equal(
-    bookValue({ receivedDate: '2024-02-31', lifeYears: 1, salvageSatang: 0, totalSatang: 1_000 }, new Date('2024-05-01T00:00:00Z')),
-    null
+    bookValue(
+      { receivedDate: '2024-02-31', lifeYears: 1, salvageSatang: 0, totalSatang: 1_000 },
+      new Date('2024-05-01T00:00:00Z'),
+    ),
+    null,
   );
 
   // 6.3 lifeYears เป็น 0 คืน null
   assert.equal(
-    bookValue({ receivedDate: '2024-01-01', lifeYears: 0, salvageSatang: 100, totalSatang: 50_000 }, new Date('2025-01-01T00:00:00Z')),
-    null
+    bookValue(
+      { receivedDate: '2024-01-01', lifeYears: 0, salvageSatang: 100, totalSatang: 50_000 },
+      new Date('2025-01-01T00:00:00Z'),
+    ),
+    null,
   );
 
   // 6.4 ราคาทุน 0 คืน 0
   assert.equal(
-    bookValue({ receivedDate: '2024-01-01', lifeYears: 5, salvageSatang: 0, totalSatang: 0 }, new Date('2025-01-01T00:00:00Z')),
-    0
+    bookValue(
+      { receivedDate: '2024-01-01', lifeYears: 5, salvageSatang: 0, totalSatang: 0 },
+      new Date('2025-01-01T00:00:00Z'),
+    ),
+    0,
   );
 
   // 6.5 เวลาที่ไม่ใช่เที่ยงคืน (23:59:59 ในวันเดียวกัน ยังไม่ครบ 24 ชม. ถือเป็น Day 0)
   assert.equal(
-    bookValue({ receivedDate: '2024-01-01', lifeYears: 5, salvageSatang: 100, totalSatang: 100_000 }, new Date('2024-01-01T23:59:59Z')),
-    100_000
+    bookValue(
+      { receivedDate: '2024-01-01', lifeYears: 5, salvageSatang: 100, totalSatang: 100_000 },
+      new Date('2024-01-01T23:59:59Z'),
+    ),
+    100_000,
   );
 });

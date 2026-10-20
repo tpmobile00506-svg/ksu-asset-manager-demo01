@@ -19,25 +19,12 @@ import {
   MapPin,
   Filter,
   RotateCcw,
-  Printer
+  Printer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from '@/components/ui/dialog';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Role, roles, money, awaitsApprovalBy } from '@/shared/domain';
 import { buildApprovalDocumentHtml } from '@/shared/approval-document';
 import { toast } from 'sonner';
@@ -50,10 +37,7 @@ function formatThaiDateTime(isoStr: string): string {
   try {
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return isoStr;
-    const months = [
-      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
-    ];
+    const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
     const day = d.getDate();
     const month = months[d.getMonth()];
     const year = (d.getFullYear() + 543) % 100;
@@ -143,7 +127,7 @@ function ApprovalPipeline({ request }: { request: RequestRecord }) {
     deputy: 'Deputy',
     dean: 'Dean',
     staff: 'Staff',
-    admin: 'Admin'
+    admin: 'Admin',
   };
 
   return (
@@ -160,20 +144,20 @@ function ApprovalPipeline({ request }: { request: RequestRecord }) {
                 isApproved
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : isCurrentPending
-                  ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm'
-                  : isRejectedAtThisStage
-                  ? 'bg-rose-50 text-rose-700 border-rose-200'
-                  : 'bg-slate-50 text-slate-400 border-slate-200'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm'
+                    : isRejectedAtThisStage
+                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                      : 'bg-slate-50 text-slate-400 border-slate-200'
               }`}
             >
-              <span>{i + 1}. {roleLabels[role] || role}</span>
+              <span>
+                {i + 1}. {roleLabels[role] || role}
+              </span>
               {isApproved && <Check size={12} className="text-emerald-600 stroke-[3]" />}
               {isCurrentPending && <Clock size={11} className="text-amber-600" />}
               {isRejectedAtThisStage && <X size={12} className="text-rose-600 stroke-[3]" />}
             </span>
-            {i < chain.length - 1 && (
-              <span className="text-slate-300 text-xs font-bold">→</span>
-            )}
+            {i < chain.length - 1 && <span className="text-slate-300 text-xs font-bold">→</span>}
           </div>
         );
       })}
@@ -183,7 +167,7 @@ function ApprovalPipeline({ request }: { request: RequestRecord }) {
 
 export default function RequestsView({
   data,
-  open
+  open,
 }: {
   data: WorkspaceData;
   open: (k: string, a?: Record<string, unknown>) => void;
@@ -197,8 +181,16 @@ export default function RequestsView({
     const asset = data.assets.find(a => a.id === r.assetId) ?? null;
     let payload: Record<string, unknown> = {};
     let chain: string[] = [];
-    try { payload = JSON.parse(r.payload || '{}'); } catch { /* ใช้ค่าว่าง */ }
-    try { chain = JSON.parse(r.chain || '[]'); } catch { /* ใช้ค่าว่าง */ }
+    try {
+      payload = JSON.parse(r.payload || '{}');
+    } catch {
+      /* ใช้ค่าว่าง */
+    }
+    try {
+      chain = JSON.parse(r.chain || '[]');
+    } catch {
+      /* ใช้ค่าว่าง */
+    }
     const html = buildApprovalDocumentHtml({
       requestCode: r.requestNo,
       kind: r.kind,
@@ -209,11 +201,25 @@ export default function RequestsView({
       payload,
       chain,
       asset: asset
-        ? { code: asset.code, name: asset.name, quantity: asset.quantity, totalSatang: asset.totalSatang, location: asset.location, branch: asset.branch, custodian: asset.custodian }
+        ? {
+            code: asset.code,
+            name: asset.name,
+            quantity: asset.quantity,
+            totalSatang: asset.totalSatang,
+            location: asset.location,
+            branch: asset.branch,
+            custodian: asset.custodian,
+          }
         : null,
       approvals: data.approvals
         .filter(a => a.requestId === r.id)
-        .map(a => ({ stage: a.stage, actorName: a.actorName || a.actor, decision: a.decision, note: a.note, createdAt: a.createdAt })),
+        .map(a => ({
+          stage: a.stage,
+          actorName: a.actorName || a.actor,
+          decision: a.decision,
+          note: a.note,
+          createdAt: a.createdAt,
+        })),
     });
     const w = window.open('', '_blank');
     if (!w) {
@@ -343,7 +349,7 @@ export default function RequestsView({
             { key: 'pending' as TabKey, label: `รออนุมัติ (${pendingCount})` },
             { key: 'transfer' as TabKey, label: `โอนย้าย (${transferCount})` },
             { key: 'repair' as TabKey, label: `ส่งซ่อม (${repairCount})` },
-            { key: 'dispose' as TabKey, label: `จำหน่าย (${disposeCount})` }
+            { key: 'dispose' as TabKey, label: `จำหน่าย (${disposeCount})` },
           ].map(t => (
             <button
               key={t.key}
@@ -382,9 +388,15 @@ export default function RequestsView({
                 <TableRow>
                   <TableHead className="w-[140px] text-xs font-semibold text-slate-700">รหัสคำขอ / วันที่</TableHead>
                   <TableHead className="w-[150px] text-xs font-semibold text-slate-700">ประเภทคำขอ</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-700 min-w-[240px]">รายการครุภัณฑ์ที่เกี่ยวข้อง</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-700 min-w-[180px]">ผู้ยื่นคำขอ / สังกัด</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-700 min-w-[260px]">ความคืบหน้าสายอนุมัติ</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-700 min-w-[240px]">
+                    รายการครุภัณฑ์ที่เกี่ยวข้อง
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-700 min-w-[180px]">
+                    ผู้ยื่นคำขอ / สังกัด
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-700 min-w-[260px]">
+                    ความคืบหน้าสายอนุมัติ
+                  </TableHead>
                   <TableHead className="w-[140px] text-right text-xs font-semibold text-slate-700">จัดการ</TableHead>
                 </TableRow>
               </TableHeader>
@@ -428,11 +440,17 @@ export default function RequestsView({
                         </div>
                         <div className="text-[11px] text-slate-500 mt-1">
                           {payload.splitQuantity ? (
-                            <span className="block text-indigo-600">เฉพาะ {payload.splitQuantity} ชิ้น (แบ่งล็อตเมื่ออนุมัติ)</span>
+                            <span className="block text-indigo-600">
+                              เฉพาะ {payload.splitQuantity} ชิ้น (แบ่งล็อตเมื่ออนุมัติ)
+                            </span>
                           ) : null}
                           {r.kind === 'transfer' && payload.location && (
                             <span className="text-blue-600">
-                              {payload.from?.location ? <span className="block text-slate-500">จาก: {payload.from.location} {payload.from.branch ? `(${payload.from.branch})` : ''}</span> : null}
+                              {payload.from?.location ? (
+                                <span className="block text-slate-500">
+                                  จาก: {payload.from.location} {payload.from.branch ? `(${payload.from.branch})` : ''}
+                                </span>
+                              ) : null}
                               ย้ายไป: {payload.location} {payload.branch ? `(${payload.branch})` : ''}
                               {payload.custodian ? ` · ผู้รับผิดชอบใหม่: ${payload.custodian}` : ''}
                             </span>
@@ -493,9 +511,7 @@ export default function RequestsView({
                           </div>
                         ) : r.status === 'approved' ? (
                           <div className="flex items-center justify-end gap-1">
-                            <span className="badge approved">
-                              อนุมัติแล้ว ✓
-                            </span>
+                            <span className="badge approved">อนุมัติแล้ว ✓</span>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -508,9 +524,7 @@ export default function RequestsView({
                           </div>
                         ) : r.status === 'rejected' ? (
                           <div className="flex items-center justify-end gap-1">
-                            <span className="badge rejected">
-                              ไม่อนุมัติ ✗
-                            </span>
+                            <span className="badge rejected">ไม่อนุมัติ ✗</span>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -541,9 +555,7 @@ export default function RequestsView({
           </div>
         ) : (
           <div className="py-12">
-            <Empty
-              title={tab === 'all' ? 'ยังไม่มีคำขอในระบบ' : 'ไม่พบคำขอในหมวดนี้'}
-            >
+            <Empty title={tab === 'all' ? 'ยังไม่มีคำขอในระบบ' : 'ไม่พบคำขอในหมวดนี้'}>
               <p>สามารถกดยื่นคำขอโอนย้าย ส่งซ่อม หรือขอจำหน่ายได้ที่ปุ่ม "ยื่นคำขอใหม่"</p>
             </Empty>
           </div>
@@ -684,9 +696,7 @@ export default function RequestsView({
                         </span>
                       )}
                       {a.unitSatang ? (
-                        <span className="text-[11px] text-slate-400 font-mono">
-                          มูลค่า {money(a.unitSatang)}
-                        </span>
+                        <span className="text-[11px] text-slate-400 font-mono">มูลค่า {money(a.unitSatang)}</span>
                       ) : null}
                     </div>
                   </div>
@@ -738,7 +748,8 @@ export default function RequestsView({
           <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
             <span className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 size={14} className="text-emerald-500" />
-              แสดง <b className="text-slate-800">{pickableAssets.length}</b> จากทั้งหมด {assets.filter(a => a.lifecycle === 'active').length} รายการที่พร้อมยื่นคำขอ
+              แสดง <b className="text-slate-800">{pickableAssets.length}</b> จากทั้งหมด{' '}
+              {assets.filter(a => a.lifecycle === 'active').length} รายการที่พร้อมยื่นคำขอ
             </span>
             <Button
               variant="ghost"
@@ -759,13 +770,9 @@ export default function RequestsView({
             <DialogHeader>
               <div className="flex items-center gap-2 mb-1">
                 <RequestKindBadge kind={viewingRequest.kind} />
-                <span className="font-mono text-xs font-bold text-slate-500">
-                  {viewingRequest.requestNo}
-                </span>
+                <span className="font-mono text-xs font-bold text-slate-500">{viewingRequest.requestNo}</span>
               </div>
-              <DialogTitle className="text-base font-bold text-slate-900">
-                {viewingRequest.name}
-              </DialogTitle>
+              <DialogTitle className="text-base font-bold text-slate-900">{viewingRequest.name}</DialogTitle>
               <DialogDescription className="text-xs text-slate-500 font-mono">
                 หมายเลขครุภัณฑ์: {viewingRequest.code}
               </DialogDescription>
@@ -806,9 +813,7 @@ export default function RequestsView({
                     {viewingRequest.kind === 'repair' && p.estimateSatang !== undefined && (
                       <div className="flex justify-between items-center gap-2 pt-1.5 border-t border-slate-200/70">
                         <span className="text-slate-500 shrink-0">ประมาณการค่าซ่อม:</span>
-                        <span className="font-bold text-amber-700 text-right">
-                          ฿{money(p.estimateSatang)} บาท
-                        </span>
+                        <span className="font-bold text-amber-700 text-right">฿{money(p.estimateSatang)} บาท</span>
                       </div>
                     )}
 

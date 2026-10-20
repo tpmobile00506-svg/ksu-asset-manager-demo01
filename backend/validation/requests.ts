@@ -50,7 +50,10 @@ export const transferRequestSchema = z.object({
   ...baseRequestFields,
   kind: z.literal('transfer'),
   // ไม่ส่งข้อมูลปลายทางมาเลย: ตอบเป็นภาษาไทยแทน "Required" ของ zod
-  payload: transferPayloadSchema.optional().refine(v => v !== undefined, 'ระบุสถานที่และสาขาปลายทาง').transform(v => v!),
+  payload: transferPayloadSchema
+    .optional()
+    .refine(v => v !== undefined, 'ระบุสถานที่และสาขาปลายทาง')
+    .transform(v => v!),
 });
 
 export const repairRequestSchema = z.object({
@@ -93,7 +96,7 @@ export const approvalMutationSchema = z
       }
       return true;
     },
-    { message: 'กรุณาระบุเหตุผลส่งกลับ', path: ['reason'] }
+    { message: 'กรุณาระบุเหตุผลส่งกลับ', path: ['reason'] },
   );
 
 export type ApprovalMutationInput = z.infer<typeof approvalMutationSchema>;

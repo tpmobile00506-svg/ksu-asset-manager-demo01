@@ -3,22 +3,27 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Printer, TrendingDown, CheckCircle2, AlertCircle, FileSpreadsheet, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell
-} from '@/components/ui/table';
-import { Asset, money, bookValue, standardBranches, fiscalYearAsOfDate, fiscalYearOf, remainingLifeYears, thaiDateOnly, lifeBucket, lifeBucketLabels, type LifeBucket } from '@/shared/domain';
+  Asset,
+  money,
+  bookValue,
+  standardBranches,
+  fiscalYearAsOfDate,
+  fiscalYearOf,
+  remainingLifeYears,
+  thaiDateOnly,
+  lifeBucket,
+  lifeBucketLabels,
+  type LifeBucket,
+} from '@/shared/domain';
 import { printAssets } from '@/frontend/services/excel-export';
 import { Badge, Empty, Pager } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
 
 export default function ReportsView({
   data,
-  select
+  select,
 }: {
   data: Pick<WorkspaceData, 'assets'>;
   select: (a: Asset) => void;
@@ -41,7 +46,8 @@ export default function ReportsView({
     return () => clearTimeout(timer);
   }, [day]);
   const { asOfDate, asOfIso } = useMemo(() => {
-    const end = fiscalYearAsOfDate(fiscalYear), now = new Date();
+    const end = fiscalYearAsOfDate(fiscalYear),
+      now = new Date();
     if (end.getTime() <= now.getTime()) return { asOfDate: end, asOfIso: end.toISOString().slice(0, 10) };
     const local = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     return { asOfDate: now, asOfIso: local };
@@ -50,20 +56,20 @@ export default function ReportsView({
   // ของที่รับเข้าหลังวันที่รายงาน ยังไม่มีอยู่ ณ วันนั้น จึงไม่นับ
   const active = useMemo(
     () => data.assets.filter(a => a.lifecycle === 'active' && !(a.receivedDate && a.receivedDate > asOfIso)),
-    [data.assets, asOfIso]
+    [data.assets, asOfIso],
   );
   const receivedLater = useMemo(
     () => data.assets.filter(a => a.lifecycle === 'active' && a.receivedDate && a.receivedDate > asOfIso).length,
-    [data.assets, asOfIso]
+    [data.assets, asOfIso],
   );
 
   const filtered = useMemo(() => {
-    return active.filter(a =>
-      (selectedBranch === 'all' || a.branch === selectedBranch) &&
-      (selectedCategory === 'all' || a.category === selectedCategory)
+    return active.filter(
+      a =>
+        (selectedBranch === 'all' || a.branch === selectedBranch) &&
+        (selectedCategory === 'all' || a.category === selectedCategory),
     );
   }, [active, selectedBranch, selectedCategory]);
-
 
   // Financial Calculations
   const stats = useMemo(() => {
@@ -95,7 +101,7 @@ export default function ReportsView({
       totalNetBook,
       accDepPercent,
       fullyDepreciatedCount,
-      count: filtered.length
+      count: filtered.length,
     };
   }, [filtered, asOfDate]);
 
@@ -103,7 +109,13 @@ export default function ReportsView({
     return Array.from(new Set([...standardBranches, ...active.map(a => a.branch)])).filter(Boolean);
   }, [active]);
 
-  const categories = useMemo(() => Array.from(new Set(active.map(a => a.category))).filter(Boolean).sort((x, y) => x.localeCompare(y, 'th')), [active]);
+  const categories = useMemo(
+    () =>
+      Array.from(new Set(active.map(a => a.category)))
+        .filter(Boolean)
+        .sort((x, y) => x.localeCompare(y, 'th')),
+    [active],
+  );
 
   // สรุปตามหมวดหมู่ และตามช่วงอายุการใช้งานคงเหลือ (นับเป็นรายการ, ราคาทุน, มูลค่าสุทธิ ณ สิ้นปีงบประมาณที่เลือก)
   const summaries = useMemo(() => {
@@ -115,17 +127,21 @@ export default function ReportsView({
       const net = bookValue(a, asOfDate) ?? a.totalSatang;
       const catName = a.category || 'ไม่ระบุหมวดหมู่';
       const cat = byCategory.get(catName) ?? empty();
-      cat.count++; cat.cost += a.totalSatang; cat.net += net;
+      cat.count++;
+      cat.cost += a.totalSatang;
+      cat.net += net;
       byCategory.set(catName, cat);
       const key = lifeBucket(a, asOfDate);
       const life = byLife.get(key) ?? empty();
-      life.count++; life.cost += a.totalSatang; life.net += net;
+      life.count++;
+      life.cost += a.totalSatang;
+      life.net += net;
       byLife.set(key, life);
     }
     const lifeOrder: LifeBucket[] = ['expired', 'within1', 'within3', 'over3', 'unknown'];
     return {
       category: [...byCategory.entries()].sort((x, y) => y[1].cost - x[1].cost),
-      life: lifeOrder.filter(k => byLife.has(k)).map(k => [k, byLife.get(k)!] as const)
+      life: lifeOrder.filter(k => byLife.has(k)).map(k => [k, byLife.get(k)!] as const),
     };
   }, [filtered, asOfDate]);
 
@@ -144,9 +160,7 @@ export default function ReportsView({
           </div>
           <div className="min-w-0 flex-1">
             <span className="text-xs text-slate-500 font-medium block">ราคาทุนรวมทั้งสิ้น</span>
-            <strong className="text-xl font-bold text-slate-900 block leading-tight">
-              {money(stats.totalCost)} ฿
-            </strong>
+            <strong className="text-xl font-bold text-slate-900 block leading-tight">{money(stats.totalCost)} ฿</strong>
             <span className="text-[11px] font-bold text-blue-600 block mt-0.5">
               ครุภัณฑ์ทั้งหมด {stats.count.toLocaleString('th-TH')} รายการ
             </span>
@@ -163,9 +177,7 @@ export default function ReportsView({
             <strong className="text-xl font-bold text-rose-600 block leading-tight">
               {money(stats.totalAccDep)} ฿
             </strong>
-            <span className="text-[11px] text-rose-700 block mt-0.5">
-              คิดเป็น {stats.accDepPercent}% ของมูลค่าทุน
-            </span>
+            <span className="text-[11px] text-rose-700 block mt-0.5">คิดเป็น {stats.accDepPercent}% ของมูลค่าทุน</span>
           </div>
         </div>
 
@@ -179,9 +191,7 @@ export default function ReportsView({
             <strong className="text-xl font-bold text-emerald-600 block leading-tight">
               {money(stats.totalNetBook)} ฿
             </strong>
-            <span className="text-[11px] text-emerald-700 block mt-0.5">
-              มูลค่าสินทรัพย์คงเหลือจริง
-            </span>
+            <span className="text-[11px] text-emerald-700 block mt-0.5">มูลค่าสินทรัพย์คงเหลือจริง</span>
           </div>
         </div>
 
@@ -195,9 +205,7 @@ export default function ReportsView({
             <strong className="text-xl font-bold text-amber-600 block leading-tight">
               {stats.fullyDepreciatedCount.toLocaleString('th-TH')} รายการ
             </strong>
-            <span className="text-[11px] text-amber-700 block mt-0.5">
-              มูลค่าสุทธิเท่ามูลค่าซากแล้ว
-            </span>
+            <span className="text-[11px] text-amber-700 block mt-0.5">มูลค่าสุทธิเท่ามูลค่าซากแล้ว</span>
           </div>
         </div>
       </div>
@@ -216,7 +224,8 @@ export default function ReportsView({
             >
               {[0, 1, 2, 3, 4].map(n => (
                 <option key={n} value={String(currentFiscalYear - n)}>
-                  {currentFiscalYear - n}{n === 0 ? ' (ปัจจุบัน)' : ''}
+                  {currentFiscalYear - n}
+                  {n === 0 ? ' (ปัจจุบัน)' : ''}
                 </option>
               ))}
             </select>
@@ -315,7 +324,9 @@ export default function ReportsView({
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-100">
               <h2 className="text-sm font-bold text-slate-900">สรุปตามอายุการใช้งานคงเหลือ</h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">ณ สิ้นปีงบประมาณที่เลือก · รายการที่ไม่ระบุวันรับหรืออายุใช้งานนับมูลค่าสุทธิเท่าราคาทุน</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                ณ สิ้นปีงบประมาณที่เลือก · รายการที่ไม่ระบุวันรับหรืออายุใช้งานนับมูลค่าสุทธิเท่าราคาทุน
+              </p>
             </div>
             <Table>
               <TableHeader>
@@ -329,7 +340,15 @@ export default function ReportsView({
               <TableBody>
                 {summaries.life.map(([key, r]) => (
                   <TableRow key={key} className="text-xs">
-                    <TableCell className={key === 'expired' ? 'font-medium text-rose-700' : key === 'unknown' ? 'font-medium text-amber-700' : 'font-medium text-slate-800'}>
+                    <TableCell
+                      className={
+                        key === 'expired'
+                          ? 'font-medium text-rose-700'
+                          : key === 'unknown'
+                            ? 'font-medium text-amber-700'
+                            : 'font-medium text-slate-800'
+                      }
+                    >
                       {lifeBucketLabels[key]}
                     </TableCell>
                     <TableCell className="text-right">{r.count.toLocaleString('th-TH')}</TableCell>
@@ -347,16 +366,12 @@ export default function ReportsView({
       <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-900">
-              ตารางคำนวณค่าเสื่อมราคาครุภัณฑ์
-            </h2>
+            <h2 className="text-base font-bold text-slate-900">ตารางคำนวณค่าเสื่อมราคาครุภัณฑ์</h2>
             <p className="text-xs text-slate-500 mt-0.5">
               แสดงรายการครุภัณฑ์พร้อมมูลค่าทุน ค่าเสื่อมราคาสะสม และมูลค่าสุทธิตามบัญชี
             </p>
           </div>
-          <span className="text-xs text-slate-500 font-medium">
-            รวม {filtered.length} รายการ
-          </span>
+          <span className="text-xs text-slate-500 font-medium">รวม {filtered.length} รายการ</span>
         </div>
 
         {filtered.length ? (
@@ -429,7 +444,8 @@ export default function ReportsView({
             </div>
             <div className="p-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
               <span>
-                แสดงรายการที่ {page * 40 + 1} - {Math.min((page + 1) * 40, filtered.length)} จากทั้งหมด {filtered.length} รายการ
+                แสดงรายการที่ {page * 40 + 1} - {Math.min((page + 1) * 40, filtered.length)} จากทั้งหมด{' '}
+                {filtered.length} รายการ
               </span>
               <Pager page={page} total={filtered.length} onChange={setPage} />
             </div>

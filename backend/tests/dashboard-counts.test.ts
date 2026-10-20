@@ -7,10 +7,13 @@ const a = (condition: string, lifecycle: string) => ({ condition, lifecycle });
 
 test('นับเฉพาะรายการที่ยังใช้งาน: ชำรุด 2 · กำลังซ่อม 1 · จำหน่ายแล้ว 2', () => {
   const assets = [
-    a('damaged', 'active'), a('damaged', 'active'), // ชำรุดที่ยังใช้งาน 2
-    a('repair', 'active'),                          // กำลังซ่อม 1
-    a('normal', 'active'), a('missing', 'active'),  // ไม่นับ
-    a('damaged', 'disposed'), a('normal', 'disposed') // จำหน่ายแล้ว 2 (ไม่นับเป็นชำรุดซ้ำ)
+    a('damaged', 'active'),
+    a('damaged', 'active'), // ชำรุดที่ยังใช้งาน 2
+    a('repair', 'active'), // กำลังซ่อม 1
+    a('normal', 'active'),
+    a('missing', 'active'), // ไม่นับ
+    a('damaged', 'disposed'),
+    a('normal', 'disposed'), // จำหน่ายแล้ว 2 (ไม่นับเป็นชำรุดซ้ำ)
   ];
   assert.deepEqual(conditionSummary(assets), { damaged: 2, repair: 1, disposed: 2 });
 });

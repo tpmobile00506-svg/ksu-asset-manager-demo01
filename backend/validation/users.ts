@@ -24,11 +24,14 @@ export const userMutationSchema = z.object({
     .max(100)
     .nullable()
     .optional()
-    .refine(val => {
-      if (!val) return true;
-      const normalized = normalizeBranch(val, '', '');
-      return standardBranches.includes(normalized as any);
-    }, { message: 'สาขาไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน' })
+    .refine(
+      val => {
+        if (!val) return true;
+        const normalized = normalizeBranch(val, '', '');
+        return standardBranches.includes(normalized as any);
+      },
+      { message: 'สาขาไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน' },
+    )
     .transform(val => {
       if (val === undefined) return undefined;
       if (!val) return null;

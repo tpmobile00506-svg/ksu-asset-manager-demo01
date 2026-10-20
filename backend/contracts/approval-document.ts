@@ -11,16 +11,30 @@ export type ApprovalDocumentInput = {
   requesterName?: string;
   payload: Record<string, unknown>;
   chain: string[];
-  asset: { code: string; name: string; quantity: number; totalSatang: number; location: string; branch: string; custodian: string } | null;
+  asset: {
+    code: string;
+    name: string;
+    quantity: number;
+    totalSatang: number;
+    location: string;
+    branch: string;
+    custodian: string;
+  } | null;
   approvals: Array<{ stage: number; actorName: string; decision: string; note: string; createdAt: string }>;
 };
 
 const esc = (value: unknown) =>
-  String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 
 const thaiDate = (iso: string) => {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+  return Number.isNaN(d.getTime())
+    ? '—'
+    : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
 type Place = { location: string; branch: string; custodian: string };
@@ -32,50 +46,74 @@ export function transferOrigin(input: Pick<ApprovalDocumentInput, 'payload' | 's
     const f = from as Partial<Record<keyof Place, unknown>>;
     return { location: String(f.location ?? ''), branch: String(f.branch ?? ''), custodian: String(f.custodian ?? '') };
   }
-  if (input.status !== 'approved' && input.asset) return { location: input.asset.location, branch: input.asset.branch, custodian: input.asset.custodian };
+  if (input.status !== 'approved' && input.asset)
+    return { location: input.asset.location, branch: input.asset.branch, custodian: input.asset.custodian };
   return null;
 }
 
-const kindLabel = (kind: string) => requestTypes[(kind === 'dispose' ? 'disposal' : kind) as keyof typeof requestTypes] ?? kind;
+const kindLabel = (kind: string) =>
+  requestTypes[(kind === 'dispose' ? 'disposal' : kind) as keyof typeof requestTypes] ?? kind;
 const roleLabel = (role: string) => roles[role as Role] ?? role;
 
 export function buildApprovalDocumentHtml(input: ApprovalDocumentInput): string {
   const kind = kindLabel(input.kind);
   const a = input.asset;
   const detailRows: string[] = [];
-  const isTransfer = input.kind === 'transfer', origin = isTransfer ? transferOrigin(input) : null;
+  const isTransfer = input.kind === 'transfer',
+    origin = isTransfer ? transferOrigin(input) : null;
   if (isTransfer) {
-    detailRows.push(`<tr><th>ย้ายจาก (ต้นทาง)</th><td>${origin ? `${esc(origin.location)} (${esc(origin.branch)})` : 'ไม่มีข้อมูลต้นทาง (คำขอที่ยื่นก่อนระบบบันทึกต้นทาง)'}</td></tr>`);
-    detailRows.push(`<tr><th>ย้ายไป (ปลายทาง)</th><td>${esc(input.payload.location)} (${esc(input.payload.branch)})</td></tr>`);
-    if (input.payload.custodian) detailRows.push(`<tr><th>ผู้รับผิดชอบ</th><td>${esc(origin?.custodian) || '—'} → ${esc(input.payload.custodian)}</td></tr>`);
+    detailRows.push(
+      `<tr><th>ย้ายจาก (ต้นทาง)</th><td>${origin ? `${esc(origin.location)} (${esc(origin.branch)})` : 'ไม่มีข้อมูลต้นทาง (คำขอที่ยื่นก่อนระบบบันทึกต้นทาง)'}</td></tr>`,
+    );
+    detailRows.push(
+      `<tr><th>ย้ายไป (ปลายทาง)</th><td>${esc(input.payload.location)} (${esc(input.payload.branch)})</td></tr>`,
+    );
+    if (input.payload.custodian)
+      detailRows.push(
+        `<tr><th>ผู้รับผิดชอบ</th><td>${esc(origin?.custodian) || '—'} → ${esc(input.payload.custodian)}</td></tr>`,
+      );
     else detailRows.push(`<tr><th>ผู้รับผิดชอบ</th><td>${esc(origin?.custodian) || '—'} (ไม่เปลี่ยน)</td></tr>`);
   }
   if (Number(input.payload.splitQuantity) > 0) {
-    detailRows.push(`<tr><th>จำนวนที่ขอดำเนินการ</th><td>${esc(input.payload.splitQuantity)} ชิ้น (แบ่งล็อตเมื่ออนุมัติขั้นสุดท้าย)</td></tr>`);
+    detailRows.push(
+      `<tr><th>จำนวนที่ขอดำเนินการ</th><td>${esc(input.payload.splitQuantity)} ชิ้น (แบ่งล็อตเมื่ออนุมัติขั้นสุดท้าย)</td></tr>`,
+    );
   }
   if (input.kind === 'repair' && Number(input.payload.estimateSatang) > 0) {
     detailRows.push(`<tr><th>ประมาณการค่าซ่อม</th><td>${money(Number(input.payload.estimateSatang))} บาท</td></tr>`);
   }
 
-  const stages = input.chain.map((role, stage) => {
-    const done = input.approvals.find(x => x.stage === stage);
-    // ไม่อนุมัติ = คำขอสิ้นสุดทันที (ไม่ได้ส่งกลับไปแก้) ขั้นที่เหลือจึงไม่ต้องดำเนินการ
-    const result = done ? (done.decision === 'approve' ? 'อนุมัติ' : 'ไม่อนุมัติ') : input.status === 'rejected' ? '—' : 'รอดำเนินการ';
-    return `<tr>
+  const stages = input.chain
+    .map((role, stage) => {
+      const done = input.approvals.find(x => x.stage === stage);
+      // ไม่อนุมัติ = คำขอสิ้นสุดทันที (ไม่ได้ส่งกลับไปแก้) ขั้นที่เหลือจึงไม่ต้องดำเนินการ
+      const result = done
+        ? done.decision === 'approve'
+          ? 'อนุมัติ'
+          : 'ไม่อนุมัติ'
+        : input.status === 'rejected'
+          ? '—'
+          : 'รอดำเนินการ';
+      return `<tr>
       <td>${stage + 1}. ${esc(roleLabel(role))}</td>
       <td>${esc(done?.actorName || '')}</td>
       <td>${result}</td>
       <td>${esc(done?.note || '')}</td>
       <td>${done ? thaiDate(done.createdAt) : ''}</td>
     </tr>`;
-  }).join('');
+    })
+    .join('');
 
-  const signatures = input.chain.map(role => `<div class="sign">
+  const signatures = input.chain
+    .map(
+      role => `<div class="sign">
       <div class="line">ลงชื่อ ..........................................</div>
       <div>(${'.'.repeat(34)})</div>
       <div>${esc(roleLabel(role))}</div>
       <div>วันที่ ......../......../........</div>
-    </div>`).join('');
+    </div>`,
+    )
+    .join('');
 
   return `<!doctype html>
 <html lang="th"><head><meta charset="utf-8"><title>เอกสารอนุมัติ ${esc(input.requestCode)}</title>
@@ -100,8 +138,12 @@ export function buildApprovalDocumentHtml(input: ApprovalDocumentInput): string 
     <tr><th>หมายเลขครุภัณฑ์</th><td>${esc(a?.code)}</td></tr>
     <tr><th>รายการ</th><td>${esc(a?.name)}</td></tr>
     <tr><th>จำนวน / มูลค่ารวม</th><td>${a ? `${a.quantity} ชิ้น · ${money(a.totalSatang)} บาท` : '—'}</td></tr>
-    ${isTransfer ? '' : `<tr><th>สังกัด / สถานที่ตั้ง</th><td>${esc(a?.branch)} · ${esc(a?.location)}</td></tr>
-    <tr><th>ผู้รับผิดชอบ</th><td>${esc(a?.custodian) || '—'}</td></tr>`}
+    ${
+      isTransfer
+        ? ''
+        : `<tr><th>สังกัด / สถานที่ตั้ง</th><td>${esc(a?.branch)} · ${esc(a?.location)}</td></tr>
+    <tr><th>ผู้รับผิดชอบ</th><td>${esc(a?.custodian) || '—'}</td></tr>`
+    }
     <tr><th>ประเภทคำขอ</th><td>${esc(kind)}</td></tr>
     <tr><th>เหตุผล</th><td>${esc(input.reason)}</td></tr>
     ${detailRows.join('\n    ')}

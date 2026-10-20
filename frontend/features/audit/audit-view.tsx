@@ -22,7 +22,7 @@ import {
   X,
   Clock,
   Eye,
-  UserCheck
+  UserCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,7 +54,7 @@ const fieldLabels: Record<string, string> = {
   groupName: 'หมวด/โครงการ',
   status: 'สถานะคำขอ',
   role: 'สิทธิ์การใช้งาน (Role)',
-  active: 'สถานะบัญชี'
+  active: 'สถานะบัญชี',
 };
 
 const stocktakeResultMeta: Record<string, { label: string; style: string }> = {
@@ -62,17 +62,14 @@ const stocktakeResultMeta: Record<string, { label: string; style: string }> = {
   damaged: { label: 'ชำรุด / ส่งซ่อม', style: 'bg-amber-100 text-amber-800 border-amber-300' },
   missing: { label: 'ไม่พบครุภัณฑ์', style: 'bg-rose-100 text-rose-800 border-rose-300' },
   mismatch: { label: 'ข้อมูลไม่ตรง', style: 'bg-purple-100 text-purple-800 border-purple-300' },
-  pending: { label: 'รอตรวจนับ', style: 'bg-slate-100 text-slate-700 border-slate-300' }
+  pending: { label: 'รอตรวจนับ', style: 'bg-slate-100 text-slate-700 border-slate-300' },
 };
 
 function formatThaiDateTime(isoStr: string): string {
   try {
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return isoStr;
-    const months = [
-      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
-    ];
+    const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
     const day = d.getDate();
     const month = months[d.getMonth()];
     const year = (d.getFullYear() + 543) % 100;
@@ -113,7 +110,7 @@ function getActionMeta(action: string) {
       border: 'border-sky-200',
       badgeBg: 'bg-sky-100/90 text-sky-800 border-sky-300',
       icon: QrCode,
-      kind: 'stocktake' as TabKey
+      kind: 'stocktake' as TabKey,
     };
   }
   if (a.includes('ปิดรอบตรวจนับ')) {
@@ -124,7 +121,7 @@ function getActionMeta(action: string) {
       border: 'border-slate-300',
       badgeBg: 'bg-slate-200/90 text-slate-800 border-slate-300',
       icon: CheckCircle2,
-      kind: 'stocktake' as TabKey
+      kind: 'stocktake' as TabKey,
     };
   }
   if (a.includes('บันทึกตรวจนับ')) {
@@ -135,7 +132,7 @@ function getActionMeta(action: string) {
       border: 'border-sky-200',
       badgeBg: 'bg-sky-100/90 text-sky-800 border-sky-300',
       icon: QrCode,
-      kind: 'stocktake' as TabKey
+      kind: 'stocktake' as TabKey,
     };
   }
   if (a.includes('check') || a.includes('ตรวจนับ') || a.includes('round')) {
@@ -146,7 +143,7 @@ function getActionMeta(action: string) {
       border: 'border-sky-200',
       badgeBg: 'bg-sky-100/80 text-sky-800 border-sky-200',
       icon: QrCode,
-      kind: 'stocktake' as TabKey
+      kind: 'stocktake' as TabKey,
     };
   }
   if (a.includes('อนุมัติ')) {
@@ -157,7 +154,7 @@ function getActionMeta(action: string) {
       border: 'border-emerald-200',
       badgeBg: 'bg-emerald-100/90 text-emerald-800 border-emerald-300',
       icon: CheckCircle2,
-      kind: 'transfer' as TabKey
+      kind: 'transfer' as TabKey,
     };
   }
   if (a.includes('ส่งคำขอกลับ') || a.includes('ปฏิเสธ')) {
@@ -168,19 +165,23 @@ function getActionMeta(action: string) {
       border: 'border-rose-200',
       badgeBg: 'bg-rose-100/90 text-rose-800 border-rose-300',
       icon: AlertTriangle,
-      kind: 'transfer' as TabKey
+      kind: 'transfer' as TabKey,
     };
   }
   // แบ่งล็อต (รวมกรณี "แบ่งล็อตเพื่อส่งคำขอ") ต้องตรวจก่อนกลุ่ม "ส่งคำขอ" ไม่เช่นนั้นจะถูกแสดงเป็นคำขอโอนย้าย
   if (a.includes('แบ่งล็อต')) {
     return {
-      label: a.includes('อนุมัติคำขอ') ? 'แบ่งล็อตเมื่ออนุมัติคำขอ' : a.includes('ส่งคำขอ') ? 'แบ่งล็อตเพื่อส่งคำขอ' : 'ตัดแบ่งจำนวน (แยกล็อต)',
+      label: a.includes('อนุมัติคำขอ')
+        ? 'แบ่งล็อตเมื่ออนุมัติคำขอ'
+        : a.includes('ส่งคำขอ')
+          ? 'แบ่งล็อตเพื่อส่งคำขอ'
+          : 'ตัดแบ่งจำนวน (แยกล็อต)',
       color: 'text-indigo-700',
       bg: 'bg-indigo-50',
       border: 'border-indigo-200',
       badgeBg: 'bg-indigo-100/80 text-indigo-800 border-indigo-200',
       icon: ArrowLeftRight,
-      kind: 'edit' as TabKey
+      kind: 'edit' as TabKey,
     };
   }
   if (a.includes('ส่งคำขอ') || a.includes('ดำเนินการ')) {
@@ -192,7 +193,7 @@ function getActionMeta(action: string) {
         border: 'border-orange-200',
         badgeBg: 'bg-orange-100/90 text-orange-800 border-orange-300',
         icon: Wrench,
-        kind: 'repair' as TabKey
+        kind: 'repair' as TabKey,
       };
     }
     if (a.includes('จำหน่าย')) {
@@ -203,7 +204,7 @@ function getActionMeta(action: string) {
         border: 'border-rose-200',
         badgeBg: 'bg-rose-100/90 text-rose-800 border-rose-300',
         icon: Trash2,
-        kind: 'dispose' as TabKey
+        kind: 'dispose' as TabKey,
       };
     }
     return {
@@ -213,7 +214,7 @@ function getActionMeta(action: string) {
       border: 'border-purple-200',
       badgeBg: 'bg-purple-100/90 text-purple-800 border-purple-300',
       icon: ArrowLeftRight,
-      kind: 'transfer' as TabKey
+      kind: 'transfer' as TabKey,
     };
   }
   if (a.includes('ซ่อมเสร็จ')) {
@@ -224,7 +225,7 @@ function getActionMeta(action: string) {
       border: 'border-emerald-200',
       badgeBg: 'bg-emerald-100/90 text-emerald-800 border-emerald-300',
       icon: CheckCircle2,
-      kind: 'repair' as TabKey
+      kind: 'repair' as TabKey,
     };
   }
   if (a.includes('repair') || a.includes('ซ่อม')) {
@@ -235,7 +236,7 @@ function getActionMeta(action: string) {
       border: 'border-orange-200',
       badgeBg: 'bg-orange-100/80 text-orange-800 border-orange-200',
       icon: Wrench,
-      kind: 'repair' as TabKey
+      kind: 'repair' as TabKey,
     };
   }
   if (a.includes('transfer') || a.includes('โอนย้าย')) {
@@ -246,7 +247,7 @@ function getActionMeta(action: string) {
       border: 'border-purple-200',
       badgeBg: 'bg-purple-100/80 text-purple-800 border-purple-200',
       icon: ArrowLeftRight,
-      kind: 'transfer' as TabKey
+      kind: 'transfer' as TabKey,
     };
   }
   if (a.includes('dispose') || a.includes('จำหน่าย')) {
@@ -257,7 +258,7 @@ function getActionMeta(action: string) {
       border: 'border-rose-200',
       badgeBg: 'bg-rose-100/80 text-rose-800 border-rose-200',
       icon: Trash2,
-      kind: 'dispose' as TabKey
+      kind: 'dispose' as TabKey,
     };
   }
   if (a.includes('import') || a.includes('นำเข้า') || a.includes('excel')) {
@@ -268,7 +269,7 @@ function getActionMeta(action: string) {
       border: 'border-blue-200',
       badgeBg: 'bg-blue-100/80 text-blue-800 border-blue-200',
       icon: Upload,
-      kind: 'import' as TabKey
+      kind: 'import' as TabKey,
     };
   }
   if (a.includes('user') || a.includes('ผู้ใช้') || a.includes('สิทธิ์') || a.includes('สายอนุมัติ')) {
@@ -279,7 +280,7 @@ function getActionMeta(action: string) {
       border: 'border-teal-200',
       badgeBg: 'bg-teal-100/80 text-teal-800 border-teal-200',
       icon: ShieldCheck,
-      kind: 'user' as TabKey
+      kind: 'user' as TabKey,
     };
   }
   if (a.includes('รูป')) {
@@ -290,7 +291,7 @@ function getActionMeta(action: string) {
       border: 'border-blue-200',
       badgeBg: 'bg-blue-100/80 text-blue-800 border-blue-200',
       icon: Eye,
-      kind: 'edit' as TabKey
+      kind: 'edit' as TabKey,
     };
   }
   // Default to edit
@@ -301,7 +302,7 @@ function getActionMeta(action: string) {
     border: 'border-amber-200',
     badgeBg: 'bg-amber-100/80 text-amber-800 border-amber-200',
     icon: Pencil,
-    kind: 'edit' as TabKey
+    kind: 'edit' as TabKey,
   };
 }
 
@@ -341,7 +342,7 @@ const technicalKeys = new Set([
   'count',
   'snapshot',
   'from',
-  'seq'
+  'seq',
 ]);
 
 function formatValue(key: string, val: unknown): string {
@@ -390,7 +391,7 @@ function parseJsonSafe(str: string | null | undefined): Record<string, unknown> 
 function VisualDiffViewer({
   beforeStr,
   afterStr,
-  action = ''
+  action = '',
 }: {
   beforeStr: string;
   afterStr: string;
@@ -408,7 +409,8 @@ function VisualDiffViewer({
       <div className="bg-sky-50/80 border border-sky-200/90 rounded-lg p-2.5 text-xs flex items-center gap-2 text-sky-900">
         <QrCode size={15} className="text-sky-600 shrink-0" />
         <span>
-          เปิดรอบการตรวจนับครุภัณฑ์: <strong className="text-sky-950 font-bold">{roundName}</strong>{yearStr}
+          เปิดรอบการตรวจนับครุภัณฑ์: <strong className="text-sky-950 font-bold">{roundName}</strong>
+          {yearStr}
         </span>
       </div>
     );
@@ -429,15 +431,13 @@ function VisualDiffViewer({
     const rawResult = String(afterObj.result || 'normal');
     const resMeta = stocktakeResultMeta[rawResult] || {
       label: rawResult,
-      style: 'bg-slate-100 text-slate-700 border-slate-300'
+      style: 'bg-slate-100 text-slate-700 border-slate-300',
     };
     const qty = afterObj.quantity !== undefined && afterObj.quantity !== null ? Number(afterObj.quantity) : 1;
     return (
       <div className="bg-sky-50/70 border border-sky-200/80 rounded-lg p-2.5 text-xs flex flex-wrap items-center gap-2.5">
         <span className="text-slate-600 font-medium">ผลการตรวจนับ:</span>
-        <span className={`px-2 py-0.5 rounded-md font-bold text-xs border ${resMeta.style}`}>
-          {resMeta.label}
-        </span>
+        <span className={`px-2 py-0.5 rounded-md font-bold text-xs border ${resMeta.style}`}>{resMeta.label}</span>
         <span className="text-slate-300">·</span>
         <span className="text-slate-600">
           จำนวนที่พบจริง: <strong className="text-slate-900 font-bold">{qty.toLocaleString('th-TH')} ชิ้น</strong>
@@ -481,8 +481,8 @@ function VisualDiffViewer({
           {act.includes('อนุมัติคำขอ')
             ? 'แบ่งล็อตเมื่ออนุมัติขั้นสุดท้าย เพื่อแยกจำนวนที่ระบุในคำขอออกจากรายการเดิม'
             : act.includes('ส่งคำขอ')
-            ? 'แบ่งล็อตเพื่อแยกจำนวนที่ยื่นคำขอออกจากรายการเดิม (ทำก่อนการอนุมัติ)'
-            : 'ตัดแบ่งจำนวนเพื่อแยกล็อตในทะเบียนครุภัณฑ์เรียบร้อยแล้ว'}
+              ? 'แบ่งล็อตเพื่อแยกจำนวนที่ยื่นคำขอออกจากรายการเดิม (ทำก่อนการอนุมัติ)'
+              : 'ตัดแบ่งจำนวนเพื่อแยกล็อตในทะเบียนครุภัณฑ์เรียบร้อยแล้ว'}
         </span>
       </div>
     );
@@ -490,9 +490,12 @@ function VisualDiffViewer({
 
   // 6. กรณียื่นส่งคำขอ (โอนย้าย / ส่งซ่อม / จำหน่าย)
   if (act.includes('ส่งคำขอ')) {
-    const reqPayload = typeof afterObj.payload === 'string'
-      ? parseJsonSafe(afterObj.payload)
-      : (afterObj.payload && typeof afterObj.payload === 'object' ? afterObj.payload as Record<string, unknown> : {});
+    const reqPayload =
+      typeof afterObj.payload === 'string'
+        ? parseJsonSafe(afterObj.payload)
+        : afterObj.payload && typeof afterObj.payload === 'object'
+          ? (afterObj.payload as Record<string, unknown>)
+          : {};
 
     if (act.includes('ซ่อม')) {
       // คีย์ที่ backend บันทึกคือ estimateSatang (ดู asset-mutations.ts) ไม่ใช่ estimatedCostSatang
@@ -502,9 +505,15 @@ function VisualDiffViewer({
           <div className="flex flex-wrap items-center gap-2 text-orange-950">
             <Wrench size={14} className="text-orange-600 shrink-0" />
             <span className="font-semibold">ยื่นคำขอส่งซ่อมแซม:</span>
-            {reqPayload.symptom ? <span>อาการ: <strong>{String(reqPayload.symptom)}</strong></span> : null}
+            {reqPayload.symptom ? (
+              <span>
+                อาการ: <strong>{String(reqPayload.symptom)}</strong>
+              </span>
+            ) : null}
             {estimate > 0 ? (
-              <span>· ประมาณการค่าใช้จ่าย: <strong>฿{money(estimate)}</strong></span>
+              <span>
+                · ประมาณการค่าใช้จ่าย: <strong>฿{money(estimate)}</strong>
+              </span>
             ) : null}
           </div>
         </div>
@@ -517,8 +526,16 @@ function VisualDiffViewer({
           <div className="flex flex-wrap items-center gap-2 text-rose-950">
             <Trash2 size={14} className="text-rose-600 shrink-0" />
             <span className="font-semibold">ยื่นคำขอจำหน่ายครุภัณฑ์ออกจากบัญชี:</span>
-            {reqPayload.method ? <span>วิธีจำหน่าย: <strong>{String(reqPayload.method)}</strong></span> : null}
-            {reqPayload.quantity ? <span>· จำนวน: <strong>{Number(reqPayload.quantity)} ชิ้น</strong></span> : null}
+            {reqPayload.method ? (
+              <span>
+                วิธีจำหน่าย: <strong>{String(reqPayload.method)}</strong>
+              </span>
+            ) : null}
+            {reqPayload.quantity ? (
+              <span>
+                · จำนวน: <strong>{Number(reqPayload.quantity)} ชิ้น</strong>
+              </span>
+            ) : null}
           </div>
         </div>
       );
@@ -531,10 +548,26 @@ function VisualDiffViewer({
           <ArrowLeftRight size={14} className="text-purple-600 shrink-0" />
           <span className="font-semibold">ยื่นคำขอโอนย้ายสถานที่ / ผู้ถือครอง:</span>
           {/* คีย์ที่ backend บันทึกคือ branch / location (targetBranch / targetLocation เป็นชื่อเก่า) */}
-          {(reqPayload.branch ?? reqPayload.targetBranch) ? <span>สาขาวิชาใหม่: <strong>{String(reqPayload.branch ?? reqPayload.targetBranch)}</strong></span> : null}
-          {(reqPayload.location ?? reqPayload.targetLocation) ? <span>สถานที่ใหม่: <strong>{String(reqPayload.location ?? reqPayload.targetLocation)}</strong></span> : null}
-          {(reqPayload.custodian ?? reqPayload.targetCustodian) ? <span>ผู้รับผิดชอบใหม่: <strong>{String(reqPayload.custodian ?? reqPayload.targetCustodian)}</strong></span> : null}
-          {reqPayload.quantity ? <span>· จำนวน: <strong>{Number(reqPayload.quantity)} ชิ้น</strong></span> : null}
+          {(reqPayload.branch ?? reqPayload.targetBranch) ? (
+            <span>
+              สาขาวิชาใหม่: <strong>{String(reqPayload.branch ?? reqPayload.targetBranch)}</strong>
+            </span>
+          ) : null}
+          {(reqPayload.location ?? reqPayload.targetLocation) ? (
+            <span>
+              สถานที่ใหม่: <strong>{String(reqPayload.location ?? reqPayload.targetLocation)}</strong>
+            </span>
+          ) : null}
+          {(reqPayload.custodian ?? reqPayload.targetCustodian) ? (
+            <span>
+              ผู้รับผิดชอบใหม่: <strong>{String(reqPayload.custodian ?? reqPayload.targetCustodian)}</strong>
+            </span>
+          ) : null}
+          {reqPayload.quantity ? (
+            <span>
+              · จำนวน: <strong>{Number(reqPayload.quantity)} ชิ้น</strong>
+            </span>
+          ) : null}
         </div>
       </div>
     );
@@ -554,9 +587,21 @@ function VisualDiffViewer({
       <div className="bg-purple-50/90 border border-purple-200 rounded-lg p-2.5 text-xs flex flex-wrap items-center gap-2 text-purple-900">
         <CheckCircle2 size={15} className="text-purple-600 shrink-0" />
         <span className="font-semibold">ดำเนินการโอนย้ายสำเร็จ:</span>
-        {(afterObj.branch ?? afterObj.targetBranch) ? <span>สังกัดใหม่: <strong>{String(afterObj.branch ?? afterObj.targetBranch)}</strong></span> : null}
-        {(afterObj.location ?? afterObj.targetLocation) ? <span>สถานที่ใหม่: <strong>{String(afterObj.location ?? afterObj.targetLocation)}</strong></span> : null}
-        {(afterObj.custodian ?? afterObj.targetCustodian) ? <span>ผู้รับผิดชอบใหม่: <strong>{String(afterObj.custodian ?? afterObj.targetCustodian)}</strong></span> : null}
+        {(afterObj.branch ?? afterObj.targetBranch) ? (
+          <span>
+            สังกัดใหม่: <strong>{String(afterObj.branch ?? afterObj.targetBranch)}</strong>
+          </span>
+        ) : null}
+        {(afterObj.location ?? afterObj.targetLocation) ? (
+          <span>
+            สถานที่ใหม่: <strong>{String(afterObj.location ?? afterObj.targetLocation)}</strong>
+          </span>
+        ) : null}
+        {(afterObj.custodian ?? afterObj.targetCustodian) ? (
+          <span>
+            ผู้รับผิดชอบใหม่: <strong>{String(afterObj.custodian ?? afterObj.targetCustodian)}</strong>
+          </span>
+        ) : null}
       </div>
     );
   }
@@ -566,8 +611,14 @@ function VisualDiffViewer({
     return (
       <div className="bg-emerald-50/90 border border-emerald-200 rounded-lg p-2.5 text-xs flex flex-wrap items-center gap-2 text-emerald-900">
         <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-        <span>ซ่อมบำรุงเสร็จสิ้น ปรับสภาพเป็น: <strong>ปกติ (พร้อมใช้งาน)</strong></span>
-        {afterObj.costSatang ? <span>· ค่าใช้จ่ายจริง: <strong>฿{money(Number(afterObj.costSatang))} บาท</strong></span> : null}
+        <span>
+          ซ่อมบำรุงเสร็จสิ้น ปรับสภาพเป็น: <strong>ปกติ (พร้อมใช้งาน)</strong>
+        </span>
+        {afterObj.costSatang ? (
+          <span>
+            · ค่าใช้จ่ายจริง: <strong>฿{money(Number(afterObj.costSatang))} บาท</strong>
+          </span>
+        ) : null}
       </div>
     );
   }
@@ -578,9 +629,7 @@ function VisualDiffViewer({
       <div className="bg-blue-50/90 border border-blue-200 rounded-lg p-2.5 text-xs flex items-center gap-2 text-blue-900">
         <Eye size={15} className="text-blue-600 shrink-0" />
         <span>
-          {act.includes('ลบ')
-            ? 'ลบภาพถ่ายครุภัณฑ์ออกจากระบบเรียบร้อยแล้ว'
-            : 'อัปเดตภาพถ่ายครุภัณฑ์ในระบบเรียบร้อยแล้ว'}
+          {act.includes('ลบ') ? 'ลบภาพถ่ายครุภัณฑ์ออกจากระบบเรียบร้อยแล้ว' : 'อัปเดตภาพถ่ายครุภัณฑ์ในระบบเรียบร้อยแล้ว'}
         </span>
       </div>
     );
@@ -593,16 +642,30 @@ function VisualDiffViewer({
       staff: 'เจ้าหน้าที่พัสดุ (Staff)',
       approver: 'ผู้อนุมัติ (Approver)',
       viewer: 'ผู้เรียกดูข้อมูล (Viewer)',
-      central: 'เจ้าหน้าที่ส่วนกลาง'
+      central: 'เจ้าหน้าที่ส่วนกลาง',
     };
     return (
       <div className="bg-teal-50/90 border border-teal-200 rounded-lg p-2.5 text-xs flex flex-wrap items-center gap-3 text-teal-900">
         <UserCheck size={15} className="text-teal-600 shrink-0" />
-        {afterObj.name ? <span>ชื่อ: <strong>{String(afterObj.name)}</strong></span> : null}
-        {afterObj.email ? <span>อีเมล: <strong>{String(afterObj.email)}</strong></span> : null}
-        {afterObj.role ? <span>สิทธิ์: <strong>{roleMap[String(afterObj.role)] || String(afterObj.role)}</strong></span> : null}
+        {afterObj.name ? (
+          <span>
+            ชื่อ: <strong>{String(afterObj.name)}</strong>
+          </span>
+        ) : null}
+        {afterObj.email ? (
+          <span>
+            อีเมล: <strong>{String(afterObj.email)}</strong>
+          </span>
+        ) : null}
+        {afterObj.role ? (
+          <span>
+            สิทธิ์: <strong>{roleMap[String(afterObj.role)] || String(afterObj.role)}</strong>
+          </span>
+        ) : null}
         {afterObj.active !== undefined ? (
-          <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${afterObj.active ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-rose-100 text-rose-800 border-rose-300'}`}>
+          <span
+            className={`px-2 py-0.5 rounded text-[11px] font-bold border ${afterObj.active ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-rose-100 text-rose-800 border-rose-300'}`}
+          >
             {afterObj.active ? 'เปิดใช้งาน' : 'ระงับการใช้งาน'}
           </span>
         ) : null}
@@ -630,7 +693,8 @@ function VisualDiffViewer({
         <Upload size={14} className="text-blue-600 shrink-0" />
         <span>
           อัปโหลดไฟล์ต้นฉบับ{fileName}
-          {rows !== undefined && rows !== null ? ` (${Number(rows).toLocaleString()} แถว)` : ''} สำเร็จ · ยังไม่ได้นำรายการเข้าทะเบียน
+          {rows !== undefined && rows !== null ? ` (${Number(rows).toLocaleString()} แถว)` : ''} สำเร็จ ·
+          ยังไม่ได้นำรายการเข้าทะเบียน
         </span>
       </div>
     );
@@ -645,18 +709,15 @@ function VisualDiffViewer({
       <div className="bg-emerald-50/90 border border-emerald-200/90 rounded-lg p-2.5 text-xs flex flex-wrap items-center gap-2">
         <span className="font-bold text-emerald-800 flex items-center gap-1.5">
           <CheckCircle2 size={14} className="text-emerald-600" />
-          บันทึกข้อมูลเข้าสู่ระบบสำเร็จ {Number(count).toLocaleString()} รายการ{filename}{totalMoney}
+          บันทึกข้อมูลเข้าสู่ระบบสำเร็จ {Number(count).toLocaleString()} รายการ{filename}
+          {totalMoney}
         </span>
       </div>
     );
   }
 
   if (Object.keys(beforeObj).length === 0 && Object.keys(afterObj).length === 0) {
-    return (
-      <div className="text-[11.5px] text-slate-400 italic">
-        ไม่มีรายละเอียดการเปลี่ยนแปลงที่บันทึกไว้
-      </div>
-    );
+    return <div className="text-[11.5px] text-slate-400 italic">ไม่มีรายละเอียดการเปลี่ยนแปลงที่บันทึกไว้</div>;
   }
 
   // 14. กรณีเพิ่มครุภัณฑ์ใหม่ (Create New Asset)
@@ -676,7 +737,7 @@ function VisualDiffViewer({
       'custodian',
       'groupName',
       'receivedDate',
-      'notes'
+      'notes',
     ];
 
     for (const k of priorityKeys) {
@@ -685,12 +746,13 @@ function VisualDiffViewer({
       if (k === 'lifeYears' && Number(v) === 0) continue;
       if (k === 'notes' && !String(v).trim()) continue;
       if (k === 'groupName' && String(v).trim() === 'ทั่วไป') continue;
-      if (k === 'totalSatang' && (Number(afterObj.quantity) <= 1 || Number(v) === Number(afterObj.unitSatang))) continue;
+      if (k === 'totalSatang' && (Number(afterObj.quantity) <= 1 || Number(v) === Number(afterObj.unitSatang)))
+        continue;
       const formatted = formatValue(k, v);
       if (formatted !== '—') {
         fieldsToDisplay.push({
           label: fieldLabels[k] || k,
-          val: formatted
+          val: formatted,
         });
       }
     }
@@ -704,7 +766,10 @@ function VisualDiffViewer({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {fieldsToDisplay.map((f, i) => (
-              <div key={i} className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200/80 shadow-2xs">
+              <div
+                key={i}
+                className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200/80 shadow-2xs"
+              >
                 <span className="text-slate-500 font-medium text-[11.5px]">{f.label}:</span>
                 <span className="font-bold text-slate-800 text-[11.5px]">{f.val}</span>
               </div>
@@ -739,16 +804,12 @@ function VisualDiffViewer({
       key: k,
       label: fieldLabels[k] || k,
       oldVal: oldFormatted,
-      newVal: newFormatted
+      newVal: newFormatted,
     });
   }
 
   if (diffs.length === 0) {
-    return (
-      <div className="text-[11.5px] text-slate-400 italic">
-        ไม่มีข้อมูลฟิลด์สำคัญที่มีการเปลี่ยนแปลง
-      </div>
-    );
+    return <div className="text-[11.5px] text-slate-400 italic">ไม่มีข้อมูลฟิลด์สำคัญที่มีการเปลี่ยนแปลง</div>;
   }
 
   return (
@@ -774,7 +835,7 @@ function VisualDiffViewer({
 export default function AuditView({
   data,
   select,
-  open
+  open,
 }: {
   data: WorkspaceData;
   select?: (a: Asset) => void;
@@ -787,7 +848,11 @@ export default function AuditView({
 
   // getData ส่งมาแค่ 100 รายการล่าสุด ประวัติเก่ากว่านั้นโหลดเพิ่มทีละ 200 รายการ
   const [older, setOlder] = useState<AuditRecord[]>([]);
-  const [olderState, setOlderState] = useState<{ more: boolean; total: number | null; loading: boolean }>({ more: true, total: null, loading: false });
+  const [olderState, setOlderState] = useState<{ more: boolean; total: number | null; loading: boolean }>({
+    more: true,
+    total: null,
+    loading: false,
+  });
   const events: AuditRecord[] = useMemo(() => {
     const seen = new Set((data.events || []).map(e => e.id));
     return [...(data.events || []), ...older.filter(e => !seen.has(e.id))];
@@ -808,7 +873,9 @@ export default function AuditView({
     const round = olderRound.current;
     setOlderState(s => ({ ...s, loading: true }));
     try {
-      const r = await api<{ events: AuditRecord[]; more: boolean; total: number }>('?view=audit&before=' + encodeURIComponent(oldest) + '&beforeId=' + encodeURIComponent(last.id));
+      const r = await api<{ events: AuditRecord[]; more: boolean; total: number }>(
+        '?view=audit&before=' + encodeURIComponent(oldest) + '&beforeId=' + encodeURIComponent(last.id),
+      );
       if (round !== olderRound.current) return;
       setOlder(prev => [...prev, ...r.events]);
       setOlderState({ more: r.more, total: r.total, loading: false });
@@ -828,7 +895,13 @@ export default function AuditView({
     for (const e of events) {
       const meta = getActionMeta(e.action);
       if (meta.kind === 'edit') editCount++;
-      else if (meta.kind === 'transfer' || meta.kind === 'repair' || meta.kind === 'dispose' || meta.kind === 'stocktake') movementCount++;
+      else if (
+        meta.kind === 'transfer' ||
+        meta.kind === 'repair' ||
+        meta.kind === 'dispose' ||
+        meta.kind === 'stocktake'
+      )
+        movementCount++;
       else if (meta.kind === 'import' || meta.kind === 'user') systemCount++;
     }
 
@@ -866,7 +939,7 @@ export default function AuditView({
           linkedAsset?.code,
           linkedAsset?.name,
           e.before,
-          e.after
+          e.after,
         ]
           .filter(Boolean)
           .join(' ')
@@ -957,7 +1030,7 @@ export default function AuditView({
             { key: 'dispose' as TabKey, label: 'ขอจำหน่าย' },
             { key: 'edit' as TabKey, label: `แก้ไขข้อมูล (${stats.editCount})` },
             { key: 'import' as TabKey, label: 'นำเข้าข้อมูล' },
-            { key: 'user' as TabKey, label: 'ผู้ใช้/สิทธิ์' }
+            { key: 'user' as TabKey, label: 'ผู้ใช้/สิทธิ์' },
           ].map(t => (
             <button
               key={t.key}
@@ -1029,13 +1102,9 @@ export default function AuditView({
               <History size={17} className="text-blue-600" />
               บันทึกเหตุการณ์ประวัติล่าสุด (Audit Records)
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              ติดตามทุกการบันทึก การอนุมัติ และการแก้ไขข้อมูลในระบบ
-            </p>
+            <p className="text-xs text-slate-500 mt-0.5">ติดตามทุกการบันทึก การอนุมัติ และการแก้ไขข้อมูลในระบบ</p>
           </div>
-          <span className="text-xs text-slate-500 font-medium">
-            พบ {filtered.length} รายการ
-          </span>
+          <span className="text-xs text-slate-500 font-medium">พบ {filtered.length} รายการ</span>
         </div>
 
         {/* Audit Items List */}
@@ -1053,15 +1122,18 @@ export default function AuditView({
               'อัปโหลด excel',
               'นำเข้าครุภัณฑ์แบบกลุ่ม',
               'จัดการสิทธิ์ผู้ใช้',
-              'กำหนดสายอนุมัติ'
+              'กำหนดสายอนุมัติ',
             ].some(prefix => (e.action || '').toLowerCase().includes(prefix));
 
-            const linkedAsset = !isSystemEvent ? assets.find(a => 
-              (e.assetId && a.id === e.assetId) ||
-              (afterObj.id && a.id === String(afterObj.id)) ||
-              (afterObj.code && a.code === String(afterObj.code)) ||
-              (beforeObj.code && a.code === String(beforeObj.code))
-            ) : null;
+            const linkedAsset = !isSystemEvent
+              ? assets.find(
+                  a =>
+                    (e.assetId && a.id === e.assetId) ||
+                    (afterObj.id && a.id === String(afterObj.id)) ||
+                    (afterObj.code && a.code === String(afterObj.code)) ||
+                    (beforeObj.code && a.code === String(beforeObj.code)),
+                )
+              : null;
 
             return (
               <div key={e.id} className="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors">
@@ -1094,9 +1166,7 @@ export default function AuditView({
                             <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50/80 px-2 py-0.5 rounded border border-blue-100 select-all">
                               {linkedAsset.code}
                             </span>
-                            <span className="text-xs font-bold text-slate-900 line-clamp-1">
-                              {linkedAsset.name}
-                            </span>
+                            <span className="text-xs font-bold text-slate-900 line-clamp-1">{linkedAsset.name}</span>
                           </>
                         ) : !isSystemEvent && afterObj.code ? (
                           <>
@@ -1120,9 +1190,7 @@ export default function AuditView({
                       <div className="text-xs text-slate-600 flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="font-medium">
                           ผู้ดำเนินการ:{' '}
-                          <strong className="text-slate-900 font-bold">
-                            {e.actorName || 'ผู้ใช้ในระบบ'}
-                          </strong>
+                          <strong className="text-slate-900 font-bold">{e.actorName || 'ผู้ใช้ในระบบ'}</strong>
                         </span>
                         {e.reason && (
                           <>
@@ -1145,9 +1213,7 @@ export default function AuditView({
                       <div className="text-xs font-semibold text-slate-800 whitespace-nowrap">
                         {formatThaiDateTime(e.createdAt)}
                       </div>
-                      <div className="text-[11px] text-slate-400">
-                        {formatRelativeTime(e.createdAt)}
-                      </div>
+                      <div className="text-[11px] text-slate-400">{formatRelativeTime(e.createdAt)}</div>
                     </div>
 
                     {/* View Asset Button */}
@@ -1200,8 +1266,12 @@ export default function AuditView({
             {olderState.total !== null && ` จากทั้งหมด ${olderState.total.toLocaleString('th-TH')} เหตุการณ์`}
           </span>
           {olderState.more && events.length > 0 && (
-            <button type="button" onClick={loadOlder} disabled={olderState.loading}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+            <button
+              type="button"
+              onClick={loadOlder}
+              disabled={olderState.loading}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+            >
               {olderState.loading ? 'กำลังโหลด…' : 'โหลดประวัติเก่าเพิ่ม (200 รายการ)'}
             </button>
           )}

@@ -1,20 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  QrCode,
-  Scissors,
-  ArrowLeftRight,
-  Pencil
-} from 'lucide-react';
+import { QrCode, Scissors, ArrowLeftRight, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { Asset, money, setRoles, type SetRole } from '@/shared/domain';
@@ -30,9 +19,18 @@ function formatThaiDate(dateStr: string) {
   const d = parseInt(parts[2], 10);
   if (!y || !m || !d) return '';
   const thaiMonths = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน',
-    'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม',
-    'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    'มกราคม',
+    'กุมภาพันธ์',
+    'มีนาคม',
+    'เมษายน',
+    'พฤษภาคม',
+    'มิถุนายน',
+    'กรกฎาคม',
+    'สิงหาคม',
+    'กันยายน',
+    'ตุลาคม',
+    'พฤศจิกายน',
+    'ธันวาคม',
   ];
   return `${d} ${thaiMonths[m - 1] || ''} พ.ศ. ${y + 543}`;
 }
@@ -44,7 +42,7 @@ export default function AssetDetailSheet({
   data,
   historyRevision,
   open,
-  onPhotoChanged
+  onPhotoChanged,
 }: {
   selected: Asset | null;
   setSelected: (a: Asset | null) => void;
@@ -83,7 +81,7 @@ export default function AssetDetailSheet({
             revision,
             events: [],
             children: [],
-            error: e.message || 'โหลดประวัติไม่สำเร็จ'
+            error: e.message || 'โหลดประวัติไม่สำเร็จ',
           });
       });
 
@@ -123,8 +121,7 @@ export default function AssetDetailSheet({
 
             <div className="detail-amount">
               <small>มูลค่าทุนของรายการ</small>
-              {money(selected.totalSatang)}{' '}
-              <span className="text-sm font-normal">บาท</span>
+              {money(selected.totalSatang)} <span className="text-sm font-normal">บาท</span>
             </div>
 
             <dl className="detail-grid">
@@ -132,18 +129,23 @@ export default function AssetDetailSheet({
                 ['สถานที่', selected.location],
                 ['สาขา', selected.branch],
                 ['ประเภท', selected.category],
-                ...(selected.setId ? [['ชุด (ห้ามแยก)', `${setRoles[selected.setRole as SetRole] ?? 'รายการในชุด'} · ${selected.setName ?? ''}`]] : []),
+                ...(selected.setId
+                  ? [
+                      [
+                        'ชุด (ห้ามแยก)',
+                        `${setRoles[selected.setRole as SetRole] ?? 'รายการในชุด'} · ${selected.setName ?? ''}`,
+                      ],
+                    ]
+                  : []),
                 ...(selected.fundId ? [['ทุน / โครงการ', selected.fundName ?? '']] : []),
                 ['ผู้รับผิดชอบ', selected.custodian],
                 ['Serial', selected.serial],
                 ['ยี่ห้อ / รุ่น', selected.brand],
                 [
                   'วันที่รับ',
-                  selected.receivedDate
-                    ? `${selected.receivedDate} (${formatThaiDate(selected.receivedDate)})`
-                    : ''
+                  selected.receivedDate ? `${selected.receivedDate} (${formatThaiDate(selected.receivedDate)})` : '',
                 ],
-                ['อายุใช้งาน', selected.lifeYears ? selected.lifeYears + ' ปี' : '']
+                ['อายุใช้งาน', selected.lifeYears ? selected.lifeYears + ' ปี' : ''],
               ].map(([k, v]) => (
                 <div key={k}>
                   <dt>{k}</dt>
@@ -167,10 +169,7 @@ export default function AssetDetailSheet({
             <div className="actions">
               {editable && selected.lifecycle === 'active' && (
                 <>
-                  <Button
-                    variant="outline"
-                    onClick={() => open('edit', { asset: selected })}
-                  >
+                  <Button variant="outline" onClick={() => open('edit', { asset: selected })}>
                     <Pencil size={15} className="mr-1.5" />
                     แก้ไขข้อมูล
                   </Button>
@@ -179,26 +178,17 @@ export default function AssetDetailSheet({
                     ส่งคำขอ
                   </Button>
                   {selected.quantity > 1 && (
-                    <Button
-                      variant="outline"
-                      onClick={() => open('split', { asset: selected })}
-                    >
+                    <Button variant="outline" onClick={() => open('split', { asset: selected })}>
                       <Scissors size={16} />
                       แบ่งล็อต
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    onClick={() => open('qr', { assets: [selected] })}
-                  >
+                  <Button variant="outline" onClick={() => open('qr', { assets: [selected] })}>
                     <QrCode size={16} />
                     QR
                   </Button>
                   {selected.condition === 'repair' && (
-                    <Button
-                      variant="outline"
-                      onClick={() => open('repairComplete', { asset: selected })}
-                    >
+                    <Button variant="outline" onClick={() => open('repairComplete', { asset: selected })}>
                       บันทึกซ่อมเสร็จ
                     </Button>
                   )}
@@ -206,43 +196,34 @@ export default function AssetDetailSheet({
               )}
             </div>
 
-            {editable &&
-              selected.lifecycle === 'active' &&
-              data.rounds.some((r: Any) => r.status === 'open') && (
-                <div className="notice">
-                  <b>บันทึกตรวจนับรายการนี้</b>
-                  <div className="actions mt-3">
-                    {data.rounds
-                      .filter((r: Any) => r.status === 'open')
-                      .map((r: Any) => (
-                        <Button
-                          key={r.id}
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            try {
-                              const d = await api(
-                                '?view=stocktake&round=' + encodeURIComponent(r.id)
-                              );
-                              const item = d.items.find(
-                                (x: Any) => x.assetId === selected.id
-                              );
-                              if (item) open('check', { item });
-                              else
-                                toast.info(
-                                  'รายการนี้ไม่ได้อยู่ในทะเบียน ณ วันที่เปิดรอบ'
-                                );
-                            } catch (e: any) {
-                              toast.error(e.message);
-                            }
-                          }}
-                        >
-                          {r.name}
-                        </Button>
-                      ))}
-                  </div>
+            {editable && selected.lifecycle === 'active' && data.rounds.some((r: Any) => r.status === 'open') && (
+              <div className="notice">
+                <b>บันทึกตรวจนับรายการนี้</b>
+                <div className="actions mt-3">
+                  {data.rounds
+                    .filter((r: Any) => r.status === 'open')
+                    .map((r: Any) => (
+                      <Button
+                        key={r.id}
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            const d = await api('?view=stocktake&round=' + encodeURIComponent(r.id));
+                            const item = d.items.find((x: Any) => x.assetId === selected.id);
+                            if (item) open('check', { item });
+                            else toast.info('รายการนี้ไม่ได้อยู่ในทะเบียน ณ วันที่เปิดรอบ');
+                          } catch (e: any) {
+                            toast.error(e.message);
+                          }
+                        }}
+                      >
+                        {r.name}
+                      </Button>
+                    ))}
                 </div>
-              )}
+              </div>
+            )}
 
             <h2 className="mt-8">ประวัติของรายการ</h2>
             {history?.children?.length > 0 && (

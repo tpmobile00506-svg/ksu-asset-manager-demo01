@@ -4,7 +4,8 @@ import sharp from 'sharp';
 import { ApiError } from '../services/errors';
 import { ASSET_IMAGE_MAX_BYTES, normalizeAssetImage } from '../services/asset-images';
 
-const solid = (width: number, height: number) => sharp({ create: { width, height, channels: 3, background: '#397b9d' } });
+const solid = (width: number, height: number) =>
+  sharp({ create: { width, height, channels: 3, background: '#397b9d' } });
 const hasStatus = (status: number) => (error: unknown) => error instanceof ApiError && error.status === status;
 
 test('asset photos decode JPEG/PNG/WebP into WebP and limit the longest edge', async () => {
@@ -36,7 +37,9 @@ test('asset photos reject empty, oversized, corrupt, and disguised SVG bytes', a
   await assert.rejects(normalizeAssetImage(Buffer.alloc(0)), hasStatus(400));
   await assert.rejects(normalizeAssetImage(Buffer.alloc(ASSET_IMAGE_MAX_BYTES + 1)), hasStatus(413));
   await assert.rejects(normalizeAssetImage(Buffer.from('this is not a PNG')), hasStatus(400));
-  const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>');
+  const svg = Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>',
+  );
   await assert.rejects(normalizeAssetImage(svg), hasStatus(415));
   const jpeg = await solid(100, 100).jpeg().toBuffer();
   await assert.rejects(normalizeAssetImage(jpeg.subarray(0, Math.floor(jpeg.length / 2))), hasStatus(400));
@@ -51,7 +54,8 @@ test('asset photos reject decompressed images larger than 25 megapixels', async 
 test('asset photos reject animated WebP', async () => {
   const pixels = Buffer.concat([Buffer.alloc(12 * 12 * 3, 0), Buffer.alloc(12 * 12 * 3, 255)]);
   const input = await sharp(pixels, { raw: { width: 12, height: 24, channels: 3, pageHeight: 12 } })
-    .webp({ loop: 0, delay: [100, 100] }).toBuffer();
+    .webp({ loop: 0, delay: [100, 100] })
+    .toBuffer();
   assert.equal((await sharp(input).metadata()).pages, 2);
   await assert.rejects(normalizeAssetImage(input), hasStatus(415));
 });

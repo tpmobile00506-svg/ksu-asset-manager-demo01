@@ -12,7 +12,13 @@ function rejectedRun(args: string[], variables: Record<string, string>) {
   const directory = mkdtempSync(join(tmpdir(), 'asset-runner-guard-'));
   try {
     const env = { ...process.env, ASSET_TEST_DATABASE_URL: '', ASSET_TEST_PORT: '', ...variables };
-    const result = spawnSync(process.execPath, [runner, ...args], { cwd: directory, env, encoding: 'utf8', windowsHide: true, timeout: 10000 });
+    const result = spawnSync(process.execPath, [runner, ...args], {
+      cwd: directory,
+      env,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 10000,
+    });
     assert.equal(result.error, undefined);
     assert.notEqual(result.status, 0);
     assert.deepEqual(readdirSync(directory), [], 'Rejected run must not write credentials or other files');
@@ -30,7 +36,10 @@ test('retained preview is rejected before reading database configuration or crea
 });
 
 test('integration runner refuses the application port before connecting to PostgreSQL', () => {
-  const error = rejectedRun([], { ASSET_TEST_DATABASE_URL: 'postgresql://guard@127.0.0.1:1/postgres', ASSET_TEST_PORT: '3000' });
+  const error = rejectedRun([], {
+    ASSET_TEST_DATABASE_URL: 'postgresql://guard@127.0.0.1:1/postgres',
+    ASSET_TEST_PORT: '3000',
+  });
   assert.match(error, /Port 3000 is reserved for the application/);
   assert.doesNotMatch(error, /ECONNREFUSED/);
 });
@@ -39,8 +48,15 @@ test('direct destructive workflow invocation refuses localhost:3000 before login
   const workflow = fileURLToPath(new URL('./critical-workflows.mjs', import.meta.url));
   const result = spawnSync(process.execPath, ['--experimental-strip-types', workflow], {
     cwd: fileURLToPath(new URL('../..', import.meta.url)),
-    env: { ...process.env, ASSET_TEST_URL: 'http://localhost:3000', TEST_ADMIN_EMAIL: 'admin@example.test', TEST_ADMIN_PASSWORD: 'guard-only-not-a-real-password' },
-    encoding: 'utf8', windowsHide: true, timeout: 10000,
+    env: {
+      ...process.env,
+      ASSET_TEST_URL: 'http://localhost:3000',
+      TEST_ADMIN_EMAIL: 'admin@example.test',
+      TEST_ADMIN_PASSWORD: 'guard-only-not-a-real-password',
+    },
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 10000,
   });
   assert.equal(result.error, undefined);
   assert.notEqual(result.status, 0);

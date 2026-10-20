@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -17,35 +13,14 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@/components/*": [
-        "./frontend/components/*"
-      ],
-      "@/hooks/*": [
-        "./frontend/hooks/*"
-      ],
-      "@/lib/utils": [
-        "./frontend/utils/classnames.ts"
-      ],
-      "@/data/*": [
-        "./backend/data/*"
-      ],
-      "@/shared/*": [
-        "./backend/contracts/*"
-      ]
+      "@/*": ["./*"],
+      "@/components/*": ["./frontend/components/*"],
+      "@/hooks/*": ["./frontend/hooks/*"],
+      "@/lib/utils": ["./frontend/utils/classnames.ts"],
+      "@/data/*": ["./backend/data/*"],
+      "@/shared/*": ["./backend/contracts/*"]
     }
   },
-  "include": [
-    "frontend/**/*.ts",
-    "frontend/**/*.tsx",
-    "backend/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "backend/archive",
-    "backend/.cache"
-  ]
+  "include": ["frontend/**/*.ts", "frontend/**/*.tsx", "backend/**/*.ts"],
+  "exclude": ["node_modules", "dist", "backend/archive", "backend/.cache"]
 }

@@ -6,13 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,26 +15,37 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle
+  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Asset, conditions, satang, assetTypes, assetTypeOf, assetGroups, assetGroupOfType, UNGROUPED, academicBranches, officeBranches, isStandardBranch } from '@/shared/domain';
 import {
-  Any,
-  api,
-  Pick,
-  sessionFetch,
-  readApiResponse,
-  getSessionSignal
-} from '@/frontend/components/common';
+  Asset,
+  conditions,
+  satang,
+  assetTypes,
+  assetTypeOf,
+  assetGroups,
+  assetGroupOfType,
+  UNGROUPED,
+  academicBranches,
+  officeBranches,
+  isStandardBranch,
+} from '@/shared/domain';
+import { Any, api, Pick, sessionFetch, readApiResponse, getSessionSignal } from '@/frontend/components/common';
 import { WorkspaceData } from '@/frontend/types/models';
 
 // ช่องเลือกประเภทกับหมวดใช้หน้าตาเดียวกัน ให้สองช่องข้างกันสมส่วน
-const selectClass = 'h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const selectClass =
+  'h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 // สาขาวิชา / หน่วยงาน: เลือกจากรายการมาตรฐานเท่านั้น แยกกลุ่มสาขาวิชากับหน่วยงาน
 // ค่าเดิมที่ไม่อยู่ในรายการ (ข้อมูลเก่า) แสดงไว้ให้เห็น แต่บันทึกได้เมื่อเลือกค่ามาตรฐานแทนเท่านั้น
-export function BranchSelect({ name, defaultValue, onChange, required = true }: {
+export function BranchSelect({
+  name,
+  defaultValue,
+  onChange,
+  required = true,
+}: {
   name: string;
   defaultValue?: string;
   onChange?: (e: ChangeEvent<HTMLSelectElement>) => void;
@@ -55,12 +60,22 @@ export function BranchSelect({ name, defaultValue, onChange, required = true }: 
       required={required}
       className="h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <option value="" disabled>{legacy ? `ค่าเดิม "${legacy}" ไม่อยู่ในรายการ กรุณาเลือกใหม่` : 'เลือกสาขาวิชา / หน่วยงาน'}</option>
+      <option value="" disabled>
+        {legacy ? `ค่าเดิม "${legacy}" ไม่อยู่ในรายการ กรุณาเลือกใหม่` : 'เลือกสาขาวิชา / หน่วยงาน'}
+      </option>
       <optgroup label="สาขาวิชา">
-        {academicBranches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
+        {academicBranches.map(branch => (
+          <option key={branch} value={branch}>
+            {branch}
+          </option>
+        ))}
       </optgroup>
       <optgroup label="หน่วยงาน">
-        {officeBranches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
+        {officeBranches.map(branch => (
+          <option key={branch} value={branch}>
+            {branch}
+          </option>
+        ))}
       </optgroup>
     </select>
   );
@@ -82,7 +97,7 @@ export function Field({
   placeholder,
   onChange,
   hint,
-  list
+  list,
 }: {
   label: string;
   name: string;
@@ -129,9 +144,7 @@ export function Field({
 }
 
 const prioritized = (object: Any, key: string) =>
-  Object.entries(object).sort(([a], [b]) =>
-    a === key ? -1 : b === key ? 1 : 0
-  ) as [string, string][];
+  Object.entries(object).sort(([a], [b]) => (a === key ? -1 : b === key ? 1 : 0)) as [string, string][];
 
 export function assetAmountInput(value: number | bigint): string {
   const amount = BigInt(value);
@@ -147,19 +160,12 @@ export function assetTotalInput(unitPrice: string, quantity: number): string {
   return assetAmountInput(total);
 }
 
-export async function uploadCreatedAssetPhoto(
-  assetId: string,
-  file: File,
-  signal: AbortSignal,
-  expectedVersion = ''
-) {
+export async function uploadCreatedAssetPhoto(assetId: string, file: File, signal: AbortSignal, expectedVersion = '') {
   const body = new FormData();
   body.set('assetId', assetId);
   body.set('expectedVersion', expectedVersion);
   body.set('file', file);
-  const result = await readApiResponse(
-    await sessionFetch('/api/asset-image', { method: 'POST', body, signal })
-  );
+  const result = await readApiResponse(await sessionFetch('/api/asset-image', { method: 'POST', body, signal }));
   signal.throwIfAborted();
   if (result.ok !== true || typeof result.imageVersion !== 'string') {
     throw new Error('เซิร์ฟเวอร์ส่งผลบันทึกรูปไม่ครบ กรุณาเปิดรายละเอียดเพื่อตรวจสอบ');
@@ -167,18 +173,14 @@ export async function uploadCreatedAssetPhoto(
   return result;
 }
 
-export async function deleteAssetPhoto(
-  assetId: string,
-  expectedVersion: string,
-  signal: AbortSignal
-) {
+export async function deleteAssetPhoto(assetId: string, expectedVersion: string, signal: AbortSignal) {
   const result = await readApiResponse(
     await sessionFetch('/api/asset-image', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assetId, expectedVersion }),
-      signal
-    })
+      signal,
+    }),
   );
   signal.throwIfAborted();
   if (result.ok !== true) {
@@ -197,7 +199,7 @@ export default function AssetFormModal({
   setSelected,
   onPhotoChanged,
   error,
-  setError
+  setError,
 }: {
   open: boolean;
   onClose: () => void;
@@ -324,7 +326,7 @@ export default function AssetFormModal({
         unitSatang: satang(f.unitPrice || priceInput),
         totalSatang: satang(f.totalPrice || totalInput),
         lifeYears: Number(f.lifeYears || 0),
-        salvageSatang: satang(f.salvage || 0)
+        salvageSatang: satang(f.salvage || 0),
       };
 
       const res = await write({
@@ -335,7 +337,7 @@ export default function AssetFormModal({
         sourceId: modal.sourceId,
         sourceRow: modal.row?.key,
         reviewed: f.reviewed === 'on',
-        reason: f.reason || ''
+        reason: f.reason || '',
       });
 
       const targetAssetId = modal.kind === 'edit' ? modal.asset?.id : res?.id;
@@ -352,9 +354,7 @@ export default function AssetFormModal({
           } catch (photoErr) {
             if (signal.aborted) return;
             toast.warning(
-              imageSaved
-                ? 'บันทึกรูปแล้ว แต่รีเฟรชทะเบียนไม่สำเร็จ'
-                : 'บันทึกข้อมูลครุภัณฑ์แล้ว แต่แนบรูปไม่สำเร็จ',
+              imageSaved ? 'บันทึกรูปแล้ว แต่รีเฟรชทะเบียนไม่สำเร็จ' : 'บันทึกข้อมูลครุภัณฑ์แล้ว แต่แนบรูปไม่สำเร็จ',
               {
                 description: `${
                   photoErr instanceof Error ? photoErr.message : 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ'
@@ -367,23 +367,19 @@ export default function AssetFormModal({
                     try {
                       const current = await api();
                       signal.throwIfAborted();
-                      const saved = current.assets.find(
-                        (asset: Asset) => asset.id === targetAssetId
-                      );
+                      const saved = current.assets.find((asset: Asset) => asset.id === targetAssetId);
                       if (!saved) throw new Error('ไม่พบรายการที่บันทึก กรุณารีเฟรชทะเบียน');
                       setSelected(saved);
                     } catch (cause) {
                       if (!signal.aborted)
                         toast.error(
-                          cause instanceof Error
-                            ? cause.message
-                            : 'เปิดรายละเอียดไม่สำเร็จ กรุณาค้นหารายการในทะเบียน'
+                          cause instanceof Error ? cause.message : 'เปิดรายละเอียดไม่สำเร็จ กรุณาค้นหารายการในทะเบียน',
                         );
                     }
-                  }
+                  },
                 },
-                cancel: { label: 'ปิด', onClick: () => {} }
-              }
+                cancel: { label: 'ปิด', onClick: () => {} },
+              },
             );
           }
         } else if (modal.kind === 'edit' && removePhoto && currentVersion) {
@@ -394,10 +390,7 @@ export default function AssetFormModal({
           } catch (photoErr) {
             if (signal.aborted) return;
             toast.warning('บันทึกข้อมูลครุภัณฑ์แล้ว แต่ลบรูปภาพไม่สำเร็จ', {
-              description:
-                photoErr instanceof Error
-                  ? photoErr.message
-                  : 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ'
+              description: photoErr instanceof Error ? photoErr.message : 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ',
             });
           }
         }
@@ -414,21 +407,22 @@ export default function AssetFormModal({
   const titleMap: Record<string, string> = {
     create: 'เพิ่มครุภัณฑ์ใหม่',
     edit: 'แก้ไขข้อมูลครุภัณฑ์',
-    import: 'ตรวจสอบและยืนยันนำเข้า'
+    import: 'ตรวจสอบและยืนยันนำเข้า',
   };
 
   const currentPhotoUrl =
     modal?.asset?.imageUrl ||
     (modal?.asset?.id && modal?.asset?.imageVersion
       ? `/api/asset-image?asset=${encodeURIComponent(modal.asset.id)}&v=${encodeURIComponent(modal.asset.imageVersion)}`
-       : null);
+      : null);
 
-  const conditionOptions = prioritized(conditions, modal.asset?.condition || 'normal')
-    .filter(([condition]) => modal.kind !== 'edit'
-      ? condition !== 'repair'   // เพิ่ม/นำเข้า: ห้ามเลือก "กำลังซ่อม" (ต้องผ่านคำขอซ่อม)
-      : (modal.asset?.condition === 'repair'
+  const conditionOptions = prioritized(conditions, modal.asset?.condition || 'normal').filter(([condition]) =>
+    modal.kind !== 'edit'
+      ? condition !== 'repair' // เพิ่ม/นำเข้า: ห้ามเลือก "กำลังซ่อม" (ต้องผ่านคำขอซ่อม)
+      : modal.asset?.condition === 'repair'
         ? condition === 'repair'
-        : condition !== 'repair'));
+        : condition !== 'repair',
+  );
 
   return (
     <>
@@ -460,7 +454,11 @@ export default function AssetFormModal({
             </DialogDescription>
           </DialogHeader>
 
-          {error && <div className="error mx-7 mt-3" role="alert">{error}</div>}
+          {error && (
+            <div className="error mx-7 mt-3" role="alert">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={submit} key={modal?.token} className="flex flex-col flex-1 min-h-0">
             <div className="dialog-scroll-body">
@@ -501,10 +499,17 @@ export default function AssetFormModal({
                       required
                       className={selectClass}
                     >
-                      <option value="" disabled>เลือกประเภทครุภัณฑ์</option>
-                      {assetTypes.map(cat => <option key={cat} value={cat}>{cat} ({assetGroupOfType(cat)})</option>)}
-                      {categoryInput && !(assetTypes as readonly string[]).includes(categoryInput) &&
-                        <option value={categoryInput}>{categoryInput} (ค่าเดิม ไม่อยู่ในรายการ)</option>}
+                      <option value="" disabled>
+                        เลือกประเภทครุภัณฑ์
+                      </option>
+                      {assetTypes.map(cat => (
+                        <option key={cat} value={cat}>
+                          {cat} ({assetGroupOfType(cat)})
+                        </option>
+                      ))}
+                      {categoryInput && !(assetTypes as readonly string[]).includes(categoryInput) && (
+                        <option value={categoryInput}>{categoryInput} (ค่าเดิม ไม่อยู่ในรายการ)</option>
+                      )}
                     </select>
                   </label>
                   {/* หมวด = ชื่อแผ่นงานของประเภท (สำนักงาน คอม ไฟฟ้า ...) คู่กันหนึ่งต่อหนึ่ง เลือกหมวดแล้วประเภทเปลี่ยนตาม (ผู้ใช้ขอ 18 ต.ค. 2569)
@@ -516,10 +521,21 @@ export default function AssetFormModal({
                       onChange={e => setCategoryInput(assetTypeOf(e.target.value))}
                       className={selectClass}
                     >
-                      <option value="" disabled>เลือกหมวด</option>
-                      {assetGroups.filter(g => g !== UNGROUPED).map(g => <option key={g} value={g}>{g} ({assetTypeOf(g)})</option>)}
-                      {categoryInput && assetGroupOfType(categoryInput) === UNGROUPED &&
-                        <option value={UNGROUPED} disabled>{UNGROUPED}</option>}
+                      <option value="" disabled>
+                        เลือกหมวด
+                      </option>
+                      {assetGroups
+                        .filter(g => g !== UNGROUPED)
+                        .map(g => (
+                          <option key={g} value={g}>
+                            {g} ({assetTypeOf(g)})
+                          </option>
+                        ))}
+                      {categoryInput && assetGroupOfType(categoryInput) === UNGROUPED && (
+                        <option value={UNGROUPED} disabled>
+                          {UNGROUPED}
+                        </option>
+                      )}
                     </select>
                   </label>
                 </div>
@@ -556,9 +572,11 @@ export default function AssetFormModal({
                     required
                     readOnly={modal.kind === 'edit'}
                     onChange={handleTotalChange}
-                    hint={modal.kind === 'edit'
-                      ? 'จำนวนและมูลค่าที่ลงทะเบียนแล้วแก้ตรงนี้ไม่ได้ หากต้องการแยกจำนวนให้ใช้แบ่งล็อต'
-                      : 'คำนวณอัตโนมัติ (จำนวน × ราคาต่อหน่วย) สามารถปรับแก้ได้'}
+                    hint={
+                      modal.kind === 'edit'
+                        ? 'จำนวนและมูลค่าที่ลงทะเบียนแล้วแก้ตรงนี้ไม่ได้ หากต้องการแยกจำนวนให้ใช้แบ่งล็อต'
+                        : 'คำนวณอัตโนมัติ (จำนวน × ราคาต่อหน่วย) สามารถปรับแก้ได้'
+                    }
                   />
                 </div>
               </div>
@@ -679,20 +697,12 @@ export default function AssetFormModal({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                            {modal?.kind === 'edit' && currentPhotoUrl
-                              ? 'รูปใหม่ที่จะนำมาแทนที่'
-                              : 'รูปใหม่ที่เลือก'}
+                            {modal?.kind === 'edit' && currentPhotoUrl ? 'รูปใหม่ที่จะนำมาแทนที่' : 'รูปใหม่ที่เลือก'}
                           </span>
-                          <span className="text-xs text-slate-500">
-                            {(newPhoto.file.size / 1024).toFixed(1)} KB
-                          </span>
+                          <span className="text-xs text-slate-500">{(newPhoto.file.size / 1024).toFixed(1)} KB</span>
                         </div>
-                        <p className="text-sm font-medium text-slate-800 truncate mt-1">
-                          {newPhoto.file.name}
-                        </p>
-                        <p className="text-xs text-blue-600 mt-0.5">
-                          พร้อมบันทึกเข้าระบบเมื่อกดปุ่มบันทึก
-                        </p>
+                        <p className="text-sm font-medium text-slate-800 truncate mt-1">{newPhoto.file.name}</p>
+                        <p className="text-xs text-blue-600 mt-0.5">พร้อมบันทึกเข้าระบบเมื่อกดปุ่มบันทึก</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
@@ -715,9 +725,7 @@ export default function AssetFormModal({
                           }}
                         >
                           <X size={14} className="mr-1.5" />{' '}
-                          {modal?.kind === 'edit' && currentPhotoUrl
-                            ? 'ยกเลิก (ใช้รูปเดิม)'
-                            : 'ลบรูป'}
+                          {modal?.kind === 'edit' && currentPhotoUrl ? 'ยกเลิก (ใช้รูปเดิม)' : 'ลบรูป'}
                         </Button>
                       </div>
                     </div>
@@ -768,12 +776,8 @@ export default function AssetFormModal({
                             รูปปัจจุบันในทะเบียน
                           </span>
                         </div>
-                        <p className="text-sm font-medium text-slate-800 truncate mt-1">
-                          {modal?.asset?.name}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          คุณสามารถเลือกเปลี่ยนรูปใหม่ หรือลบรูปภาพนี้ได้
-                        </p>
+                        <p className="text-sm font-medium text-slate-800 truncate mt-1">{modal?.asset?.name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">คุณสามารถเลือกเปลี่ยนรูปใหม่ หรือลบรูปภาพนี้ได้</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
@@ -852,8 +856,8 @@ export default function AssetFormModal({
               )}
               {modal?.kind === 'edit' && (
                 <div className="notice">
-                  สามารถแก้ไขรายละเอียดครุภัณฑ์ สถานที่/ห้อง และบันทึกประวัติเพิ่มเติมได้ โดยระบุเหตุผลเพื่อเก็บบันทึกประวัติ
-                  (Audit Log) (กรณีต้องการแยกจำนวน ให้ใช้ปุ่ม "แบ่งล็อต")
+                  สามารถแก้ไขรายละเอียดครุภัณฑ์ สถานที่/ห้อง และบันทึกประวัติเพิ่มเติมได้
+                  โดยระบุเหตุผลเพื่อเก็บบันทึกประวัติ (Audit Log) (กรณีต้องการแยกจำนวน ให้ใช้ปุ่ม "แบ่งล็อต")
                 </div>
               )}
             </div>
@@ -880,10 +884,10 @@ export default function AssetFormModal({
                 {busy
                   ? 'กำลังบันทึก…'
                   : modal?.kind === 'create'
-                  ? 'บันทึกข้อมูลครุภัณฑ์'
-                  : modal?.kind === 'import'
-                  ? 'ยืนยันนำเข้าทะเบียน'
-                  : 'บันทึก'}
+                    ? 'บันทึกข้อมูลครุภัณฑ์'
+                    : modal?.kind === 'import'
+                      ? 'ยืนยันนำเข้าทะเบียน'
+                      : 'บันทึก'}
               </Button>
             </div>
           </form>
@@ -904,9 +908,7 @@ export default function AssetFormModal({
             หากกดยืนยัน ข้อมูลที่กรอกทั้งหมดจะถูกล้างและปิดหน้าต่างลง
           </div>
           <AlertDialogFooter className="mt-4 flex gap-2 justify-end">
-            <AlertDialogCancel className="rounded-lg border-slate-200">
-              กรอกข้อมูลต่อ
-            </AlertDialogCancel>
+            <AlertDialogCancel className="rounded-lg border-slate-200">กรอกข้อมูลต่อ</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg px-4"
               onClick={() => {

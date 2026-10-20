@@ -4,29 +4,19 @@ import { useState, useMemo } from 'react';
 import { ShieldCheck, Plus, Search, UserCheck, Shield, Award, Crown, Settings, FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell
-} from '@/components/ui/table';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Role, roles, approvalChainOf } from '@/shared/domain';
 import { Pick, getInitials } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
 
-const roleMeta: Record<
-  Role,
-  { label: string; desc: string; color: string; bg: string; border: string; icon: any }
-> = {
+const roleMeta: Record<Role, { label: string; desc: string; color: string; bg: string; border: string; icon: any }> = {
   staff: {
     label: 'เจ้าหน้าที่พัสดุ (Staff)',
     desc: 'นำเข้า/ตรวจนับ/ดูแล',
     color: 'text-blue-600',
     bg: 'bg-blue-50',
     border: 'border-blue-200',
-    icon: ShieldCheck
+    icon: ShieldCheck,
   },
   head: {
     label: 'หัวหน้าสาขา (Head)',
@@ -34,7 +24,7 @@ const roleMeta: Record<
     color: 'text-emerald-600',
     bg: 'bg-emerald-50',
     border: 'border-emerald-200',
-    icon: UserCheck
+    icon: UserCheck,
   },
   deputy: {
     label: 'รองคณบดี (Deputy)',
@@ -42,7 +32,7 @@ const roleMeta: Record<
     color: 'text-amber-600',
     bg: 'bg-amber-50',
     border: 'border-amber-200',
-    icon: Award
+    icon: Award,
   },
   dean: {
     label: 'คณบดี (Dean)',
@@ -50,7 +40,7 @@ const roleMeta: Record<
     color: 'text-purple-600',
     bg: 'bg-purple-50',
     border: 'border-purple-200',
-    icon: Crown
+    icon: Crown,
   },
   admin: {
     label: 'ผู้ดูแลระบบ (Admin)',
@@ -58,7 +48,7 @@ const roleMeta: Record<
     color: 'text-rose-600',
     bg: 'bg-rose-50',
     border: 'border-rose-200',
-    icon: Settings
+    icon: Settings,
   },
   tester: {
     label: 'ผู้ทดสอบระบบ (Tester)',
@@ -66,14 +56,14 @@ const roleMeta: Record<
     color: 'text-teal-700',
     bg: 'bg-teal-50',
     border: 'border-teal-200',
-    icon: FlaskConical
-  }
+    icon: FlaskConical,
+  },
 };
 
 export default function UsersView({
   data,
   open,
-  write
+  write,
 }: {
   data: Pick<WorkspaceData, 'me' | 'users' | 'invites' | 'settings'>;
   open: (k: string, a?: Record<string, unknown>) => void;
@@ -92,7 +82,7 @@ export default function UsersView({
       ...data.users,
       ...data.invites
         .filter(i => !data.users.some(u => u.email === i.email))
-        .map(i => ({ ...i, id: i.email, invited: true, isOnline: false }))
+        .map(i => ({ ...i, id: i.email, invited: true, isOnline: false })),
     ];
   }, [data.users, data.invites]);
 
@@ -106,14 +96,11 @@ export default function UsersView({
 
   const filteredUsers = useMemo(() => {
     return combinedUsers.filter(u => {
-      const matchSearch =
-        (u.name + ' ' + u.email).toLowerCase().includes(search.toLowerCase());
+      const matchSearch = (u.name + ' ' + u.email).toLowerCase().includes(search.toLowerCase());
       const matchRole = roleFilter === 'all' || u.role === roleFilter;
       const isActive = Boolean(u.active ?? 1);
       const matchStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'active' && isActive) ||
-        (statusFilter === 'inactive' && !isActive);
+        statusFilter === 'all' || (statusFilter === 'active' && isActive) || (statusFilter === 'inactive' && !isActive);
       return matchSearch && matchRole && matchStatus;
     });
   }, [combinedUsers, search, roleFilter, statusFilter]);
@@ -138,13 +125,9 @@ export default function UsersView({
                 <Icon size={20} />
               </div>
               <div className="min-w-0 flex-1">
-                <span className="text-xs font-bold text-slate-900 block truncate">
-                  {meta.label.split(' ')[0]}
-                </span>
+                <span className="text-xs font-bold text-slate-900 block truncate">{meta.label.split(' ')[0]}</span>
                 <span className="text-[10px] text-slate-400 block truncate">{meta.desc}</span>
-                <strong className={`text-sm font-bold ${meta.color} block mt-0.5`}>
-                  {count} บัญชี
-                </strong>
+                <strong className={`text-sm font-bold ${meta.color} block mt-0.5`}>{count} บัญชี</strong>
               </div>
             </div>
           );
@@ -210,16 +193,12 @@ export default function UsersView({
       <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-900">
-              รายชื่อผู้ใช้งานและบทบาทในระบบ
-            </h2>
+            <h2 className="text-base font-bold text-slate-900">รายชื่อผู้ใช้งานและบทบาทในระบบ</h2>
             <p className="text-xs text-slate-500 mt-0.5">
               แสดงผู้ใช้ทั้งหมดที่ลงทะเบียนในระบบพร้อมสิทธิ์การเข้าถึงข้อมูล
             </p>
           </div>
-          <span className="text-xs text-slate-500 font-medium">
-            ทั้งหมด {filteredUsers.length} บัญชี
-          </span>
+          <span className="text-xs text-slate-500 font-medium">ทั้งหมด {filteredUsers.length} บัญชี</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -250,9 +229,7 @@ export default function UsersView({
                           {initials}
                         </div>
                         <div>
-                          <strong className="text-xs font-bold text-slate-900 block">
-                            {u.name || 'ไม่ระบุชื่อ'}
-                          </strong>
+                          <strong className="text-xs font-bold text-slate-900 block">{u.name || 'ไม่ระบุชื่อ'}</strong>
                           <span className="text-[11px] text-slate-500 block">{u.email}</span>
                         </div>
                       </div>
@@ -267,9 +244,7 @@ export default function UsersView({
                     </TableCell>
 
                     <TableCell>
-                      <span className="text-xs text-slate-700 font-medium">
-                        {u.branch || '— ไม่ระบุ —'}
-                      </span>
+                      <span className="text-xs text-slate-700 font-medium">{u.branch || '— ไม่ระบุ —'}</span>
                     </TableCell>
 
                     <TableCell className="text-center whitespace-nowrap">
@@ -320,14 +295,16 @@ export default function UsersView({
             options={[
               [
                 JSON.stringify(['head', 'deputy', 'dean']),
-                '3 ระดับ: หัวหน้าสาขาวิชา (Head) → รองคณบดี (Deputy) → คณบดี (Dean)'
+                '3 ระดับ: หัวหน้าสาขาวิชา (Head) → รองคณบดี (Deputy) → คณบดี (Dean)',
               ],
               [JSON.stringify(['head', 'dean']), '2 ระดับ: หัวหน้าสาขาวิชา → คณบดี'],
-              [JSON.stringify(['dean']), '1 ระดับ: คณบดีเท่านั้น']
+              [JSON.stringify(['dean']), '1 ระดับ: คณบดีเท่านั้น'],
             ]}
           />
           {!workflow.valid && data.settings.workflow && (
-            <p className="mt-2 text-xs text-amber-700">ค่าที่บันทึกไว้ไม่ถูกต้อง ระบบใช้ 3 ระดับ (ค่าเริ่มต้น) แทน กรุณาเลือกสายอนุมัติแล้วบันทึกใหม่</p>
+            <p className="mt-2 text-xs text-amber-700">
+              ค่าที่บันทึกไว้ไม่ถูกต้อง ระบบใช้ 3 ระดับ (ค่าเริ่มต้น) แทน กรุณาเลือกสายอนุมัติแล้วบันทึกใหม่
+            </p>
           )}
         </div>
       </div>

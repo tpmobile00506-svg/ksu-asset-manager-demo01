@@ -10,7 +10,8 @@ function fakeClient(sessions: Array<{ id: string; expiresAt: Date }>) {
       session: {
         deleteMany: async ({ where }: { where: { expiresAt: { lte: Date } } }) => {
           const before = sessions.length;
-          for (let i = sessions.length - 1; i >= 0; i--) if (sessions[i].expiresAt <= where.expiresAt.lte) sessions.splice(i, 1);
+          for (let i = sessions.length - 1; i >= 0; i--)
+            if (sessions[i].expiresAt <= where.expiresAt.lte) sessions.splice(i, 1);
           return { count: before - sessions.length };
         },
       },
@@ -28,7 +29,10 @@ test('ลบเฉพาะเซสชันที่หมดอายุ: 3 �
   ]);
   const removed = await purgeExpiredSessions(client, at('2026-10-09T00:00:00Z'));
   assert.equal(removed, 2);
-  assert.deepEqual(sessions.map(s => s.id), ['valid']);
+  assert.deepEqual(
+    sessions.map(s => s.id),
+    ['valid'],
+  );
 });
 
 test('เซสชันที่หมดอายุพอดี ณ เวลาปัจจุบันถือว่าหมดอายุ (ตรงกับ member() ที่ใช้ expiresAt <= now)', async () => {

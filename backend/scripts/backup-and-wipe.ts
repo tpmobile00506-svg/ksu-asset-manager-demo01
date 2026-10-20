@@ -49,19 +49,15 @@ async function main() {
   const backupPath = path.join(dataDir, 'backup_assets_and_history.json');
   fs.writeFileSync(
     backupPath,
-    JSON.stringify(
-      backupData,
-      (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
-      2
-    ),
-    'utf-8'
+    JSON.stringify(backupData, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+    'utf-8',
   );
   console.log(`✓ Backup successfully saved to ${backupPath}`);
   console.log('Backup summary:', JSON.stringify(backupData.counts, null, 2));
 
   console.log('\n--- Step 2: Executing Clean Wipe of Assets & History ---');
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async tx => {
     const deletedStocktakeItems = await tx.stocktakeItem.deleteMany();
     const deletedStocktakes = await tx.stocktake.deleteMany();
     const deletedApprovals = await tx.approval.deleteMany();
@@ -114,7 +110,7 @@ async function main() {
 }
 
 main()
-  .catch((err) => {
+  .catch(err => {
     console.error('Error during backup and wipe:', err);
     process.exit(1);
   })

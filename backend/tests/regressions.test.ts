@@ -20,7 +20,10 @@ test('ชื่อสาขารุ่นก่อนแปลงเป็น�
   assert.equal(normalizeBranch('วิศวกรรมเครื่องกล (วคม/วศค)', '', ''), 'วิศวกรรมเครื่องกลและเมคคาทรอนิกส์ (วคม/วศค)');
   assert.equal(normalizeBranch('วิศวกรรมเมคคาทรอนิกส์ (มค)', '', ''), 'วิศวกรรมเครื่องกลและเมคคาทรอนิกส์ (วคม/วศค)');
   assert.equal(normalizeBranch('วิศวกรรมโยธา/โลจิสติกส์ (วย/วล)', '', ''), 'วิศวกรรมโลจิสติกส์และเทคโนโลยีขนส่ง (วล)');
-  assert.equal(normalizeBranch('นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ/นอส)', '', ''), 'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ)');
+  assert.equal(
+    normalizeBranch('นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ/นอส)', '', ''),
+    'นวัตกรรมการออกแบบและสถาปัตยกรรม (ออกแบบ)',
+  );
   assert.equal(normalizeBranch('ส่วนกลาง / การศึกษา', '', ''), 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)');
   // แผ่น "คอม" คือประเภทครุภัณฑ์ ไม่ใช่สาขา: ไม่ระบุสาขา → สำนักงานคณบดี (ไม่ใช่ วค)
   assert.equal(normalizeBranch('', '', 'คอม'), 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)');
@@ -28,8 +31,16 @@ test('ชื่อสาขารุ่นก่อนแปลงเป็น�
 
 test('Excel preserves registered amounts after splitting and XLSX round-trip', async () => {
   const amounts = splitAmounts(3, 100, 1);
-  const common = { name: 'ทดสอบยอด', unitSatang: 33, branch: 'ทดสอบ', location: 'ห้องทดสอบ',
-    notes: '', category: 'ทดสอบ', groupName: 'ทั่วไป', lifecycle: 'active' };
+  const common = {
+    name: 'ทดสอบยอด',
+    unitSatang: 33,
+    branch: 'ทดสอบ',
+    location: 'ห้องทดสอบ',
+    notes: '',
+    category: 'ทดสอบ',
+    groupName: 'ทั่วไป',
+    lifecycle: 'active',
+  };
   const assets = [
     { ...common, code: 'A', quantity: 1, totalSatang: amounts[0] },
     { ...common, code: 'B', quantity: 2, totalSatang: amounts[1] },
@@ -44,14 +55,27 @@ test('Excel preserves registered amounts after splitting and XLSX round-trip', a
   assert.equal(sheet.getCell('F7').value, 0.67);
   assert.equal(sheet.getCell('F8').value, 9);
   assert.equal(sheet.getCell('B9').text.includes('PARENT'), false);
-  assert.equal([6, 7, 8].reduce((n, row) => n + Math.round(Number(sheet.getCell('F' + row).value) * 100), 0), 1000);
+  assert.equal(
+    [6, 7, 8].reduce((n, row) => n + Math.round(Number(sheet.getCell('F' + row).value) * 100), 0),
+    1000,
+  );
 });
 
 test('duplicate codes without digits must require review before bulk import', () => {
-  const rows = classify({ id: 'test', name: 'test', hash: '', sheets: [{ name: 'test', rows: [
-    { row: 1, values: [1, 'ไม่มีหมายเลข', 'เครื่องแรก', 1, 100, 100] },
-    { row: 2, values: [2, 'ไม่มีหมายเลข', 'เครื่องที่สอง', 1, 100, 100] },
-  ] }] });
+  const rows = classify({
+    id: 'test',
+    name: 'test',
+    hash: '',
+    sheets: [
+      {
+        name: 'test',
+        rows: [
+          { row: 1, values: [1, 'ไม่มีหมายเลข', 'เครื่องแรก', 1, 100, 100] },
+          { row: 2, values: [2, 'ไม่มีหมายเลข', 'เครื่องที่สอง', 1, 100, 100] },
+        ],
+      },
+    ],
+  });
   assert.ok(rows.every(row => row.issueType === 'duplicate' && row.issue));
 });
 
@@ -65,14 +89,28 @@ test('requests from a cleared session cannot return data or expire a new session
   globalThis.window = events as unknown as Window & typeof globalThis;
   let resolveOld!: (value: Response) => void;
   try {
-    globalThis.fetch = (() => new Promise<Response>(resolve => { resolveOld = resolve; })) as typeof fetch;
+    globalThis.fetch = (() =>
+      new Promise<Response>(resolve => {
+        resolveOld = resolve;
+      })) as typeof fetch;
     const stale = api().catch(error => error);
     cancelApiRequests();
     resolveOld(Response.json({ error: 'expired previous session' }, { status: 401 }));
     assert.equal((await stale).name, 'AbortError');
     assert.equal(expired, 0);
-    globalThis.fetch = (async () => Response.json({ me: { name: 'New user', role: 'staff' }, settings: {},
-      assets: [], requests: [], rounds: [], users: [], invites: [], events: [], imports: [], approvals: [] })) as typeof fetch;
+    globalThis.fetch = (async () =>
+      Response.json({
+        me: { name: 'New user', role: 'staff' },
+        settings: {},
+        assets: [],
+        requests: [],
+        rounds: [],
+        users: [],
+        invites: [],
+        events: [],
+        imports: [],
+        approvals: [],
+      })) as typeof fetch;
     assert.equal((await api()).me.name, 'New user');
   } finally {
     globalThis.fetch = originalFetch;
@@ -87,13 +125,18 @@ test('image fetches respect both session cancellation and component cancellation
   const originalFetch = globalThis.fetch;
   let resolveFetch!: (response: Response) => void;
   try {
-    globalThis.fetch = (() => new Promise<Response>(resolve => { resolveFetch = resolve; })) as typeof fetch;
+    globalThis.fetch = (() =>
+      new Promise<Response>(resolve => {
+        resolveFetch = resolve;
+      })) as typeof fetch;
     const oldImage = sessionFetch('/api/asset-image?asset=old').catch(error => error);
     cancelApiRequests();
     resolveFetch(new Response('old image'));
     assert.equal((await oldImage).name, 'AbortError');
     const component = new AbortController();
-    const switchedImage = sessionFetch('/api/asset-image?asset=switched', { signal: component.signal }).catch(error => error);
+    const switchedImage = sessionFetch('/api/asset-image?asset=switched', { signal: component.signal }).catch(
+      error => error,
+    );
     component.abort();
     resolveFetch(new Response('switched image'));
     assert.equal((await switchedImage).name, 'AbortError');

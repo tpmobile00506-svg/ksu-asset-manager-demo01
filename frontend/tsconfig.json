@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -23,28 +19,14 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "../*"
-      ],
-      "@/components/*": [
-        "./components/*"
-      ],
-      "@/hooks/*": [
-        "./hooks/*"
-      ],
-      "@/lib/utils": [
-        "./utils/classnames.ts"
-      ],
-      "@/data/*": [
-        "../backend/data/*"
-      ],
-      "@/shared/*": [
-        "../backend/contracts/*"
-      ]
+      "@/*": ["../*"],
+      "@/components/*": ["./components/*"],
+      "@/hooks/*": ["./hooks/*"],
+      "@/lib/utils": ["./utils/classnames.ts"],
+      "@/data/*": ["../backend/data/*"],
+      "@/shared/*": ["../backend/contracts/*"]
     },
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "tsBuildInfoFile": "./.next/cache/typescript.tsbuildinfo"
   },
   "include": [
@@ -56,12 +38,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    ".sites-runtime",
-    "../backend/archive",
-    "../backend/.cache",
-    "../backend/tests"
-  ]
+  "exclude": ["node_modules", "dist", ".sites-runtime", "../backend/archive", "../backend/.cache", "../backend/tests"]
 }

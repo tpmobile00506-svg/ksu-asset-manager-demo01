@@ -11,7 +11,7 @@ import {
   Tooltip,
   PieChart,
   Pie,
-  Cell
+  Cell,
 } from 'recharts';
 import { branchAbbr, type Asset } from '@/shared/domain';
 
@@ -22,10 +22,10 @@ interface OverviewChartsProps {
 
 // สีสถานะตามข้อกำหนด โดยเฉพาะ ชำรุด/รอจำหน่าย ให้เป็นสีเทา (#64748b)
 const STATUS_COLORS = {
-  normal: '#10b981',    // สีเขียวมรกต ปกติ/พร้อมใช้
-  repair: '#f59e0b',    // สีเหลือง/ส้ม ส่งซ่อมบำรุง
-  borrowed: '#3b82f6',  // สีน้ำเงิน ยืมใช้งานชั่วคราว
-  damaged: '#64748b'    // สีเทา ชำรุด/รอจำหน่าย
+  normal: '#10b981', // สีเขียวมรกต ปกติ/พร้อมใช้
+  repair: '#f59e0b', // สีเหลือง/ส้ม ส่งซ่อมบำรุง
+  borrowed: '#3b82f6', // สีน้ำเงิน ยืมใช้งานชั่วคราว
+  damaged: '#64748b', // สีเทา ชำรุด/รอจำหน่าย
 };
 
 // ชื่อย่อสาขาเดียวกับใน Excel (วค วคม สนง คจก ...) เดิมเดาจากตัวอักษรบางส่วน ทำให้ "วคม" กลายเป็นคอมพิวเตอร์ และ "สนง.ควอ." กลายเป็นอุตสาหการ
@@ -52,7 +52,7 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
       if (!branchMap[branchName]) {
         branchMap[branchName] = { name: short, fullName: branchName, count: 0 };
       }
-      branchMap[branchName].count += (a.quantity || 1);
+      branchMap[branchName].count += a.quantity || 1;
     }
 
     return Object.values(branchMap).sort((a, b) => b.count - a.count);
@@ -65,24 +65,54 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
 
     const normal = activeList.filter(a => a.condition === 'normal').reduce((sum, a) => sum + (a.quantity || 1), 0);
     const repair = activeList.filter(a => a.condition === 'repair').reduce((sum, a) => sum + (a.quantity || 1), 0);
-    const borrowed = activeList.filter(a => (a.condition as any) === 'borrowed' || (a.condition as any) === 'missing').reduce((sum, a) => sum + (a.quantity || 1), 0);
-    const damaged = activeList.filter(a => a.condition === 'damaged' || a.lifecycle === 'disposed').reduce((sum, a) => sum + (a.quantity || 1), 0);
+    const borrowed = activeList
+      .filter(a => (a.condition as any) === 'borrowed' || (a.condition as any) === 'missing')
+      .reduce((sum, a) => sum + (a.quantity || 1), 0);
+    const damaged = activeList
+      .filter(a => a.condition === 'damaged' || a.lifecycle === 'disposed')
+      .reduce((sum, a) => sum + (a.quantity || 1), 0);
 
     const calcPercent = (n: number) => (total > 0 ? ((n / total) * 100).toFixed(1) : '0.0');
 
     const list = [
-      { key: 'normal', name: 'ปกติ/พร้อมใช้', value: normal, percentage: calcPercent(normal), color: STATUS_COLORS.normal },
-      { key: 'repair', name: 'ส่งซ่อมบำรุง', value: repair, percentage: calcPercent(repair), color: STATUS_COLORS.repair },
-      { key: 'borrowed', name: 'ไม่พบ', value: borrowed, percentage: calcPercent(borrowed), color: STATUS_COLORS.borrowed },
-      { key: 'damaged', name: 'ชำรุด/รอจำหน่าย', value: damaged, percentage: calcPercent(damaged), color: STATUS_COLORS.damaged }
+      {
+        key: 'normal',
+        name: 'ปกติ/พร้อมใช้',
+        value: normal,
+        percentage: calcPercent(normal),
+        color: STATUS_COLORS.normal,
+      },
+      {
+        key: 'repair',
+        name: 'ส่งซ่อมบำรุง',
+        value: repair,
+        percentage: calcPercent(repair),
+        color: STATUS_COLORS.repair,
+      },
+      {
+        key: 'borrowed',
+        name: 'ไม่พบ',
+        value: borrowed,
+        percentage: calcPercent(borrowed),
+        color: STATUS_COLORS.borrowed,
+      },
+      {
+        key: 'damaged',
+        name: 'ชำรุด/รอจำหน่าย',
+        value: damaged,
+        percentage: calcPercent(damaged),
+        color: STATUS_COLORS.damaged,
+      },
     ];
 
     const valid = list.filter(item => item.value > 0);
 
     return {
       pieData: list,
-      activeSlices: valid.length ? valid : [{ key: 'empty', name: 'ไม่มีข้อมูล', value: 1, percentage: '0.0', color: '#e2e8f0' }],
-      readyPercent: calcPercent(normal)
+      activeSlices: valid.length
+        ? valid
+        : [{ key: 'empty', name: 'ไม่มีข้อมูล', value: 1, percentage: '0.0', color: '#e2e8f0' }],
+      readyPercent: calcPercent(normal),
     };
   }, [assets]);
 
@@ -148,9 +178,7 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
                         return (
                           <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-md text-xs">
                             <p className="font-semibold text-slate-800">{item.fullName || item.name}</p>
-                            <p className="text-blue-600 font-bold mt-1">
-                              จำนวน: {item.count.toLocaleString()} ชิ้น
-                            </p>
+                            <p className="text-blue-600 font-bold mt-1">จำนวน: {item.count.toLocaleString()} ชิ้น</p>
                           </div>
                         );
                       }
@@ -191,12 +219,8 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
         <div>
           <div>
-            <h2 className="text-[17px] font-bold text-slate-800 tracking-tight">
-              สัดส่วนสถานะการใช้งาน
-            </h2>
-            <p className="text-[12.5px] text-slate-500 mt-1">
-              จำแนกตามความพร้อมใช้งานและการบำรุงรักษา · นับเป็นชิ้น
-            </p>
+            <h2 className="text-[17px] font-bold text-slate-800 tracking-tight">สัดส่วนสถานะการใช้งาน</h2>
+            <p className="text-[12.5px] text-slate-500 mt-1">จำแนกตามความพร้อมใช้งานและการบำรุงรักษา · นับเป็นชิ้น</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-12 items-center gap-4 mt-4 min-h-[270px]">
@@ -212,10 +236,7 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
                         return (
                           <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-md text-xs">
                             <div className="flex items-center gap-1.5 font-semibold text-slate-800">
-                              <span
-                                className="w-2.5 h-2.5 rounded-full"
-                                style={{ backgroundColor: item.color }}
-                              />
+                              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                               <span>{item.name}</span>
                             </div>
                             <p className="text-slate-600 mt-1 font-medium">
@@ -236,8 +257,13 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
                     paddingAngle={activeSlices.length > 1 ? 2 : 0}
                     dataKey="value"
                   >
-                    {activeSlices.map((entry) => (
-                      <Cell key={entry.key} fill={entry.color} stroke={activeSlices.length > 1 ? '#ffffff' : 'none'} strokeWidth={2} />
+                    {activeSlices.map(entry => (
+                      <Cell
+                        key={entry.key}
+                        fill={entry.color}
+                        stroke={activeSlices.length > 1 ? '#ffffff' : 'none'}
+                        strokeWidth={2}
+                      />
                     ))}
                   </Pie>
                 </PieChart>
@@ -245,31 +271,22 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
 
               {/* ข้อความและ % ใจกลางวงโดนัท */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
-                <span className="text-[26px] font-bold text-slate-800 leading-none">
-                  {readyPercent}%
-                </span>
-                <span className="text-[11.5px] text-slate-500 font-medium mt-1">
-                  พร้อมใช้งาน
-                </span>
+                <span className="text-[26px] font-bold text-slate-800 leading-none">{readyPercent}%</span>
+                <span className="text-[11.5px] text-slate-500 font-medium mt-1">พร้อมใช้งาน</span>
               </div>
             </div>
 
             {/* แถบ Legend ข้อมูลด้านขวา */}
             <div className="sm:col-span-6 flex flex-col justify-center gap-3 pl-2 sm:pl-4">
-              {pieData.map((item) => (
+              {pieData.map(item => (
                 <div key={item.key} className="flex items-start gap-2.5 text-xs">
-                  <span
-                    className="w-3 h-3 rounded-full mt-0.5 shrink-0"
-                    style={{ backgroundColor: item.color }}
-                  />
+                  <span className="w-3 h-3 rounded-full mt-0.5 shrink-0" style={{ backgroundColor: item.color }} />
                   <div>
                     <div className="text-slate-800 leading-tight">
                       <span className="font-medium">{item.name}: </span>
                       <span className="font-bold text-[13px]">{item.value.toLocaleString()}</span>
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      คิดเป็น {item.percentage}%
-                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">คิดเป็น {item.percentage}%</div>
                   </div>
                 </div>
               ))}

@@ -27,12 +27,27 @@ test('regression: "สนง.ควอ." ไม่ถูกจัดเป็น
 });
 
 // ---------- ห้ามสร้างครุภัณฑ์ใหม่ด้วยสถานะ "กำลังซ่อม" ----------
-const staff: Member = { id: 'staff-1', email: 'staff@example.test', name: 'Staff', role: 'staff', branch: null, active: 1, createdAt: '' };
+const staff: Member = {
+  id: 'staff-1',
+  email: 'staff@example.test',
+  name: 'Staff',
+  role: 'staff',
+  branch: null,
+  active: 1,
+  createdAt: '',
+};
 
 function useMemoryDatabase(client: object) {
   const cache = globalThis as unknown as { assetPool?: unknown; assetPrisma?: unknown };
   const previous = { pool: cache.assetPool, client: cache.assetPrisma };
-  cache.assetPool = new Proxy({}, { get() { throw new Error('Real database access is forbidden in this test'); } });
+  cache.assetPool = new Proxy(
+    {},
+    {
+      get() {
+        throw new Error('Real database access is forbidden in this test');
+      },
+    },
+  );
   cache.assetPrisma = new Proxy(client, {
     get(target, property) {
       if (!(property in target)) throw new Error(`Unexpected database method: ${String(property)}`);
@@ -40,8 +55,10 @@ function useMemoryDatabase(client: object) {
     },
   });
   return () => {
-    if (previous.pool === undefined) delete cache.assetPool; else cache.assetPool = previous.pool;
-    if (previous.client === undefined) delete cache.assetPrisma; else cache.assetPrisma = previous.client;
+    if (previous.pool === undefined) delete cache.assetPool;
+    else cache.assetPool = previous.pool;
+    if (previous.client === undefined) delete cache.assetPrisma;
+    else cache.assetPrisma = previous.client;
   };
 }
 
@@ -51,8 +68,17 @@ function createEnvironment() {
   const tx = {
     user: { findUnique: async () => staff },
     operation: { findUnique: async () => null, create: async () => ({}) },
-    location: noop, branch: noop, category: noop, assetGroup: noop,
-    asset: { create: async ({ data }: { data: Record<string, any> }) => { created.push(data); return data; }, findMany: async () => [] },
+    location: noop,
+    branch: noop,
+    category: noop,
+    assetGroup: noop,
+    asset: {
+      create: async ({ data }: { data: Record<string, any> }) => {
+        created.push(data);
+        return data;
+      },
+      findMany: async () => [],
+    },
     audit: { create: async () => ({}) },
   };
   return { tx, created };
@@ -61,8 +87,16 @@ function createEnvironment() {
 const newAsset = (condition: string) => ({
   action: 'create',
   asset: {
-    code: 'TEST-001', name: 'โต๊ะทดสอบ', quantity: 2, unitSatang: 150000, totalSatang: 300000, // 2 × 1,500.00 = 3,000.00 บาท
-    location: 'ห้อง 101', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)', category: 'คอมพิวเตอร์', groupName: 'ทั่วไป', condition,
+    code: 'TEST-001',
+    name: 'โต๊ะทดสอบ',
+    quantity: 2,
+    unitSatang: 150000,
+    totalSatang: 300000, // 2 × 1,500.00 = 3,000.00 บาท
+    location: 'ห้อง 101',
+    branch: 'วิศวกรรมคอมพิวเตอร์ (วค)',
+    category: 'คอมพิวเตอร์',
+    groupName: 'ทั่วไป',
+    condition,
   },
 });
 
@@ -72,7 +106,9 @@ test('เพิ่มครุภัณฑ์ด้วยสถานะ "กำ
   try {
     await assert.rejects(mutate(staff, newAsset('repair')), (e: any) => e?.status === 400);
     assert.equal(created.length, 0);
-  } finally { restore(); }
+  } finally {
+    restore();
+  }
 });
 
 test('เพิ่มครุภัณฑ์ด้วยสถานะ "ปกติ" ทำได้ตามเดิม', async () => {
@@ -84,7 +120,9 @@ test('เพิ่มครุภัณฑ์ด้วยสถานะ "ปก
     assert.equal(created.length, 1);
     assert.equal(created[0].condition, 'normal');
     assert.equal(created[0].totalSatang, 300000n);
-  } finally { restore(); }
+  } finally {
+    restore();
+  }
 });
 
 test('หมายเลขครุภัณฑ์ซ้ำ (ไม่สนตัวพิมพ์และช่องว่าง) ถูกปฏิเสธพร้อมบอกว่าซ้ำกับรายการไหน', async () => {
@@ -106,6 +144,8 @@ test('สาขานอกรายการมาตรฐานถูกป�
     short.asset.branch = 'วค';
     await mutate(staff, short);
     assert.equal(created[0].branch, 'วิศวกรรมคอมพิวเตอร์ (วค)');
-    assert.equal(created[0].groupName, 'คอม');   // ประเภท "คอมพิวเตอร์" → หมวด "คอม" (ค่า "ทั่วไป" ที่ส่งมาไม่ถูกใช้)
-  } finally { restore(); }
+    assert.equal(created[0].groupName, 'คอม'); // ประเภท "คอมพิวเตอร์" → หมวด "คอม" (ค่า "ทั่วไป" ที่ส่งมาไม่ถูกใช้)
+  } finally {
+    restore();
+  }
 });

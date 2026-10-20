@@ -8,9 +8,10 @@ import * as domain from '../contracts/domain';
 type Element = { type: unknown; props: Record<string, any>; key?: unknown };
 type Control = { element: Element; value: string; checked: boolean };
 
-const compile = (path: string) => ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), {
-  compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText;
+const compile = (path: string) =>
+  ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), {
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
 const editorCode = compile('../../frontend/features/inventory/editor.tsx');
 const fieldCode = compile('../../frontend/features/inventory/asset-form-modal.tsx');
 const commonCode = compile('../../frontend/components/common.tsx');
@@ -28,7 +29,12 @@ function mount(user?: Record<string, unknown>) {
     useState(initial: unknown) {
       const index = cursor++;
       if (!(index in slots)) slots[index] = initial;
-      return [slots[index], (value: unknown) => { slots[index] = value; }];
+      return [
+        slots[index],
+        (value: unknown) => {
+          slots[index] = value;
+        },
+      ];
     },
     // useRef: ค่าคงอยู่ข้ามการ render เหมือน React จริง (Editor ใช้จำเนื้อหาหน้าต่างระหว่างปิด)
     useRef(initial: unknown) {
@@ -77,18 +83,31 @@ function mount(user?: Record<string, unknown>) {
   const writes: Record<string, any>[] = [];
   let failNext = false;
   const props = {
-    data: { me: { role: 'admin' }, assets: [] }, selected: null, setSelected() {},
+    data: { me: { role: 'admin' }, assets: [] },
+    selected: null,
+    setSelected() {},
     modal: { kind: 'user', token: 'first-user-form', ...(user ? { user } : {}) },
-    setModal() {}, open() {}, busy: false, error: '', historyRevision: 0,
+    setModal() {},
+    open() {},
+    busy: false,
+    error: '',
+    historyRevision: 0,
     onPhotoChanged: async () => {},
-    setError(message: string) { props.error = message; },
+    setError(message: string) {
+      props.error = message;
+    },
     async write(body: Record<string, any>) {
       writes.push(body);
-      if (failNext) { failNext = false; throw new Error('Synthetic save failure'); }
+      if (failNext) {
+        failNext = false;
+        throw new Error('Synthetic save failure');
+      }
       return { ok: true };
     },
   };
-  let elements: Element[] = [], form: Element, formKey: unknown;
+  let elements: Element[] = [],
+    form: Element,
+    formKey: unknown;
   const controls = new Map<string, Control>();
   const render = () => {
     cursor = 0;
@@ -97,15 +116,23 @@ function mount(user?: Record<string, unknown>) {
     elements = [];
     const walk = (value: any) => {
       if (!value || typeof value !== 'object') return;
-      if (Array.isArray(value)) { value.forEach(walk); return; }
+      if (Array.isArray(value)) {
+        value.forEach(walk);
+        return;
+      }
       elements.push(value);
       walk(value.props?.children);
     };
     walk(tree);
     form = elements.find(element => element.type === 'form')!;
     assert.ok(form, 'The user dialog must expose its form');
-    if (form.key !== formKey) { controls.clear(); formKey = form.key; }
-    for (const element of elements.filter(element => ['Input', 'Select', 'Checkbox'].includes(String(element.type)) && element.props.name)) {
+    if (form.key !== formKey) {
+      controls.clear();
+      formKey = form.key;
+    }
+    for (const element of elements.filter(
+      element => ['Input', 'Select', 'Checkbox'].includes(String(element.type)) && element.props.name,
+    )) {
       const previous = controls.get(element.props.name);
       controls.set(element.props.name, {
         element,
@@ -123,7 +150,10 @@ function mount(user?: Record<string, unknown>) {
     return control;
   };
   return {
-    named, render, writes, props,
+    named,
+    render,
+    writes,
+    props,
     fill(name: string, value: string) {
       const control = named(name);
       assert.equal(!!control.element.props.readOnly, false, `${name} must be editable`);
@@ -138,17 +168,28 @@ function mount(user?: Record<string, unknown>) {
       control.element.props.onValueChange?.(value);
       render();
     },
-    failNextWrite() { failNext = true; },
+    failNextWrite() {
+      failNext = true;
+    },
     async submit() {
       await form.props.onSubmit({ preventDefault() {}, currentTarget: { controls } });
       render();
     },
-    text: () => elements.flatMap(element => Array.isArray(element.props.children) ? element.props.children : [element.props.children])
-      .filter(value => typeof value === 'string').join(' '),
+    text: () =>
+      elements
+        .flatMap(element => (Array.isArray(element.props.children) ? element.props.children : [element.props.children]))
+        .filter(value => typeof value === 'string')
+        .join(' '),
   };
 }
 
-const existingUser = { id: 'synthetic-user', name: 'Synthetic User', email: 'user@example.test', role: 'dean', active: 1 };
+const existingUser = {
+  id: 'synthetic-user',
+  name: 'Synthetic User',
+  email: 'user@example.test',
+  role: 'dean',
+  active: 1,
+};
 
 test('new user dialog opens without a user record and submits its editable defaults', async () => {
   const form = mount();
@@ -161,10 +202,17 @@ test('new user dialog opens without a user record and submits its editable defau
   form.fill('email', 'new@example.test');
   form.fill('password', 'Synthetic-Password!');
   await form.submit();
-  assert.deepEqual({ ...form.writes[0] }, {
-    action: 'user', name: 'New Synthetic User', email: 'new@example.test',
-    role: 'staff', active: true, password: 'Synthetic-Password!',
-  });
+  assert.deepEqual(
+    { ...form.writes[0] },
+    {
+      action: 'user',
+      name: 'New Synthetic User',
+      email: 'new@example.test',
+      role: 'staff',
+      active: true,
+      password: 'Synthetic-Password!',
+    },
+  );
 });
 
 test('editing a suspended user preserves inactive status and an empty password is omitted', async () => {
@@ -194,7 +242,10 @@ test('selected user role survives parent renders and a failed save, while a new 
   assert.equal(form.props.error, 'Synthetic save failure');
   assert.equal(form.named('role').value, 'head');
   await form.submit();
-  assert.deepEqual(form.writes.map(write => write.role), ['head', 'head']);
+  assert.deepEqual(
+    form.writes.map(write => write.role),
+    ['head', 'head'],
+  );
   form.props.modal = { kind: 'user', token: 'another-user-form', user: { ...existingUser, role: 'deputy' } };
   form.render();
   assert.equal(form.named('role').value, 'deputy');

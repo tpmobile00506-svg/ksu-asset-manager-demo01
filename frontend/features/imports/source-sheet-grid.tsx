@@ -34,10 +34,15 @@ function show(value: unknown): string {
     if (v.text !== undefined) return show(v.text);
     return '';
   }
-  if (typeof value === 'number') return Number.isInteger(value) ? value.toLocaleString('th-TH') : value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (typeof value === 'number')
+    return Number.isInteger(value)
+      ? value.toLocaleString('th-TH')
+      : value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return String(value);
 }
-const isNumber = (value: unknown) => typeof value === 'number' || (typeof value === 'object' && value !== null && typeof (value as { cached?: unknown }).cached === 'number');
+const isNumber = (value: unknown) =>
+  typeof value === 'number' ||
+  (typeof value === 'object' && value !== null && typeof (value as { cached?: unknown }).cached === 'number');
 // แถวหัวกระดาษ/หัวทุนที่มีข้อความช่องเดียว ให้ข้อความล้นไปช่องว่างทางขวาแบบ Excel (ไม่ดันคอลัมน์ให้กว้าง)
 function cells(r: Row, cols: number) {
   const text = Array.from({ length: cols }, (_, i) => show(r.values[i]));
@@ -47,10 +52,16 @@ function cells(r: Row, cols: number) {
     const at = filled[0];
     return [
       ...Array.from({ length: at }, (_, c) => <td key={c} />),
-      <td key={at} colSpan={cols - at} className="span">{filled.map(i => text[i].trim()).join('   ')}</td>,
+      <td key={at} colSpan={cols - at} className="span">
+        {filled.map(i => text[i].trim()).join('   ')}
+      </td>,
     ];
   }
-  return text.map((t, c) => <td key={c} className={isNumber(r.values[c]) ? 'num' : ''} title={t.length > (c === 0 ? 6 : 30) ? t : undefined}><div className="cell">{t}</div></td>);
+  return text.map((t, c) => (
+    <td key={c} className={isNumber(r.values[c]) ? 'num' : ''} title={t.length > (c === 0 ? 6 : 30) ? t : undefined}>
+      <div className="cell">{t}</div>
+    </td>
+  ));
 }
 // ติ๊กได้ทุกแถวที่ยังไม่นำเข้า (แถวสีเทาเลือกไว้ "เปลี่ยนเป็น..." ได้) แต่นำเข้าได้เฉพาะแถวครุภัณฑ์
 // แถว "ต้องตรวจ" นำเข้าพร้อมหมายเหตุให้ตามแก้
@@ -67,7 +78,15 @@ function state(r: Row): { label: string; tone: string } {
   return { label: 'พร้อม', tone: 'ready' };
 }
 
-export default function SourceSheetGrid({ sourceId, sheets, revision, canImport, onImport, onReview, onOverride }: Props) {
+export default function SourceSheetGrid({
+  sourceId,
+  sheets,
+  revision,
+  canImport,
+  onImport,
+  onReview,
+  onOverride,
+}: Props) {
   const [sheet, setSheet] = useState(sheets[0] || '');
   const [page, setPage] = useState(0);
   const [data, setData] = useState<SourceViewResponse | null>(null);
@@ -78,24 +97,47 @@ export default function SourceSheetGrid({ sourceId, sheets, revision, canImport,
   const drag = useRef<{ from: number; add: boolean; base: Set<string> } | null>(null);
   const anchor = useRef<number | null>(null);
 
-  useEffect(() => { if (!sheets.includes(sheet)) setSheet(sheets[0] || ''); }, [sheets, sheet]);
-  useEffect(() => { setPage(0); anchor.current = null; }, [sheet, sourceId]);
-  useEffect(() => { setSelected(new Set()); }, [sourceId, revision]);
+  useEffect(() => {
+    if (!sheets.includes(sheet)) setSheet(sheets[0] || '');
+  }, [sheets, sheet]);
+  useEffect(() => {
+    setPage(0);
+    anchor.current = null;
+  }, [sheet, sourceId]);
+  useEffect(() => {
+    setSelected(new Set());
+  }, [sourceId, revision]);
 
   useEffect(() => {
     if (!sourceId || !sheet) return;
     const controller = new AbortController();
-    setLoading(true); setError('');
-    const q = new URLSearchParams({ view: 'source', source: sourceId, sheet, kind: 'all', grid: '1', page: String(page) });
+    setLoading(true);
+    setError('');
+    const q = new URLSearchParams({
+      view: 'source',
+      source: sourceId,
+      sheet,
+      kind: 'all',
+      grid: '1',
+      page: String(page),
+    });
     api<SourceViewResponse>('?' + q.toString(), undefined, { signal: controller.signal })
-      .then(r => { if (!controller.signal.aborted) setData(r); })
-      .catch((e: unknown) => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'โหลดแผ่นงานไม่สำเร็จ'); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      .then(r => {
+        if (!controller.signal.aborted) setData(r);
+      })
+      .catch((e: unknown) => {
+        if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'โหลดแผ่นงานไม่สำเร็จ');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
   }, [sourceId, sheet, page, revision]);
 
   useEffect(() => {
-    const stop = () => { drag.current = null; };
+    const stop = () => {
+      drag.current = null;
+    };
     window.addEventListener('pointerup', stop);
     return () => window.removeEventListener('pointerup', stop);
   }, []);
@@ -107,7 +149,8 @@ export default function SourceSheetGrid({ sourceId, sheets, revision, canImport,
     const next = new Set(base);
     for (const r of rows.slice(Math.min(from, to), Math.max(from, to) + 1)) {
       if (!selectable(r)) continue;
-      if (add) next.add(r.key); else next.delete(r.key);
+      if (add) next.add(r.key);
+      else next.delete(r.key);
     }
     setSelected(next);
   }
@@ -135,60 +178,129 @@ export default function SourceSheetGrid({ sourceId, sheets, revision, canImport,
   const [changing, setChanging] = useState(false);
   async function change(as: RowOverride | 'auto') {
     setChanging(true);
-    try { if (await onOverride([...selected], as)) setSelected(new Set()); } finally { setChanging(false); }
+    try {
+      if (await onOverride([...selected], as)) setSelected(new Set());
+    } finally {
+      setChanging(false);
+    }
   }
 
   return (
     <div className="xls">
       <div className="xls-bar">
-        <span className="xls-count">เลือกแล้ว <b>{selected.size.toLocaleString('th-TH')}</b> แถว</span>
-        <span className="xls-hint">ลากที่เลขแถวเพื่อครอบ · Shift+คลิกเลือกเป็นช่วง · ติ๊กทีละแถว · แถวสีเหลืองนำเข้าได้ ระบบติดหมายเหตุ "ต้องตรวจ" ให้</span>
+        <span className="xls-count">
+          เลือกแล้ว <b>{selected.size.toLocaleString('th-TH')}</b> แถว
+        </span>
+        <span className="xls-hint">
+          ลากที่เลขแถวเพื่อครอบ · Shift+คลิกเลือกเป็นช่วง · ติ๊กทีละแถว · แถวสีเหลืองนำเข้าได้ ระบบติดหมายเหตุ
+          "ต้องตรวจ" ให้
+        </span>
         <div className="xls-actions">
-          <Button size="sm" variant="outline" disabled={!readyHere.length} onClick={() => setSelected(new Set([...selected, ...readyHere.map(r => r.key)]))}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!readyHere.length}
+            onClick={() => setSelected(new Set([...selected, ...readyHere.map(r => r.key)]))}
+          >
             เลือกที่พร้อมในหน้านี้ ({readyHere.length})
           </Button>
-          {selected.size > 0 && <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}><X size={14} />ล้าง</Button>}
+          {selected.size > 0 && (
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+              <X size={14} />
+              ล้าง
+            </Button>
+          )}
           {/* เปลี่ยนประเภทแถวที่เลือก เมื่อระบบเดาผิด (เช่น ข้อความตกบรรทัดกลายเป็นหัวกระดาษ) */}
-          <select aria-label="เปลี่ยนแถวที่เลือกเป็น" className="xls-change" value="" disabled={!canImport || !selected.size || changing}
-            onChange={e => { const v = e.target.value as RowOverride | 'auto'; if (v) void change(v); }}>
+          <select
+            aria-label="เปลี่ยนแถวที่เลือกเป็น"
+            className="xls-change"
+            value=""
+            disabled={!canImport || !selected.size || changing}
+            onChange={e => {
+              const v = e.target.value as RowOverride | 'auto';
+              if (v) void change(v);
+            }}
+          >
             <option value="">{changing ? 'กำลังเปลี่ยน…' : 'เปลี่ยนเป็น…'}</option>
-            {(Object.keys(rowOverrideLabels) as RowOverride[]).map(k => <option key={k} value={k}>{rowOverrideLabels[k]}</option>)}
+            {(Object.keys(rowOverrideLabels) as RowOverride[]).map(k => (
+              <option key={k} value={k}>
+                {rowOverrideLabels[k]}
+              </option>
+            ))}
             <option value="auto">กลับเป็นค่าที่ระบบเดา</option>
           </select>
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={!canImport || !toImport.length} onClick={() => onImport(toImport, pickedAssets.length, linking)}>
-            <Zap size={14} /> นำเข้า {pickedAssets.length.toLocaleString('th-TH')} รายการ{linking ? ` · ผูกกับหัวทุน ${linking}` : ''}
+          <Button
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            disabled={!canImport || !toImport.length}
+            onClick={() => onImport(toImport, pickedAssets.length, linking)}
+          >
+            <Zap size={14} /> นำเข้า {pickedAssets.length.toLocaleString('th-TH')} รายการ
+            {linking ? ` · ผูกกับหัวทุน ${linking}` : ''}
           </Button>
         </div>
       </div>
 
-      {error && <p role="alert" className="xls-error">{error}</p>}
+      {error && (
+        <p role="alert" className="xls-error">
+          {error}
+        </p>
+      )}
       <div className={`xls-scroll ${loading ? 'is-loading' : ''}`}>
         <table className="xls-grid">
           <thead>
             <tr>
               <th className="xls-corner" />
-              {letters(cols).map(l => <th key={l}>{l}</th>)}
+              {letters(cols).map(l => (
+                <th key={l}>{l}</th>
+              ))}
               <th className="xls-state-h">สถานะ</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r, index) => {
-              const st = state(r), can = selectable(r), on = selected.has(r.key);
+              const st = state(r),
+                can = selectable(r),
+                on = selected.has(r.key);
               return (
-                <tr key={r.key} className={`tone-${st.tone} ${on ? 'is-on' : ''}`}
+                <tr
+                  key={r.key}
+                  className={`tone-${st.tone} ${on ? 'is-on' : ''}`}
                   onPointerEnter={() => enterRow(index)}
-                  title={r.issue || (r.fund ? 'หัวทุน: ' + r.fund.name : undefined)}>
-                  <th className={`xls-rowhead ${can ? 'can' : ''}`}
-                    onPointerDown={e => { e.preventDefault(); pressRow(index, e.shiftKey); }}>
-                    <input type="checkbox" className="select-check" aria-label={`เลือกแถว ${r.row}`} checked={on} disabled={!can} readOnly tabIndex={-1} />
+                  title={r.issue || (r.fund ? 'หัวทุน: ' + r.fund.name : undefined)}
+                >
+                  <th
+                    className={`xls-rowhead ${can ? 'can' : ''}`}
+                    onPointerDown={e => {
+                      e.preventDefault();
+                      pressRow(index, e.shiftKey);
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      className="select-check"
+                      aria-label={`เลือกแถว ${r.row}`}
+                      checked={on}
+                      disabled={!can}
+                      readOnly
+                      tabIndex={-1}
+                    />
                     <span>{r.row}</span>
                   </th>
                   {cells(r, cols)}
                   <td className="xls-state">
-                    {st.tone === 'issue'
-                      ? <button type="button" className="xls-chip issue" onClick={() => onReview(r)}>ต้องตรวจ · เปิดดู</button>
-                      : <span className={`xls-chip ${st.tone}`}>{st.label}</span>}
-                    {r.override && <span className="xls-edited" title="เจ้าหน้าที่เปลี่ยนประเภทแถวนี้เอง">แก้</span>}
+                    {st.tone === 'issue' ? (
+                      <button type="button" className="xls-chip issue" onClick={() => onReview(r)}>
+                        ต้องตรวจ · เปิดดู
+                      </button>
+                    ) : (
+                      <span className={`xls-chip ${st.tone}`}>{st.label}</span>
+                    )}
+                    {r.override && (
+                      <span className="xls-edited" title="เจ้าหน้าที่เปลี่ยนประเภทแถวนี้เอง">
+                        แก้
+                      </span>
+                    )}
                   </td>
                 </tr>
               );
@@ -201,7 +313,16 @@ export default function SourceSheetGrid({ sourceId, sheets, revision, canImport,
 
       <div className="xls-tabs" role="tablist" aria-label="แผ่นงาน">
         {sheets.map(s => (
-          <button key={s} type="button" role="tab" aria-selected={s === sheet} className={s === sheet ? 'on' : ''} onClick={() => setSheet(s)}>{s}</button>
+          <button
+            key={s}
+            type="button"
+            role="tab"
+            aria-selected={s === sheet}
+            className={s === sheet ? 'on' : ''}
+            onClick={() => setSheet(s)}
+          >
+            {s}
+          </button>
         ))}
       </div>
     </div>
