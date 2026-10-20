@@ -2,10 +2,11 @@ import { randomUUID, createHash } from 'node:crypto';
 import { prisma, plain, json, type Transaction, type Prisma } from '../db/client';
 import { publicUserFields, type Member } from '../auth/sessions';
 import { ApiError } from './errors';
+import { trace } from '../debug/trace';
 import { parseWorkbook } from '../imports/workbook';
 import { readFileBytes, putFile } from '../storage/files';
 import { withAssetImages } from '../storage/asset-image-metadata';
-import { type Asset, type Source, type RowOverride, isRowOverride, classify, conditions, normalizeBranch, UNKNOWN_ASSET_TYPE, assetGroupOfType, codeKey, markExistingCodes, branchAbbr, requestNumbers } from '../contracts/domain';
+import { type Asset, type Source, type RowOverride, isRowOverride, classify, conditions, roles, normalizeBranch, UNKNOWN_ASSET_TYPE, assetGroupOfType, codeKey, markExistingCodes, branchAbbr, requestNumbers } from '../contracts/domain';
 import type { SourceViewResponse } from '../contracts/imports';
 import type { StocktakeResponse, WorkspaceData } from '../contracts/models';
 
@@ -26,6 +27,8 @@ export function clean(value: unknown, max = 5000): string {
 }
 export function allow(member: Member, allowed: string[]) {
   if (!allowed.includes(member.role)) throw new ApiError('บัญชีนี้ไม่มีสิทธิ์ดำเนินการ', 403);
+  const label = (role: string) => (roles as Record<string, string>)[role] ?? role;
+  trace.ok(`ตรวจสิทธิ์ — ${label(member.role)} ทำคำสั่งนี้ได้ (อนุญาตเฉพาะ: ${allowed.map(label).join(', ')})`);
 }
 export function validated(input: Record<string, unknown>): Partial<Asset> {
   const a: Record<string, any> = {};
@@ -66,6 +69,7 @@ export async function insertAsset(tx: Transaction, a: Asset) {
   return tx.asset.create({ data: financialData(a) as Prisma.AssetUncheckedCreateInput });
 }
 export function audit(tx: Transaction, m: Member, action: string, assetId: string | null, before: unknown, after: unknown, reason = '') {
+  trace.step(`บันทึกประวัติ (audit): “${action}” — เก็บว่าใครทำ เมื่อไหร่ ข้อมูลก่อนและหลัง`);
   return tx.audit.create({ data: { id: id(), assetId, actor: m.id, actorName: m.name, action, before: json(before), after: json(after), reason, createdAt: now() } });
 }
 export async function asset(tx: Transaction, assetId: string): Promise<Asset> {

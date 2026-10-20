@@ -1,9 +1,14 @@
 import { login } from '@/backend/auth/sessions';
 import { ApiError } from '@/backend/services/errors';
+import { traced } from '@/backend/debug/trace';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  return traced('POST', '/api/auth/login', () => handle(request));
+}
+
+async function handle(request: Request) {
   try {
     return await login(request);
   } catch (err: unknown) {

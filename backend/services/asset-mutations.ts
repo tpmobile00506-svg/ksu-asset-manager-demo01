@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
 import { prisma, json, plain, type Transaction, Prisma } from '../db/client';
 import { freshMember, publicUserFields, hashPassword, passwordFingerprint, type Member } from '../auth/sessions';
-import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, assetTypes, assetGroupOfType, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride, thaiFiscalYear, nextRequestSeq, ADMIN_APPROVES_ALL, voidBlockReason, voidedCode, restoredCode } from '../contracts/domain';
+import { type Asset, type Candidate, type CandidateSet, type CandidateFund, roles, conditions, requestTypes, expandRange, splitAmounts, classify, standardBranches, assetTypes, assetGroupOfType, normalizeBranch, branchAbbr, codeKey, markExistingCodes, approvalChainOf, isStandardBranch, isRowOverride, thaiFiscalYear, nextRequestSeq, formatRequestNo, money, ADMIN_APPROVES_ALL, voidBlockReason, voidedCode, restoredCode } from '../contracts/domain';
 import { ApiError, clean, allow, now, id, asset, audit, dimensions, financialData, insertAsset, validated, getSource, registeredCodes, loadOverrides, overridesKey } from './asset-service';
 import { assetImageKey } from '../storage/asset-image-metadata';
 import { importFileAction, isImportFileAction } from './import-files';
+import { trace } from '../debug/trace';
 import { validate, userMutationSchema, workflowMutationSchema, assetRequestSchema, approvalMutationSchema } from '../validation';
 
 type Input = Record<string, any>;
@@ -86,6 +87,7 @@ export async function mutate(member: Member, input: Input) {
   if (action === 'user' && input.password) {
     // ตรวจสิทธิ์ก่อนคำนวณ scrypt (ใช้ CPU มาก) ไม่ให้ผู้ใช้ที่ไม่ใช่ Admin ส่งรหัสผ่านมาให้เซิร์ฟเวอร์คำนวณได้ฟรี
     allow(member, ['admin']);
+    trace.step('เข้ารหัสรหัสผ่านใหม่ด้วย scrypt ก่อนเก็บ (ไม่เก็บรหัสจริง)');
     passwordHash = await hashPassword(input.password);
     fingerprint = await passwordFingerprint(input.password, token);
   }
@@ -94,6 +96,7 @@ export async function mutate(member: Member, input: Input) {
   const requestHash = createHash('sha256').update(json(fingerprint ? { ...hashedInput, password: fingerprint } : hashedInput)).digest('hex');
   const replay = (existing: { actor: string; requestHash: string; response: string }) => {
     if (existing.actor !== member.id || (existing.requestHash && existing.requestHash !== requestHash)) throw new ApiError('รหัสคำขอนี้ใช้กับข้อมูลอื่นแล้ว กรุณาเปิดฟอร์มใหม่', 409);
+    trace.warn('token นี้เคยบันทึกแล้ว (กดซ้ำ) → ส่งผลลัพธ์เดิมกลับ ไม่บันทึกซ้ำ');
     return { ...JSON.parse(existing.response), ok: true, replayed: true };
   };
   let sourceRows: Candidate[] | undefined;
@@ -108,12 +111,15 @@ export async function mutate(member: Member, input: Input) {
   // Serializable อาจยกเลิก transaction ที่ทำพร้อมกันแม้แก้คนละรายการ (P2034) เช่น 2 คนเพิ่มครุภัณฑ์พร้อมกัน
   // ซึ่งต่างก็อ่านรหัสทั้งทะเบียนเพื่อตรวจรหัสซ้ำ: ทุกอย่างถูกย้อนกลับแล้ว จึงลองใหม่ได้อย่างปลอดภัย
   for (let attempt = 1; ; attempt++) {
+    if (attempt === 1) trace.step('เปิด transaction แบบ Serializable — ทุกขั้นต่อจากนี้ต้องสำเร็จพร้อมกัน ถ้าพลาดจะยกเลิกทั้งหมด');
+    else trace.warn(`ชนกับคำสั่งของคนอื่นที่ทำพร้อมกัน → ฐานข้อมูลยกเลิกให้แล้ว ลองใหม่ครั้งที่ ${attempt}`);
     try {
       return await prisma.$transaction(async tx => {
         const m = await freshMember(tx, member);
         const existing = await tx.operation.findUnique({ where: { id: token } });
         if (existing) return replay(existing);
         const result = await perform(tx, m, action, input, passwordHash, sourceRows && structuredClone(sourceRows));
+        trace.ok('ทำคำสั่งเสร็จ → เก็บ token กับผลลัพธ์ไว้ ถ้ากดซ้ำจะได้ผลเดิม');
         await tx.operation.create({ data: { id: token, valid: 1, actor: m.id, createdAt: now(), requestHash, response: json(result) } });
         return result;
       }, { isolationLevel, maxWait: 15000, timeout: 45000 });
@@ -181,6 +187,8 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     const range = expandRange(a.code!, a.quantity!);
     if (a.code!.includes('ถึง') && !range) throw new ApiError('กรุณายืนยันหมายเลขครุภัณฑ์ที่ชัดเจนก่อนนำเข้า เก็บรหัสช่วงเดิมในหมายเหตุ');
     await assertCodesFree(tx, [a.code!, ...(range ?? [])]);
+    trace.ok(`ตรวจข้อมูลครบ และหมายเลข ${a.code} ไม่ซ้ำกับทะเบียน`);
+    trace.step(`ราคารวม ${money(a.totalSatang!)} บาท เก็บเป็น ${a.totalSatang} สตางค์ (จำนวนเต็ม กันทศนิยมคลาดเคลื่อน)`);
     const setLink = await linkToSet(tx, sourceId, sourceSet);
     const fundLink = await hintFund(tx, sourceId, sourceFund);
     const base = { ...a, id: id(), lifecycle: range ? 'split' : 'active', version: 1, parentId: null, sourceId, sourceRow, createdAt: now(), ...setLink, ...fundLink } as Asset;
@@ -439,6 +447,7 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     const a = await asset(tx, clean(b.id));
     if (a.lifecycle !== 'active') throw new ApiError('รายการนี้ถูกแบ่งยอดหรือปิดบัญชีแล้ว');
     if (a.version !== b.version) throw new ApiError('ข้อมูลเปลี่ยนแล้ว กรุณาโหลดใหม่', 409);
+    trace.ok(`version ตรงกัน (${a.version}) — ไม่มีใครแก้รายการ ${a.code} ทับระหว่างที่เปิดฟอร์ม`);
     if (await tx.assetRequest.findFirst({ where: { assetId: a.id, status: 'pending' } })) throw new ApiError('รายการนี้มีคำขอรออนุมัติ กรุณาดำเนินการคำขอให้เสร็จก่อน');
     const reason = clean(b.reason ?? '');
     if (action === 'edit') {
@@ -520,6 +529,7 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
       const createdAt = now(), year = thaiFiscalYear(createdAt);
       const sameYear = (await tx.assetRequest.findMany({ select: { createdAt: true, payload: true } })).filter(r => thaiFiscalYear(r.createdAt) === year);
       payload.seq = nextRequestSeq(sameYear);
+      trace.ok(`ออกเลขคำขอ ${formatRequestNo(year, payload.seq)} แล้วส่งเข้าสายอนุมัติ`);
       const req = await tx.assetRequest.create({ data: { id: id(), assetId: a.id, assetVersion: a.version + 1, kind, payload: json(payload), reason, chain, actor: m.id, createdAt } });
       await tx.asset.update({ where: { id: a.id }, data: { version: { increment: 1 } } });
       await audit(tx, m, 'ส่งคำขอ ' + requestTypes[kind as keyof typeof requestTypes], a.id, a, req, reason);
@@ -598,6 +608,7 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
       if (!userBranch || !assetBranch || userBranch !== assetBranch) {
         throw new ApiError('คุณไม่มีสิทธิ์ดำเนินการคำขอของสาขาอื่น หรือยังไม่ได้กำหนดสาขาสังกัด', 403);
       }
+      trace.ok('สาขาของหัวหน้าตรงกับสาขาของครุภัณฑ์');
     }
 
     const note = clean(reason ?? '');
@@ -606,6 +617,8 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     const skipAll = skipper && action === 'approve', by = adminAll ? 'Admin' : 'บัญชีทดลอง (ผู้ทดสอบระบบ)';
     const stages: number[] = skipAll ? chain.map((_: string, i: number) => i).slice(r.stage) : [r.stage];
     const last = stages[stages.length - 1], final = action === 'approve' && last === chain.length - 1;
+    trace.ok(`${action === 'approve' ? 'อนุมัติ' : 'ไม่อนุมัติ'} ขั้นที่ ${r.stage + 1}/${chain.length} (${(roles as Record<string, string>)[chain[r.stage]] ?? chain[r.stage]})${skipAll ? ` · ${by}: ลงนามทุกขั้นที่เหลือในครั้งเดียว` : ''}`);
+    if (final) trace.ok('อนุมัติครบทุกขั้น → อัปเดตทะเบียนครุภัณฑ์ให้อัตโนมัติ');
     const signedNote = skipAll ? [`อนุมัติข้ามขั้นโดย${by}`, note].filter(Boolean).join(' · ') : note;
     for (const stage of stages) await tx.approval.create({ data: { id: id(), requestId: r.id, stage, decision: action, actor: m.id, note: signedNote, createdAt: now() } });
     await tx.assetRequest.update({ where: { id: r.id }, data: { stage: action === 'approve' ? last + 1 : r.stage, status: action === 'reject' ? 'rejected' : final ? 'approved' : 'pending', version: { increment: 1 } } });
@@ -666,6 +679,7 @@ async function perform(tx: Transaction, m: Member, action: string, b: Input, pas
     if (quantity > expected && result !== 'mismatch') throw new ApiError('พบจำนวนเกินทะเบียน กรุณาเลือกจำนวน / สถานที่ไม่ตรง');
     if (result === 'normal' && quantity !== expected) throw new ApiError('จำนวนไม่ตรงทะเบียน กรุณาเลือกข้อมูลไม่ตรง');
     if (result === 'missing' && quantity !== 0) throw new ApiError('ผลไม่พบต้องมีจำนวนที่พบเป็น 0');
+    trace.ok(`บันทึกผลตรวจนับ: ${result} · พบ ${quantity} จากที่ทะเบียนมี ${expected}`);
     const checkedAt = new Date(Math.max(Date.now(), item.checkedAt ? Date.parse(item.checkedAt) + 1 : 0)).toISOString();
     await tx.stocktakeItem.update({ where: { id: item.id }, data: { result, quantity, notes: clean(b.reason ?? ''), actor: m.id, checkedAt } });
     await audit(tx, m, 'บันทึกตรวจนับ', item.assetId, item, { result, quantity }, clean(b.reason ?? ''));
