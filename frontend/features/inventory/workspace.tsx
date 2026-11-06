@@ -473,7 +473,7 @@ export default function Workspace() {
         description="ส่องกล้องไปที่ QR Code หรือ Barcode เพื่อเปิดดูข้อมูลครุภัณฑ์"
       />
       <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet size={18} className="text-emerald-600" />

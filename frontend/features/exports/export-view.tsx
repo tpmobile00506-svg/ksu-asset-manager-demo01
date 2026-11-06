@@ -72,7 +72,7 @@ export default function ExportView({
     }
   }
 
-  const field = 'flex flex-col gap-1.5 text-sm';
+  const field = 'flex flex-col gap-1.5 text-sm min-w-0';
   const select = 'h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900';
   return (
     <div className="space-y-4">

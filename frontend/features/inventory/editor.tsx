@@ -326,9 +326,9 @@ export default function Editor({
                 {modal?.kind === 'request' && (
                   <div className="flex flex-col gap-4">
                     <div className="rounded-lg bg-slate-50 border border-slate-200/80 p-3 text-xs space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-slate-800 truncate">{modal.asset.name}</span>
-                        <span className="font-mono text-slate-500 shrink-0">{modal.asset.code}</span>
+                      <div className="flex flex-wrap items-center justify-between gap-x-2">
+                        <span className="font-semibold text-slate-800 truncate min-w-0">{modal.asset.name}</span>
+                        <span className="font-mono text-slate-500 min-w-0">{modal.asset.code}</span>
                       </div>
                       <div className="text-slate-500">
                         จำนวนทั้งหมด <b>{modal.asset.quantity}</b> ชิ้น · สังกัด {modal.asset.branch}{' '}

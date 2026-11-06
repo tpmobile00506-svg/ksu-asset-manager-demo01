@@ -394,7 +394,7 @@ export default function QrScannerModal({
       {/* ปุ่มปิดของ header ด้านล่างใช้แทนปุ่มปิดมาตรฐาน จึงปิดตัวมาตรฐานเพื่อไม่ให้มี X ซ้อนสองปุ่ม */}
       <DialogContent
         showCloseButton={false}
-        className="sm:max-w-md w-[95vw] p-0 overflow-hidden bg-slate-950 text-white border-slate-800 rounded-2xl shadow-2xl"
+        className="sm:max-w-md w-[95vw] p-0 max-h-[90dvh] overflow-x-hidden overflow-y-auto bg-slate-950 text-white border-slate-800 rounded-2xl shadow-2xl"
       >
         <style>{`
           #${containerId} {
