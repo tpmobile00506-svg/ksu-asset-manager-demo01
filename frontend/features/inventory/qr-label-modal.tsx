@@ -129,47 +129,49 @@ export default function QrLabelModal({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="dialog-scroll-body">
-            {qrBusy ? <Skeleton className="h-40" /> : qrContent}
+          <div className="dialog-scroll-body">{qrBusy ? <Skeleton className="h-40" /> : qrContent}</div>
 
-            <div className="mt-4 flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
-              <span className="flex flex-wrap items-center gap-2 text-xs text-slate-500 font-medium">
-                {batches > 1 && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={safeBatch === 0 || qrBusy}
-                      onClick={() => setBatch(safeBatch - 1)}
-                    >
-                      ชุดก่อนหน้า
-                    </Button>
-                    <span className="font-bold text-amber-700">
-                      ชุดที่ {safeBatch + 1}/{batches} · ป้ายที่ {(safeBatch * BATCH + 1).toLocaleString('th-TH')}–
-                      {(safeBatch * BATCH + batchAssets.length).toLocaleString('th-TH')} จาก{' '}
-                      {assets.length.toLocaleString('th-TH')}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={safeBatch >= batches - 1 || qrBusy}
-                      onClick={() => setBatch(safeBatch + 1)}
-                    >
-                      ชุดถัดไป
-                    </Button>
-                  </>
-                )}
-                {batches === 1 && qrImages.length > 0 ? `พร้อมพิมพ์ ${qrImages.length} ป้าย` : ''}
-              </span>
-              <Button
-                disabled={qrBusy || !qrImages.length}
-                onClick={() => window.print()}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
-              >
-                <Printer size={16} />
-                พิมพ์ป้าย QR {qrImages.length > 0 ? `(${qrImages.length} ป้าย)` : ''}
-              </Button>
-            </div>
+          <div className="dialog-footer-sticky qr-print-bar">
+            <span className="flex flex-wrap items-center gap-2 text-xs text-slate-500 font-medium">
+              {batches > 1 && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={safeBatch === 0 || qrBusy}
+                    onClick={() => setBatch(safeBatch - 1)}
+                  >
+                    ชุดก่อนหน้า
+                  </Button>
+                  <span className="font-bold text-amber-700">
+                    ชุดที่ {safeBatch + 1}/{batches} · ป้ายที่ {(safeBatch * BATCH + 1).toLocaleString('th-TH')}–
+                    {(safeBatch * BATCH + batchAssets.length).toLocaleString('th-TH')} จาก{' '}
+                    {assets.length.toLocaleString('th-TH')}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={safeBatch >= batches - 1 || qrBusy}
+                    onClick={() => setBatch(safeBatch + 1)}
+                  >
+                    ชุดถัดไป
+                  </Button>
+                </>
+              )}
+              {batches === 1 && qrImages.length > 0 ? `พร้อมพิมพ์ ${qrImages.length} ป้าย` : ''}
+            </span>
+            <Button
+              disabled={qrBusy || !qrImages.length}
+              onClick={() => {
+                // รายงานที่พิมพ์ก่อนหน้ายังค้างในหน้า ต้องลบก่อน ไม่อย่างนั้นจะพิมพ์ติดมาด้วย
+                document.getElementById('asset-print')?.remove();
+                window.print();
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+            >
+              <Printer size={16} />
+              พิมพ์ป้าย QR {qrImages.length > 0 ? `(${qrImages.length} ป้าย)` : ''}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

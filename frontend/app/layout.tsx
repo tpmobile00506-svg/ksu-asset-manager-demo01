@@ -15,6 +15,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  // ตอนคีย์บอร์ดมือถือขึ้น ให้หน้าเว็บหดตามพื้นที่ที่เหลือ หน้าต่างและปุ่มบันทึกจึงไม่ถูกคีย์บอร์ดบัง
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({

@@ -1127,6 +1127,7 @@ a:focus-visible {
   width: min(820px, calc(100vw - 32px)) !important;
   max-width: none !important;
   max-height: 90vh !important;
+  max-height: 90dvh !important; /* dvh หดตามคีย์บอร์ดมือถือ · บรรทัดบนเผื่อเบราว์เซอร์เก่า */
   flex-direction: column !important;
   background: #ffffff !important;
   padding: 0 !important;
@@ -1161,6 +1162,12 @@ a:focus-visible {
   border-top: 1px solid var(--border);
   background: #f8fafc;
   flex-shrink: 0;
+}
+
+.qr-print-bar {
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
 }
 
 .form-section {
@@ -1743,6 +1750,12 @@ a:focus-visible {
 
 /* มือถือ: ปุ่มและช่องกรอกหลักสูงอย่างน้อย 44px (เกณฑ์ WCAG 2.5.5 / Apple HIG) ยกเว้นในตารางเพื่อไม่ให้แถวบวม */
 @media (max-width: 767px) {
+  /* iPhone ซูมหน้าเว็บเองเมื่อกดช่องที่ตัวอักษรเล็กกว่า 16px */
+  input:not([type='checkbox'], [type='radio'], [type='file']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
   main button,
   main select,
   main input {

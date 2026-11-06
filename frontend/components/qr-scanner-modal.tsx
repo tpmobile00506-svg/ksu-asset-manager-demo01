@@ -49,13 +49,39 @@ export default function QrScannerModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerId = 'qr-reader-viewport';
 
-  // เล่นเสียง Beep สัญญาณการสแกนสำเร็จ
-  const playBeep = useCallback(() => {
+  // เก็บ onScan ล่าสุดไว้ใน ref: หน้าแม่สร้างฟังก์ชันใหม่ทุกครั้งที่ render
+  // ถ้าใส่เป็น dependency กล้องจะถูกปิดเปิดใหม่ทุกครั้งที่ข้อมูลในหน้ารีเฟรช
+  const onScanRef = useRef(onScan);
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
+
+  // ใช้ AudioContext ตัวเดียวตลอด เพราะเบราว์เซอร์จำกัดจำนวน และ iPhone เล่นเสียงได้เฉพาะตัวที่เริ่มจากการกดของผู้ใช้
+  const audioRef = useRef<AudioContext | null>(null);
+  const unlockAudio = useCallback(() => {
     try {
       const AudioCtx =
         window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
-      const ctx = new AudioCtx();
+      audioRef.current ??= new AudioCtx();
+      void audioRef.current.resume();
+    } catch {
+      // ไม่มีเสียงก็ยังสแกนได้
+    }
+  }, []);
+  useEffect(
+    () => () => {
+      void audioRef.current?.close();
+      audioRef.current = null;
+    },
+    [],
+  );
+
+  // เล่นเสียง Beep สัญญาณการสแกนสำเร็จ
+  const playBeep = useCallback(() => {
+    try {
+      const ctx = audioRef.current;
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -92,7 +118,7 @@ export default function QrScannerModal({
       triggerHaptic();
 
       try {
-        const result = await onScan(decodedText);
+        const result = await onScanRef.current(decodedText);
         // หาก handler คืนค่า false แปลว่าไม่พบรายการหรือยังต้องการสแกนต่อ
         if (result === false) {
           setTimeout(() => {
@@ -109,7 +135,7 @@ export default function QrScannerModal({
         }, 1500);
       }
     },
-    [onScan, playBeep, triggerHaptic],
+    [playBeep, triggerHaptic],
   );
 
   // รอบการเปิดกล้อง: ปิดหน้าต่างหรือสลับกล้องระหว่างที่กล้องกำลังเปิด ต้องไม่ปล่อยกล้องค้างไว้
@@ -159,6 +185,8 @@ export default function QrScannerModal({
         }
 
         const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
+        // ผู้ใช้กดปิดระหว่างรอโหลดตัวสแกน: หยุดตรงนี้ ไม่อย่างนั้นไฟกล้องจะติดค้างโดยไม่มีหน้าต่าง
+        if (cancelled()) return;
 
         // ตรวจสอบว่า container พร้อมใน DOM หรือไม่
         const container = document.getElementById(containerId);
@@ -188,16 +216,6 @@ export default function QrScannerModal({
         });
 
         scannerRef.current = scanner;
-
-        // ค้นหากล้องที่สามารถใช้ได้
-        try {
-          const devs = await Html5Qrcode.getCameras();
-          if (devs && devs.length > 0) {
-            setCameras(devs);
-          }
-        } catch {
-          // กล้องอาจยังไม่ได้รับสิทธิ์ getCameras
-        }
 
         const qrConfig = {
           fps: 15,
@@ -235,6 +253,17 @@ export default function QrScannerModal({
           return;
         }
         setLoading(false);
+
+        // รายชื่อกล้องสำหรับปุ่มสลับกล้อง: อ่านหลังกล้องเปิดแล้ว จึงไม่ต้องเปิดกล้องซ้ำ (iPhone อาจถามสิทธิ์สองรอบ)
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoInputs = devices
+            .filter(d => d.kind === 'videoinput')
+            .map((d, i) => ({ id: d.deviceId, label: d.label || `กล้อง ${i + 1}` }));
+          if (videoInputs.length > 0) setCameras(videoInputs);
+        } catch {
+          // ไม่มีรายชื่อกล้องก็ยังสแกนด้วยกล้องหลังได้
+        }
 
         // ตรวจสอบการรองรับไฟฉาย (Torch)
         try {
@@ -342,6 +371,7 @@ export default function QrScannerModal({
     }
 
     isLockedRef.current = false;
+    unlockAudio();
     const timer = setTimeout(() => {
       startScanner({ facingMode: 'environment' });
     }, 150);
@@ -350,7 +380,7 @@ export default function QrScannerModal({
       clearTimeout(timer);
       stopScanner();
     };
-  }, [open, startScanner, stopScanner]);
+  }, [open, startScanner, stopScanner, unlockAudio]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
