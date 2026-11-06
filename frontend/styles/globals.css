@@ -2,7 +2,12 @@
 @import 'tw-animate-css';
 @import './vendor/shadcn-tailwind-4.13.0.css';
 
+/* แอปนี้มีธีมสว่างธีมเดียว: ผูกคลาส dark: กับ .dark (ซึ่งไม่มีที่ใช้) แทนโหมดมืดของเครื่อง
+   ไม่อย่างนั้นเครื่องที่ตั้งโหมดมืดจะเห็นช่องกรอกเป็นสีเทา ต่างจากเครื่องอื่น */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  color-scheme: light;
   --background: #f5f7fb;
   --foreground: #192740;
   --card: #fff;
@@ -551,6 +556,7 @@ a:focus-visible {
 
 .filter {
   min-width: 130px;
+  max-width: 100%;
   height: 40px !important;
   background: #ffffff;
   font-size: 13.5px;
@@ -1083,6 +1089,11 @@ a:focus-visible {
   gap: 16px;
 }
 
+/* ฟอร์มคอลัมน์เดียว: ใช้คู่กับ .form-grid เพื่อให้ช่องหน้าตาเหมือนฟอร์มสองคอลัมน์ */
+.form-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .form-grid label,
 .form-label {
   display: block;
@@ -1091,7 +1102,9 @@ a:focus-visible {
   font-weight: 500;
 }
 
-.form-grid input,
+/* ทุกช่องในฟอร์มต้องใช้กฎเดียวกัน ช่องที่อยู่แถวเดียวกันจึงจะตรงระดับและสูงเท่ากัน */
+.form-grid input:not([type='checkbox'], [type='radio'], [type='file']),
+.form-grid select,
 .form-grid textarea,
 .form-grid [data-slot='select-trigger'] {
   margin-top: 5px;
@@ -1099,6 +1112,10 @@ a:focus-visible {
   background: #ffffff;
   min-height: 40px;
   resize: none;
+}
+
+.form-grid textarea {
+  min-height: 64px;
 }
 
 .span-2 {
@@ -1531,6 +1548,9 @@ a:focus-visible {
   .panel-head,
   .panel-body {
     padding: 16px;
+  }
+  .panel-head {
+    flex-wrap: wrap;
   }
   .form-grid,
   .detail-grid {

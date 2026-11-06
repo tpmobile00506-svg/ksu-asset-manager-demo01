@@ -357,7 +357,7 @@ export default function RequestsView({
               onClick={() => setTab(t.key)}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 tab === t.key
-                  ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                  ? 'bg-blue-600 text-white font-semibold shadow-sm border border-blue-600'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >

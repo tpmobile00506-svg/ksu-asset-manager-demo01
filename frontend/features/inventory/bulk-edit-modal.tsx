@@ -136,6 +136,7 @@ export default function BulkEditModal({
             <Input
               value={values.location}
               onChange={e => set('location', e.target.value)}
+              className="h-10"
               placeholder="อ.14 ชั้น 3 ห้อง 1431"
               autoComplete="off"
               disabled={busy}
@@ -162,6 +163,7 @@ export default function BulkEditModal({
                 setReason(e.target.value);
                 setProblem('');
               }}
+              className="h-10"
               placeholder="นำเข้าผิดสาขา ของจริงเป็นของสาขาไฟฟ้า"
               autoComplete="off"
               disabled={busy}
