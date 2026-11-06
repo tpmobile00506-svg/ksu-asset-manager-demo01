@@ -56,3 +56,9 @@ test('เอกสารอนุมัติ: ชื่อครุภัณฑ
   });
   assert.equal(html.includes('<img src=x'), false);
 });
+
+test('ฉลาก QR: มือถือไม่ปิดหน้าเอง เพราะ print() อาจไม่รอผู้ใช้ และมีปุ่มพิมพ์กับปุ่มปิดให้กด', () => {
+  const html = buildQrLabelHtml({ code: 'K1', name: 'โต๊ะ' }, 'data:image/png;base64,AAAA');
+  assert.match(html, /matchMedia\('\(hover: hover\)'\)\.matches\) \{\s*setTimeout\(function\(\) \{ window\.close\(\);/);
+  assert.match(html, /class="touch-actions"/);
+});

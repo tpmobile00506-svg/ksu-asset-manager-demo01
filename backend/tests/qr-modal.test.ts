@@ -77,7 +77,7 @@ function renderModal(toDataURL: (url: string) => Promise<string>) {
     },
     location: { origin: 'https://assets.example.test' },
     window: { print: () => prints++ },
-    document: { body: {} },
+    document: { body: {}, getElementById: () => null },
   });
   return {
     errors,

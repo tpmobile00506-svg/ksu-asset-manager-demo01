@@ -1003,6 +1003,6 @@ export function printAssets(assets: Asset[], options: { asOf?: Date; asOfLabel?:
   });
   div.appendChild(t);
   document.body.appendChild(div);
+  // ไม่ลบเนื้อหาหลัง print(): มือถืออาจไม่รอผู้ใช้ ถ้าลบทันทีจะได้กระดาษเปล่า (พิมพ์รอบถัดไปค่อยลบของเก่า)
   window.print();
-  div.remove();
 }

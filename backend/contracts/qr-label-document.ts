@@ -18,6 +18,11 @@ export function buildQrLabelHtml(asset: QrLabelInput, qrDataUrl: string): string
           <title>พิมพ์ฉลากครุภัณฑ์ - ${esc(asset.code)}</title>
           <style>
             @page { size: auto; margin: 10mm; }
+            .touch-actions { display: none; position: fixed; left: 16px; right: 16px; bottom: 16px; gap: 12px; }
+            .touch-actions button { flex: 1; min-height: 48px; font: inherit; font-size: 16px; border: 1px solid #0f172a; border-radius: 8px; background: #fff; color: #0f172a; }
+            .touch-actions button:first-child { background: #174ae4; border-color: #174ae4; color: #fff; }
+            @media (hover: none) { .touch-actions { display: flex; } }
+            @media print { .touch-actions { display: none !important; } }
             body { font-family: 'Leelawadee UI', Tahoma, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #fff; }
             .sticker {
               width: 90mm;
@@ -97,10 +102,17 @@ export function buildQrLabelHtml(asset: QrLabelInput, qrDataUrl: string): string
               </div>
             </div>
           </div>
+          <div class="touch-actions">
+            <button type="button" onclick="window.print()">พิมพ์ฉลาก</button>
+            <button type="button" onclick="window.close()">ปิดหน้านี้</button>
+          </div>
           <script>
             window.onload = function() {
               window.print();
-              setTimeout(function() { window.close(); }, 750);
+              // คอมหยุดรอที่ print() จนปิดหน้าต่างพิมพ์ แต่มือถืออาจไม่รอ ถ้าปิดหน้านี้ตามเวลาจะพิมพ์ไม่ทัน
+              if (window.matchMedia('(hover: hover)').matches) {
+                setTimeout(function() { window.close(); }, 750);
+              }
             };
           </script>
         </body>
