@@ -183,16 +183,17 @@ export default function StocktakesView({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Controls Row */}
-      <div className="bg-white rounded-xl border border-slate-200/80 p-3 sm:p-3.5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 min-w-0">
+      <div className="bg-white rounded-xl border border-slate-200/80 p-3 sm:p-3.5 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        {/* กว้างตั้งต้น 36rem: ถ้าวางคู่กับกลุ่มปุ่มไม่พอ ให้ปุ่มตกลงบรรทัดใหม่ ไม่ใช่ทับกัน */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-[1_1_36rem] min-w-0">
           {/* Round Selector Dropdown */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 shrink-0">
+          <div className="flex min-w-0 items-center gap-1.5 text-xs text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 sm:shrink-0">
             <span className="font-bold whitespace-nowrap">รอบตรวจนับ:</span>
             <select
               aria-label="รอบตรวจนับ"
               value={roundId}
               onChange={e => setRoundId(e.target.value)}
-              className="bg-transparent font-semibold text-blue-700 border-none outline-none cursor-pointer max-w-full sm:max-w-[240px] truncate"
+              className="min-w-0 flex-1 bg-transparent font-semibold text-blue-700 border-none outline-none cursor-pointer sm:max-w-[240px] truncate"
             >
               {data.rounds.map(r => (
                 <option key={r.id} value={r.id}>
@@ -203,7 +204,7 @@ export default function StocktakesView({
           </div>
 
           {/* Search Input */}
-          <div className="relative flex-1 min-w-0">
+          <div className="relative flex-1 min-w-[11rem]">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <Input
               placeholder="ค้นหารหัส, ชื่อครุภัณฑ์, หรือหมายเหตุ…"

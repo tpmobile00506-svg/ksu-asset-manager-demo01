@@ -7,7 +7,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  color-scheme: light;
+  color-scheme: only light;
   --background: #f5f7fb;
   --foreground: #192740;
   --card: #fff;
@@ -1123,6 +1123,11 @@ a:focus-visible {
 }
 
 /* Dialogs & Drawers */
+/* รหัสครุภัณฑ์ยาวไม่มีช่องว่าง ต้องตัดบรรทัดได้ ไม่อย่างนั้นจะดันหน้าต่างล้นจอ */
+[data-slot='dialog-content'] {
+  overflow-wrap: anywhere;
+}
+
 .dialog-wide {
   width: min(820px, calc(100vw - 32px)) !important;
   max-width: none !important;

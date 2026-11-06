@@ -66,7 +66,7 @@ export function NotificationBell({ data, onGo }: { data: WorkspaceData; onGo: (v
       {/* Notification Popover Dropdown */}
       {notifOpen && (
         <div
-          className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-slate-200 text-slate-800 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+          className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-96 bg-white rounded-xl shadow-2xl border border-slate-200 text-slate-800 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
           role="dialog"
           aria-label="กล่องแจ้งเตือน"
         >
