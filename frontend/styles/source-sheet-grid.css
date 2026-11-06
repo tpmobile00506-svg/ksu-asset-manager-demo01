@@ -212,7 +212,7 @@
   max-width: 72px;
 }
 .xls-change {
-  height: 32px;
+  height: 2rem; /* เท่าปุ่ม size="sm" ที่อยู่แถวเดียวกัน */
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 0 8px;

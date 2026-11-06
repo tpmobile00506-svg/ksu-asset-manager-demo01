@@ -492,7 +492,7 @@ export default function Workspace() {
           )}
         </DialogContent>
       </Dialog>
-      <Toaster position="bottom-right" richColors closeButton />
+      <Toaster theme="light" position="bottom-right" richColors closeButton />
     </SidebarProvider>
   );
 }

@@ -34,7 +34,7 @@ import {
 import { Any, api, Pick, sessionFetch, readApiResponse, getSessionSignal } from '@/frontend/components/common';
 import { WorkspaceData } from '@/frontend/types/models';
 
-// ช่องเลือกประเภทกับหมวดใช้หน้าตาเดียวกัน ให้สองช่องข้างกันสมส่วน
+// ช่องเลือกทุกช่องในฟอร์มใช้หน้าตาเดียวกัน ให้ช่องที่อยู่ข้างกันสมส่วน
 const selectClass =
   'h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
@@ -58,7 +58,7 @@ export function BranchSelect({
       defaultValue={legacy ? '' : defaultValue || ''}
       onChange={onChange}
       required={required}
-      className="h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={selectClass}
     >
       <option value="" disabled>
         {legacy ? `ค่าเดิม "${legacy}" ไม่อยู่ในรายการ กรุณาเลือกใหม่` : 'เลือกสาขาวิชา / หน่วยงาน'}

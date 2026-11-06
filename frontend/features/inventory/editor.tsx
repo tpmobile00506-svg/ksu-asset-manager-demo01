@@ -309,15 +309,17 @@ export default function Editor({
                         </p>
                       </div>
                     </div>
-                    <label className="mt-4 block">
-                      <span>เหตุผลการแบ่งล็อต *</span>
-                      <Textarea
-                        name="reason"
-                        required
-                        placeholder="เช่น ชำรุดบางส่วน หรือแยกตามห้องใช้งานจริง"
-                        rows={2}
-                      />
-                    </label>
+                    <div className="form-grid form-grid-single mt-4">
+                      <label>
+                        <span>เหตุผลการแบ่งล็อต *</span>
+                        <Textarea
+                          name="reason"
+                          required
+                          placeholder="เช่น ชำรุดบางส่วน หรือแยกตามห้องใช้งานจริง"
+                          rows={2}
+                        />
+                      </label>
+                    </div>
                   </>
                 )}
 
@@ -474,53 +476,56 @@ export default function Editor({
                       </div>
                     )}
 
-                    {requestKind === 'transfer' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Field
-                          label="สถานที่ใหม่ (ปลายทาง)"
-                          name="location"
-                          defaultValue={modal.asset.location}
+                    <div className="form-grid">
+                      {requestKind === 'transfer' && (
+                        <>
+                          <Field
+                            label="สถานที่ใหม่ (ปลายทาง)"
+                            name="location"
+                            defaultValue={modal.asset.location}
+                            required
+                          />
+                          <label>
+                            <span>สาขาใหม่ (ปลายทาง) *</span>
+                            <BranchSelect name="branch" defaultValue={modal.asset.branch} />
+                          </label>
+                          <Field
+                            wide
+                            label="ผู้รับผิดชอบใหม่ (ถ้ามี)"
+                            name="custodian"
+                            placeholder={
+                              modal.asset.custodian ? `ปัจจุบัน: ${modal.asset.custodian}` : 'เว้นว่างถ้าไม่เปลี่ยน'
+                            }
+                          />
+                        </>
+                      )}
+
+                      {requestKind === 'repair' && (
+                        <Field wide label="ประมาณการค่าซ่อม (บาท)" name="cost" placeholder="0.00" />
+                      )}
+
+                      {requestKind === 'disposal' && (
+                        <div className="span-2 text-xs text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg p-2.5">
+                          ⚠️ เมื่อคำขอจำหน่ายได้รับการอนุมัติครบทุกระดับ ครุภัณฑ์ส่วนนี้จะถูกตัดยอดออกจากทะเบียนใช้งาน
+                          (เปลี่ยนสถานะเป็นจำหน่ายแล้ว)
+                        </div>
+                      )}
+
+                      <label className="span-2">
+                        <span>เหตุผลและความจำเป็น *</span>
+                        <Textarea
+                          name="reason"
                           required
+                          placeholder="ระบุเหตุผลเพื่อประกอบการพิจารณาของสายอนุมัติ (เช่น ชำรุดใช้งานไม่ได้, โอนย้ายเพื่อการเรียนการสอน)"
+                          rows={3}
                         />
-                        <label>
-                          <span>สาขาใหม่ (ปลายทาง) *</span>
-                          <BranchSelect name="branch" defaultValue={modal.asset.branch} />
-                        </label>
-                        <Field
-                          label="ผู้รับผิดชอบใหม่ (ถ้ามี)"
-                          name="custodian"
-                          placeholder={
-                            modal.asset.custodian ? `ปัจจุบัน: ${modal.asset.custodian}` : 'เว้นว่างถ้าไม่เปลี่ยน'
-                          }
-                        />
-                      </div>
-                    )}
-
-                    {requestKind === 'repair' && (
-                      <Field label="ประมาณการค่าซ่อม (บาท)" name="cost" placeholder="0.00" />
-                    )}
-
-                    {requestKind === 'disposal' && (
-                      <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg p-2.5">
-                        ⚠️ เมื่อคำขอจำหน่ายได้รับการอนุมัติครบทุกระดับ ครุภัณฑ์ส่วนนี้จะถูกตัดยอดออกจากทะเบียนใช้งาน
-                        (เปลี่ยนสถานะเป็นจำหน่ายแล้ว)
-                      </div>
-                    )}
-
-                    <label>
-                      <span>เหตุผลและความจำเป็น *</span>
-                      <Textarea
-                        name="reason"
-                        required
-                        placeholder="ระบุเหตุผลเพื่อประกอบการพิจารณาของสายอนุมัติ (เช่น ชำรุดใช้งานไม่ได้, โอนย้ายเพื่อการเรียนการสอน)"
-                        rows={3}
-                      />
-                    </label>
+                      </label>
+                    </div>
                   </div>
                 )}
 
                 {modal && ['approve', 'reject'].includes(modal.kind) && (
-                  <div className="flex flex-col gap-4">
+                  <div className="form-grid form-grid-single">
                     <div className="notice">
                       {requestTypes[modal.request.kind as keyof typeof requestTypes]} · {modal.request.name}
                       <p className="mono">{modal.request.code}</p>
@@ -627,24 +632,27 @@ export default function Editor({
                         <strong className="text-slate-900">{JSON.parse(modal.item.snapshot).quantity}</strong> ชิ้น
                       </p>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Pick
-                        name="result"
-                        label="ผลการตรวจนับ"
-                        defaultValue={
-                          modal.item.result && modal.item.result !== 'pending'
-                            ? modal.item.result === 'matched'
-                              ? 'normal'
-                              : modal.item.result
-                            : 'normal'
-                        }
-                        options={[
-                          ['normal', 'ตรงตามทะเบียน'],
-                          ['damaged', 'พบแต่ชำรุด'],
-                          ['missing', 'ไม่พบ'],
-                          ['mismatch', 'จำนวน/ข้อมูลไม่ตรง'],
-                        ]}
-                      />
+                    <div className="form-grid">
+                      <label>
+                        <span>ผลการตรวจนับ *</span>
+                        <Pick
+                          name="result"
+                          label="ผลการตรวจนับ"
+                          defaultValue={
+                            modal.item.result && modal.item.result !== 'pending'
+                              ? modal.item.result === 'matched'
+                                ? 'normal'
+                                : modal.item.result
+                              : 'normal'
+                          }
+                          options={[
+                            ['normal', 'ตรงตามทะเบียน'],
+                            ['damaged', 'พบแต่ชำรุด'],
+                            ['missing', 'ไม่พบ'],
+                            ['mismatch', 'จำนวน/ข้อมูลไม่ตรง'],
+                          ]}
+                        />
+                      </label>
                       <Field
                         label="จำนวนที่พบจริง (ชิ้น)"
                         name="quantity"
@@ -653,22 +661,21 @@ export default function Editor({
                         defaultValue={modal.item.quantity ?? JSON.parse(modal.item.snapshot).quantity}
                         required
                       />
+                      <label className="span-2">
+                        <span>หมายเหตุผลตรวจนับ</span>
+                        <Textarea
+                          name="reason"
+                          placeholder="เช่น ชำรุดจอแตก หรือ อยู่ระหว่างยืมใช้งาน"
+                          defaultValue={modal.item.notes ?? ''}
+                          rows={2}
+                        />
+                      </label>
                     </div>
-                    <label className="flex flex-col gap-1 text-xs text-slate-700 font-medium">
-                      <span>หมายเหตุผลตรวจนับ</span>
-                      <Textarea
-                        name="reason"
-                        placeholder="เช่น ชำรุดจอแตก หรือ อยู่ระหว่างยืมใช้งาน"
-                        defaultValue={modal.item.notes ?? ''}
-                        rows={2}
-                        className="text-xs"
-                      />
-                    </label>
                   </div>
                 )}
 
                 {modal?.kind === 'user' && (
-                  <div className="flex flex-col gap-4">
+                  <div className="form-grid form-grid-single">
                     <Field label="ชื่อ-นามสกุล" name="name" defaultValue={user?.name ?? ''} required />
                     <Field
                       label="อีเมล"
@@ -678,21 +685,27 @@ export default function Editor({
                       readOnly={!creatingUser}
                       required
                     />
-                    <Pick
-                      name="role"
-                      label="บทบาท / สิทธิ์การใช้งาน"
-                      defaultValue={user?.role ?? 'staff'}
-                      options={Object.entries(roles).map(([r, label]) => [r, label])}
-                    />
-                    <Pick
-                      name="branch"
-                      label="สาขาวิชา / หน่วยงานที่สังกัด"
-                      defaultValue={user?.branch ?? ''}
-                      options={[
-                        ['', '— ไม่ระบุ / ส่วนกลาง —'],
-                        ...standardBranches.map(b => [b, b] as [string, string]),
-                      ]}
-                    />
+                    <label>
+                      <span>บทบาท / สิทธิ์การใช้งาน *</span>
+                      <Pick
+                        name="role"
+                        label="บทบาท / สิทธิ์การใช้งาน"
+                        defaultValue={user?.role ?? 'staff'}
+                        options={Object.entries(roles).map(([r, label]) => [r, label])}
+                      />
+                    </label>
+                    <label>
+                      <span>สาขาวิชา / หน่วยงานที่สังกัด</span>
+                      <Pick
+                        name="branch"
+                        label="สาขาวิชา / หน่วยงานที่สังกัด"
+                        defaultValue={user?.branch ?? ''}
+                        options={[
+                          ['', '— ไม่ระบุ / ส่วนกลาง —'],
+                          ...standardBranches.map(b => [b, b] as [string, string]),
+                        ]}
+                      />
+                    </label>
                     <Field
                       label={
                         creatingUser
@@ -715,7 +728,7 @@ export default function Editor({
                 )}
 
                 {modal?.kind === 'repairComplete' && (
-                  <div className="flex flex-col gap-4">
+                  <div className="form-grid form-grid-single">
                     <div className="notice">
                       <b>{modal.asset.name}</b>
                       <p className="mono">{modal.asset.code}</p>
@@ -741,7 +754,7 @@ export default function Editor({
                 )}
 
                 {modal?.kind === 'void' && (
-                  <div className="flex flex-col gap-4">
+                  <div className="form-grid form-grid-single">
                     <div className="notice">
                       <b>{modal.asset.name}</b>
                       <p className="mono">{modal.asset.code}</p>
@@ -772,7 +785,7 @@ export default function Editor({
                 )}
 
                 {modal?.kind === 'restore' && (
-                  <div className="flex flex-col gap-4">
+                  <div className="form-grid form-grid-single">
                     <div className="notice">
                       <b>{modal.asset.name}</b>
                       <p className="mono">{modal.asset.code}</p>

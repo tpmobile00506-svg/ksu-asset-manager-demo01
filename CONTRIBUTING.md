@@ -90,6 +90,7 @@ const handlers: Record<string, Handler> = {
 
 - ปุ่มเปิดหน้าต่าง: `open('park', { asset })` (เช่นในเมนู `row-actions.tsx` หรือ `asset-detail-view.tsx`)
 - หน้าต่าง: เพิ่มชื่อใน `titleMap` และฟอร์มใน `frontend/features/inventory/editor.tsx`
+  ครอบช่องด้วย `<div className="form-grid">` (เพิ่ม `form-grid-single` ถ้าคอลัมน์เดียว) และให้ทุกช่องมีป้ายใน `<label><span>…</span>…</label>` ช่องที่อยู่แถวเดียวกันจึงจะสูงเท่ากันและตรงระดับ
 - ตอนกดบันทึก: `write({ action: 'park', id: modal.asset.id, version: modal.asset.version, location, reason })`
 
 ### ขั้น 5 — ตรวจก่อน commit
