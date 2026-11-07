@@ -6,7 +6,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/s
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Toaster, toast } from 'sonner';
-import { Asset, conditionSummary, awaitingApprovalByAsset, pendingForUser } from '@/shared/domain';
+import { Asset, awaitingApprovalByAsset, pendingForUser } from '@/shared/domain';
 import { Any, api, SESSION_EXPIRED_EVENT, readApiResponse, cancelApiRequests } from '@/frontend/components/common';
 import { useAssetTools } from '@/frontend/hooks/use-asset-tools';
 import Editor from './editor';
@@ -243,7 +243,6 @@ export default function Workspace() {
     quantity = active.reduce((s, a) => s + a.quantity, 0),
     damaged = active.filter(a => a.condition === 'damaged').reduce((s, a) => s + a.quantity, 0),
     pending = data?.requests.filter((r: Any) => r.status === 'pending') || [],
-    conditionCount = conditionSummary(assets),
     awaiting = awaitingApprovalByAsset(data?.requests || [], assets);
   const editable = data && ['staff', 'admin'].includes(data.me.role);
   const handleScanRegistry = (scannedText: string) => {
@@ -404,7 +403,6 @@ export default function Workspace() {
                   active={active}
                   total={total}
                   pending={pending}
-                  conditionCount={conditionCount}
                   onSelectBranch={b => {
                     registry.setBranch(b);
                     switchView('registry');

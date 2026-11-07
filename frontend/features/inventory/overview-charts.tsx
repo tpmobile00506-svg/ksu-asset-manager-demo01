@@ -77,14 +77,14 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
     const list = [
       {
         key: 'normal',
-        name: 'ปกติ/พร้อมใช้',
+        name: 'ปกติ',
         value: normal,
         percentage: calcPercent(normal),
         color: STATUS_COLORS.normal,
       },
       {
         key: 'repair',
-        name: 'ส่งซ่อมบำรุง',
+        name: 'กำลังซ่อม',
         value: repair,
         percentage: calcPercent(repair),
         color: STATUS_COLORS.repair,
@@ -98,7 +98,7 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
       },
       {
         key: 'damaged',
-        name: 'ชำรุด/รอจำหน่าย',
+        name: 'ชำรุด',
         value: damaged,
         percentage: calcPercent(damaged),
         color: STATUS_COLORS.damaged,
@@ -133,13 +133,9 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-[17px] font-bold text-slate-800 tracking-tight">
-                จำนวนครุภัณฑ์ (ชิ้น) แยกตามสาขาวิชา / หน่วยงาน
+                จำนวนครุภัณฑ์แยกตามสาขา (ชิ้น)
               </h2>
-              <p className="text-[12.5px] text-slate-500 mt-1">
-                {barData.length
-                  ? `จำแนกตาม ${barData.map(b => b.name).join(', ')}`
-                  : 'จำแนกตามหน่วยงานและสาขาวิชาที่ถือครอง'}
-              </p>
+              <p className="text-[12.5px] text-slate-600 mt-1">กดแท่งของสาขาเพื่อเปิดทะเบียนของสาขานั้น</p>
             </div>
           </div>
 
@@ -219,8 +215,8 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
         <div>
           <div>
-            <h2 className="text-[17px] font-bold text-slate-800 tracking-tight">สัดส่วนสถานะการใช้งาน</h2>
-            <p className="text-[12.5px] text-slate-500 mt-1">จำแนกตามความพร้อมใช้งานและการบำรุงรักษา · นับเป็นชิ้น</p>
+            <h2 className="text-[17px] font-bold text-slate-800 tracking-tight">สภาพครุภัณฑ์</h2>
+            <p className="text-[12.5px] text-slate-600 mt-1">นับเป็นชิ้น เฉพาะที่ใช้อยู่</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-12 items-center gap-4 mt-4 min-h-[270px]">
@@ -272,7 +268,7 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
               {/* ข้อความและ % ใจกลางวงโดนัท */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
                 <span className="text-[26px] font-bold text-slate-800 leading-none">{readyPercent}%</span>
-                <span className="text-[11.5px] text-slate-500 font-medium mt-1">พร้อมใช้งาน</span>
+                <span className="text-[11.5px] text-slate-600 font-medium mt-1">ปกติ</span>
               </div>
             </div>
 

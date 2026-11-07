@@ -37,6 +37,22 @@ export function conditionSummary(assets: readonly Pick<Asset, 'condition' | 'lif
   return out;
 }
 
+// การ์ดภาพรวมนับเป็น "ชิ้น" (ผู้ใช้ตกลง 7 พ.ย. 2569): รายการเดียวอาจมี 200 ชิ้น ถ้านับเป็นรายการจะไม่เห็นของที่เสีย
+// นับเฉพาะรายการที่ยังใช้งาน (active) · จำนวนที่ไม่ใช่จำนวนเต็มบวกนับเป็น 1 ชิ้น เหมือนกราฟเดิม
+export type PieceSummary = { items: number; total: number; normal: number; damaged: number; repair: number; missing: number };
+export function pieceSummary(assets: readonly Pick<Asset, 'condition' | 'lifecycle' | 'quantity'>[]): PieceSummary {
+  const out: PieceSummary = { items: 0, total: 0, normal: 0, damaged: 0, repair: 0, missing: 0 };
+  for (const a of assets) {
+    if (a.lifecycle !== 'active') continue;
+    const n = Number.isSafeInteger(a.quantity) && a.quantity > 0 ? a.quantity : 1;
+    out.items++;
+    out.total += n;
+    if (a.condition === 'normal' || a.condition === 'damaged' || a.condition === 'repair' || a.condition === 'missing')
+      out[a.condition] += n;
+  }
+  return out;
+}
+
 // ยกเลิกรายการที่บันทึกผิด (ผู้ใช้ตัดสินใจ 18 ต.ค. 2569): เจ้าหน้าที่/Admin กดเองได้ ไม่ต้องผ่านสายอนุมัติ แต่ต้องใส่เหตุผล
 // ใช้ได้เฉพาะรายการที่ยังไม่มีอะไรเกิดขึ้นกับมัน · ยกเลิกแล้ว lifecycle = 'voided' อยู่หมวด "ข้อมูลผิดพลาด" ไม่นับในทะเบียน รายงาน และ Excel
 // คืนข้อความเหตุผลที่ยกเลิกไม่ได้ ('' = ยกเลิกได้)
