@@ -4,7 +4,19 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { pieceSummary, requestTypes, thaiDateTime, type Asset } from '@/shared/domain';
 import { Badge, baht, type Any } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/frontend/types/models';
-import OverviewCharts from './overview-charts';
+import dynamic from 'next/dynamic';
+
+// กราฟใช้ไลบรารี recharts ขนาดใหญ่ (ราวครึ่งของไฟล์ JavaScript ตอนเปิดเว็บ) จึงโหลดเฉพาะเมื่อเปิดหน้าภาพรวม
+// ระหว่างโหลดแสดงกรอบว่างขนาดเท่ากราฟ หน้าไม่กระโดด
+const OverviewCharts = dynamic(() => import('./overview-charts'), {
+  ssr: false,
+  loading: () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
+      <div className="bg-white rounded-xl border border-slate-200 p-6 min-h-[360px] animate-pulse" />
+      <div className="bg-white rounded-xl border border-slate-200 p-6 min-h-[360px] animate-pulse" />
+    </div>
+  ),
+});
 
 // หน้าภาพรวม: การ์ดตัวเลข 4 ใบ (นับเป็นชิ้น) → กราฟ → ตารางคำขอล่าสุด 5 รายการ
 // ตัวเลขทุกตัวคำนวณจากข้อมูลที่โหลดมาแล้วในเครื่อง (ไม่เรียก API เพิ่ม)

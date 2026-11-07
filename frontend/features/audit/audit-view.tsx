@@ -31,6 +31,9 @@ import { Asset, money, conditions, thaiDateTime } from '@/shared/domain';
 import type { WorkspaceData, AuditRecord } from '@/shared/models';
 import { toast } from 'sonner';
 
+// อาร์เรย์ว่างตัวเดียวใช้ร่วมกัน: ค่าคงที่ไม่เปลี่ยนทุกครั้งที่วาด ตัวจำผล (useMemo) จึงไม่คำนวณใหม่เปล่า ๆ
+const NO_ASSETS: Asset[] = [];
+
 type TabKey = 'all' | 'stocktake' | 'transfer' | 'repair' | 'dispose' | 'edit' | 'import' | 'user';
 type TimeRange = 'all' | 'today' | '7days' | '30days';
 
@@ -910,7 +913,17 @@ export default function AuditView({
       if (round === olderRound.current) setOlderState(s => ({ ...s, loading: false }));
     }
   }
-  const assets: Asset[] = data.assets || [];
+  const assets: Asset[] = data.assets ?? NO_ASSETS;
+  // ค้นครุภัณฑ์ของแต่ละเหตุการณ์ด้วย Map แทนไล่ทั้งทะเบียนทีละแถว
+  const assetIndex = useMemo(() => {
+    const byId = new Map<string, Asset>(),
+      byCode = new Map<string, Asset>();
+    for (const a of assets) {
+      byId.set(a.id, a);
+      if (!byCode.has(a.code)) byCode.set(a.code, a);
+    }
+    return { byId, byCode };
+  }, [assets]);
 
   // สถิติ KPI ด้านบน 4 ใบ
   const stats = useMemo(() => {
@@ -957,7 +970,7 @@ export default function AuditView({
       // 3. กรองตามช่องค้นหา
       if (search.trim()) {
         const q = search.toLowerCase().trim();
-        const linkedAsset = assets.find(a => a.id === e.assetId);
+        const linkedAsset = e.assetId ? assetIndex.byId.get(e.assetId) : undefined;
         const match = [
           e.action,
           e.actorName,
@@ -977,7 +990,7 @@ export default function AuditView({
 
       return true;
     });
-  }, [events, tab, timeRange, now, search, assets]);
+  }, [events, tab, timeRange, now, search, assetIndex]);
 
   const pageSize = 15;
   const paginated = useMemo(() => {
@@ -1153,14 +1166,13 @@ export default function AuditView({
               'กำหนดสายอนุมัติ',
             ].some(prefix => (e.action || '').toLowerCase().includes(prefix));
 
-            const linkedAsset = !isSystemEvent
-              ? assets.find(
-                  a =>
-                    (e.assetId && a.id === e.assetId) ||
-                    (afterObj.id && a.id === String(afterObj.id)) ||
-                    (afterObj.code && a.code === String(afterObj.code)) ||
-                    (beforeObj.code && a.code === String(beforeObj.code)),
-                )
+            const pick = (map: Map<string, Asset>, key: unknown) => (key ? map.get(String(key)) : undefined);
+            const linkedAsset: Asset | null = !isSystemEvent
+              ? (pick(assetIndex.byId, e.assetId) ??
+                pick(assetIndex.byId, afterObj.id) ??
+                pick(assetIndex.byCode, afterObj.code) ??
+                pick(assetIndex.byCode, beforeObj.code) ??
+                null)
               : null;
 
             return (

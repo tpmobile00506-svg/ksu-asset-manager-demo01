@@ -134,7 +134,8 @@ export function pendingForUser<
   assets: readonly { id: string; branch?: string | null }[],
 ): R[] {
   const approver = me.role === 'head' || me.role === 'deputy' || me.role === 'dean';
-  return requests.filter(
-    r => r.status === 'pending' && (!approver || awaitsApprovalBy(r, me, assets.find(a => a.id === r.assetId)?.branch)),
-  );
+  if (!approver) return requests.filter(r => r.status === 'pending');
+  // ตารางสาขาของครุภัณฑ์สร้างครั้งเดียว (เดิมไล่หาในทะเบียนทีละคำขอ 20,000 × คำขอที่รอ ทุกครั้งที่หน้าเปลี่ยน)
+  const branchById = new Map(assets.map(a => [a.id, a.branch]));
+  return requests.filter(r => r.status === 'pending' && awaitsApprovalBy(r, me, branchById.get(r.assetId)));
 }

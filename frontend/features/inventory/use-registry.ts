@@ -1,10 +1,12 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { groupFor, type Asset } from '@/shared/domain';
 
 // สถานะของหน้าทะเบียน: ตัวกรอง (ค้นหา สาขา สภาพ หมวด ทะเบียน) การเรียง หน้า และรายการที่ติ๊กเลือก
 // แยกเป็น hook เพราะ workspace ต้องใช้ด้วย: กดสาขาในกราฟหน้าภาพรวม → ตั้งตัวกรองสาขา, ออกจากระบบ → ล้างทั้งหมด
 export const PAGE_SIZE = 40;
+// ตัวเรียงภาษาไทยแบบตัวเลข สร้างครั้งเดียว (เร็วกว่า localeCompare พร้อมตัวเลือกทุกคู่ที่เทียบ)
+const thaiCollator = new Intl.Collator('th', { numeric: true });
 
 export function useRegistry(assets: Asset[], view: string) {
   const [search, setSearch] = useState(''),
@@ -30,32 +32,37 @@ export function useRegistry(assets: Asset[], view: string) {
     setPage(0);
     setSelectedAssetIds([]);
   }, []);
-  const filtered = assets
-    .filter(
-      a =>
-        (lifecycle === 'all' || a.lifecycle === lifecycle) &&
-        (branch === 'all' || a.branch === branch) &&
-        (category === 'all' || groupFor(a) === category) &&
-        (condition === 'all' || a.condition === condition) &&
-        [a.code, a.name, a.serial, a.location, a.branch, a.groupName]
-          .join(' ')
-          .toLowerCase()
-          .includes(search.trim().toLowerCase()),
-    )
-    .sort((a, b) => {
-      const av = a[sort.key] ?? '',
-        bv = b[sort.key] ?? '';
-      const main =
-        (typeof av === 'number' && typeof bv === 'number'
-          ? av - bv
-          : String(av).localeCompare(String(bv), 'th', { numeric: true })) * sort.dir;
-      // ค่าเท่ากัน (เช่น แยกรายชิ้นพร้อมกัน วันที่นำเข้าเดียวกัน) เรียงตามรหัสแบบตัวเลข: (1), (2), … (10) ไม่ใช่ (1), (10), (2)
-      return main || a.code.localeCompare(b.code, 'th', { numeric: true });
-    });
+  // กรองและเรียงใหม่เฉพาะเมื่อข้อมูลหรือตัวกรองเปลี่ยน (เดิมทำทุกครั้งที่หน้าจอวาดใหม่ แม้อยู่หน้าอื่น
+  // 5,000 รายการบนมือถือเสียราว 1 วินาทีต่อการกดเมนู)
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return assets
+      .filter(
+        a =>
+          (lifecycle === 'all' || a.lifecycle === lifecycle) &&
+          (branch === 'all' || a.branch === branch) &&
+          (category === 'all' || groupFor(a) === category) &&
+          (condition === 'all' || a.condition === condition) &&
+          (!q || [a.code, a.name, a.serial, a.location, a.branch, a.groupName].join(' ').toLowerCase().includes(q)),
+      )
+      .sort((a, b) => {
+        const av = a[sort.key] ?? '',
+          bv = b[sort.key] ?? '';
+        const main =
+          (typeof av === 'number' && typeof bv === 'number' ? av - bv : thaiCollator.compare(String(av), String(bv))) *
+          sort.dir;
+        // ค่าเท่ากัน (เช่น แยกรายชิ้นพร้อมกัน วันที่นำเข้าเดียวกัน) เรียงตามรหัสแบบตัวเลข: (1), (2), … (10) ไม่ใช่ (1), (10), (2)
+        return main || thaiCollator.compare(a.code, b.code);
+      });
+  }, [assets, lifecycle, branch, category, condition, search, sort]);
+  const selectedSet = useMemo(() => new Set(selectedAssetIds), [selectedAssetIds]);
   const pageAssets = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const isAllPageSelected = pageAssets.length > 0 && pageAssets.every(a => selectedAssetIds.includes(a.id));
-  const isSomePageSelected = pageAssets.some(a => selectedAssetIds.includes(a.id));
-  const selectedActiveAssets = filtered.filter(a => selectedAssetIds.includes(a.id) && a.lifecycle === 'active');
+  const isAllPageSelected = pageAssets.length > 0 && pageAssets.every(a => selectedSet.has(a.id));
+  const isSomePageSelected = pageAssets.some(a => selectedSet.has(a.id));
+  const selectedActiveAssets = useMemo(
+    () => filtered.filter(a => selectedSet.has(a.id) && a.lifecycle === 'active'),
+    [filtered, selectedSet],
+  );
   const toggleSelectAsset = (id: string, e?: React.MouseEvent | React.ChangeEvent) => {
     if (e && 'stopPropagation' in e) e.stopPropagation();
     setSelectedAssetIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));

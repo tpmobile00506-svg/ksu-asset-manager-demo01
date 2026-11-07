@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Package, Plus, LogOut, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
@@ -34,6 +34,11 @@ import { useRegistry } from './use-registry';
 // - เปิด/ปิดหน้าต่าง (modal) ทุกชนิดผ่าน open() → Editor
 // ส่วนแสดงผลแยกอยู่ใน: auth/login-screen, shell/app-sidebar, shell/notification-bell,
 // inventory/overview-dashboard, inventory/registry-view (+ use-registry สำหรับตัวกรอง)
+// อาร์เรย์ว่างตัวเดียวใช้ร่วมกัน ตัวจำผล (useMemo) จึงไม่คำนวณใหม่ทุกครั้งที่วาดตอนยังไม่มีข้อมูล
+const NO_ASSETS: Asset[] = [];
+// ข้อมูลที่โหลดไว้ถือว่ายังสดอยู่กี่มิลลิวินาที (ใช้ตอนกดเมนูและกลับมาที่หน้าต่าง)
+const STALE_MS = 30_000;
+
 export default function Workspace() {
   const [data, setData] = useState<WorkspaceData | null>(null),
     [error, setError] = useState(''),
@@ -53,8 +58,9 @@ export default function Workspace() {
     [loggingIn, setLoggingIn] = useState(false);
   const hadSession = useRef(false),
     sessionGeneration = useRef(0),
-    reloadGeneration = useRef(0);
-  const assets: Asset[] = data?.assets || [];
+    reloadGeneration = useRef(0),
+    loadedAt = useRef(0);
+  const assets: Asset[] = data?.assets ?? NO_ASSETS;
   const registry = useRegistry(assets, view);
   const { reset: resetRegistry } = registry;
   const clearSession = useCallback(() => {
@@ -80,6 +86,7 @@ export default function Workspace() {
     try {
       const next = await api<WorkspaceData>();
       if (current()) {
+        loadedAt.current = Date.now();
         setData(next);
         setSelected(current => (current ? next.assets.find((a: Asset) => a.id === current.id) || null : null));
         setRevision(n => n + 1);
@@ -102,8 +109,9 @@ export default function Workspace() {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, clearSession);
   }, [clearSession]);
   useEffect(() => {
+    // กลับมาที่หน้าต่าง: โหลดใหม่ถ้าข้อมูลเก่ากว่า 30 วินาที (เดิมโหลดทั้งก้อนทุกครั้งที่สลับแท็บ/แอป)
     const refreshOnFocus = () => {
-      if (hadSession.current) void reload();
+      if (hadSession.current && Date.now() - loadedAt.current > STALE_MS) void reload();
     };
     window.addEventListener('focus', refreshOnFocus);
     return () => window.removeEventListener('focus', refreshOnFocus);
@@ -238,14 +246,21 @@ export default function Workspace() {
     setSelected(null);
     setView(v);
     registry.setSearch('');
-    void reload();
+    // กดเมนู: ใช้ข้อมูลที่มีอยู่ถ้าเพิ่งโหลดไม่ถึง 30 วินาที (เดิมโหลดทั้งก้อนทุกครั้ง มือถือรอ 1.5–3 วินาทีต่อการกด)
+    // หลังบันทึกยังโหลดใหม่ทันทีใน write() เสมอ
+    if (Date.now() - loadedAt.current > STALE_MS) void reload();
   };
-  const active = assets.filter(a => a.lifecycle === 'active');
-  const total = active.reduce((s, a) => s + a.totalSatang, 0),
-    quantity = active.reduce((s, a) => s + a.quantity, 0),
-    damaged = active.filter(a => a.condition === 'damaged').reduce((s, a) => s + a.quantity, 0),
-    pending = data?.requests.filter((r: Any) => r.status === 'pending') || [],
-    awaiting = awaitingApprovalByAsset(data?.requests || [], assets);
+  // ผลคำนวณรวมจำไว้จนกว่าข้อมูลจะเปลี่ยน (ไม่คำนวณใหม่ทุกครั้งที่กดเมนูหรือพิมพ์)
+  const requests = data?.requests;
+  const active = useMemo(() => assets.filter(a => a.lifecycle === 'active'), [assets]);
+  const total = useMemo(() => active.reduce((s, a) => s + a.totalSatang, 0), [active]);
+  const pending = useMemo(() => requests?.filter((r: Any) => r.status === 'pending') || [], [requests]);
+  const awaiting = useMemo(() => awaitingApprovalByAsset(requests || [], assets), [requests, assets]);
+  const me = data?.me;
+  const pendingForMe = useMemo(
+    () => (me ? pendingForUser(requests || [], me, assets).length : 0),
+    [requests, me, assets],
+  );
   const editable = data && ['staff', 'admin'].includes(data.me.role);
   const handleScanRegistry = (scannedText: string) => {
     let cleanCode = scannedText.trim();
@@ -307,7 +322,7 @@ export default function Workspace() {
       <AppSidebar
         view={view}
         onSelect={switchView}
-        pendingCount={pendingForUser(data.requests, data.me, assets).length}
+        pendingCount={pendingForMe}
         me={data.me}
         onChangePassword={() => open('password')}
       />

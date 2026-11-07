@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Clock,
   Plus,
@@ -24,7 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Role, roles, requestTypes, awaitsApprovalBy, pendingForUser, thaiDateTime } from '@/shared/domain';
 import { buildApprovalDocumentHtml } from '@/shared/approval-document';
 import { toast } from 'sonner';
-import { Empty, Badge, Pick, baht } from '@/frontend/components/common';
+import { Empty, Badge, Pick, Pager, baht } from '@/frontend/components/common';
 import type { WorkspaceData, RequestRecord } from '@/shared/models';
 
 // หน้าคำขอ (โอนย้าย / ส่งซ่อม / จำหน่าย)
@@ -142,7 +142,11 @@ export default function RequestsView({
   const assets = data.assets || [];
   const approver = ['head', 'deputy', 'dean'].includes(data.me.role);
   const canCreate = ['staff', 'admin'].includes(data.me.role);
-  const branchOf = (r: RequestRecord) => assets.find(a => a.id === r.assetId || a.code === r.code)?.branch;
+  // ค้นครุภัณฑ์ของคำขอด้วย Map (เดิมไล่ทั้งทะเบียนทุกคำขอทุกครั้งที่วาด ที่ 5,000 รายการบนมือถือค้าง 5 วินาที)
+  const assetById = useMemo(() => new Map(assets.map(a => [a.id, a])), [assets]);
+  const assetByCode = useMemo(() => new Map(assets.map(a => [a.code, a])), [assets]);
+  const assetOf = (r: RequestRecord) => assetById.get(r.assetId) ?? assetByCode.get(r.code);
+  const branchOf = (r: RequestRecord) => assetOf(r)?.branch;
   const waitingMe = useMemo(
     () => (approver ? pendingForUser(requests, data.me, assets) : []),
     [approver, requests, data.me, assets],
@@ -158,7 +162,7 @@ export default function RequestsView({
 
   // พิมพ์เอกสารอนุมัติของคำขอที่อนุมัติครบทุกขั้นแล้ว (เปิดหน้าต่างใหม่แล้วสั่งพิมพ์/บันทึกเป็น PDF)
   function printApprovalDocument(r: RequestRecord) {
-    const asset = data.assets.find(a => a.id === r.assetId) ?? null;
+    const asset = assetById.get(r.assetId) ?? null;
     let chain: string[] = [];
     try {
       chain = JSON.parse(r.chain || '[]');
@@ -225,7 +229,7 @@ export default function RequestsView({
       if (tab !== 'mine' && tab !== 'all' && r.status !== tab) return false;
       if (kind !== 'all' && kindOf(r) !== kind) return false;
       if (q) {
-        const asset = assets.find(a => a.id === r.assetId || a.code === r.code);
+        const asset = assetById.get(r.assetId) ?? assetByCode.get(r.code);
         const text = [r.requestNo, r.code, r.name, r.reason, r.requesterName, asset?.name, asset?.branch]
           .join(' ')
           .toLowerCase();
@@ -233,7 +237,12 @@ export default function RequestsView({
       }
       return true;
     });
-  }, [requests, tab, kind, search, assets, waitingMe]);
+  }, [requests, tab, kind, search, assetById, assetByCode, waitingMe]);
+  // แสดงทีละ 40 รายการ (เท่าหน้าทะเบียน) · เปลี่ยนตัวกรองแล้วกลับหน้าแรก
+  const PAGE = 40;
+  const [page, setPage] = useState(0);
+  useEffect(() => setPage(0), [tab, kind, search]);
+  const shown = filtered.slice(page * PAGE, (page + 1) * PAGE);
 
   // สาขาที่มีครุภัณฑ์พร้อมยื่นคำขอ
   const activeAssets = useMemo(() => assets.filter(a => a.lifecycle === 'active'), [assets]);
@@ -361,7 +370,7 @@ export default function RequestsView({
         <>
           {/* จอมือถือ: การ์ด ปุ่มอยู่ท้ายการ์ด กดได้ด้วยนิ้วโป้ง */}
           <div className="md:hidden space-y-3">
-            {filtered.map(r => {
+            {shown.map(r => {
               const payload = readPayload(r);
               const can = actionsFor(r);
               return (
@@ -417,7 +426,7 @@ export default function RequestsView({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(r => {
+                  {shown.map(r => {
                     const payload = readPayload(r);
                     const can = actionsFor(r);
                     return (
@@ -476,6 +485,11 @@ export default function RequestsView({
               </Table>
             </div>
           </div>
+          {filtered.length > PAGE && (
+            <div className="mt-3">
+              <Pager page={page} total={filtered.length} onChange={setPage} />
+            </div>
+          )}
         </>
       )}
 
