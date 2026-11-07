@@ -28,7 +28,7 @@ export function RowActions({
   const active = asset.lifecycle === 'active';
   const can = editable && active;
   const many = asset.quantity > 1 && !asset.setId;
-  // ยกเลิกรายการที่บันทึกผิด: ซ่อนเมื่อรู้แน่ว่ายกเลิกไม่ได้ (ลูกจากแบ่งล็อต/ของในชุด) ที่เหลือเซิร์ฟเวอร์ตรวจประวัติอีกชั้น
+  // ยกเลิกรายการที่บันทึกผิด: ซ่อนเมื่อรู้แน่ว่ายกเลิกไม่ได้ (ลูกจากการแยกรายการ/ของในชุด) ที่เหลือเซิร์ฟเวอร์ตรวจประวัติอีกชั้น
   const voidable = can && !asset.parentId && !asset.setId;
   const restorable = editable && asset.lifecycle === 'voided';
   return (
@@ -37,7 +37,7 @@ export function RowActions({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 w-7 p-0 text-slate-500 hover:text-blue-600"
+          className="h-8 w-8 p-0 text-slate-600 hover:text-blue-600"
           aria-label={`คำสั่งสำหรับ ${asset.name}`}
           title="คำสั่ง"
         >
@@ -47,7 +47,7 @@ export function RowActions({
       <DropdownMenuContent align="end" className="w-60 bg-white">
         <DropdownMenuItem onSelect={view}>
           <Eye size={14} />
-          เปิดดูรายละเอียด
+          ดูรายละเอียด
         </DropdownMenuItem>
         {can && (
           <DropdownMenuItem onSelect={() => open('edit', { asset })}>
@@ -58,20 +58,20 @@ export function RowActions({
         {can && many && (
           <DropdownMenuItem onSelect={() => open('split', { asset })}>
             <Scissors size={14} />
-            แบ่งล็อต ({asset.quantity.toLocaleString('th-TH')} ชิ้น)
+            แยกรายการ ({asset.quantity.toLocaleString('th-TH')} ชิ้น)
           </DropdownMenuItem>
         )}
         {can && <DropdownMenuSeparator />}
         {can && (
           <DropdownMenuItem onSelect={() => open('request', { asset })}>
             <ArrowLeftRight size={14} />
-            ยื่นโอนย้าย / ซ่อม / จำหน่าย
+            ยื่นคำขอ (โอนย้าย / ส่งซ่อม / จำหน่าย)
           </DropdownMenuItem>
         )}
         {can && (
           <DropdownMenuItem onSelect={() => open('qr', { assets: [asset] })}>
             <QrCode size={14} />
-            พิมพ์ QR
+            พิมพ์ป้าย QR
           </DropdownMenuItem>
         )}
         {voidable && <DropdownMenuSeparator />}

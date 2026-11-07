@@ -13,8 +13,7 @@ import {
   type Asset,
   type AwaitingApproval,
 } from '@/shared/domain';
-import { Badge, ConditionBadge, Pick, Empty, Pager, type Any } from '@/frontend/components/common';
-import { formatImportDate } from '@/frontend/utils/relative-date';
+import { Badge, ConditionBadge, Pick, Empty, Pager, baht, type Any } from '@/frontend/components/common';
 import AssetThumbnail from './asset-thumbnail';
 import { RowActions } from './row-actions';
 import type { Registry } from './use-registry';
@@ -102,7 +101,7 @@ export function RegistryView({
               onClick={() => open('qr', { assets: filtered.filter(a => a.lifecycle === 'active') })}
             >
               <QrCode size={16} />
-              พิมพ์ QR
+              พิมพ์ป้าย QR
             </Button>
           )}
         </div>
@@ -121,7 +120,7 @@ export function RegistryView({
             <button
               type="button"
               onClick={() => setSearch('')}
-              className="absolute right-2 text-slate-400 hover:text-slate-600 focus:outline-none p-1"
+              className="absolute right-1 text-slate-500 hover:text-slate-700 focus:outline-none p-2"
               aria-label="ล้างคำค้นหา"
               title="ล้างคำค้นหา"
             >
@@ -141,27 +140,28 @@ export function RegistryView({
           ]}
         />
         <Pick
-          label="สถานะ"
+          label="สภาพ"
           value={condition}
           onChange={setCondition}
-          options={[['all', 'ทุกสถานะ'], ...Object.entries(conditions)]}
+          options={[['all', 'ทุกสภาพ'], ...Object.entries(conditions)]}
         />
+        {/* ตัวกรองนี้กรองตามคอลัมน์ "หมวด" (groupFor) จึงใช้ชื่อเดียวกัน · "ประเภทครุภัณฑ์" เป็นอีกช่องหนึ่ง */}
         <Pick
-          label="หมวดหมู่"
+          label="หมวด"
           value={category}
           onChange={setCategory}
-          options={[['all', 'ทุกหมวดหมู่'], ...assetGroups.map(x => [x, x] as [string, string])]}
+          options={[['all', 'ทุกหมวด'], ...assetGroups.map(x => [x, x] as [string, string])]}
         />
         <Pick
           label="ทะเบียน"
           value={lifecycle}
           onChange={setLifecycle}
           options={[
-            ['active', 'ทะเบียนที่ถือครอง'],
+            ['active', 'ที่ใช้อยู่'],
             ['disposed', 'จำหน่ายแล้ว'],
-            ['split', 'ประวัติการแบ่ง'],
+            ['split', 'ประวัติการแยกรายการ'],
             ['voided', 'ข้อมูลผิดพลาด'],
-            ['all', 'ทั้งหมดรวมประวัติ'],
+            ['all', 'ทั้งหมด (รวมประวัติ)'],
           ]}
         />
       </div>
@@ -193,7 +193,7 @@ export function RegistryView({
                 onClick={() => open('qr', { assets: selectedActiveAssets })}
               >
                 <QrCode size={14} className="mr-1.5" />
-                พิมพ์ QR Code ({selectedActiveAssets.length} รายการ)
+                พิมพ์ป้าย QR ({selectedActiveAssets.length})
               </Button>
             )}
             {editable && (
@@ -215,7 +215,7 @@ export function RegistryView({
               onClick={clearSelection}
             >
               <X size={13} className="mr-1" />
-              ยกเลิก
+              ล้างที่เลือก
             </Button>
           </div>
         </div>
@@ -242,14 +242,14 @@ export function RegistryView({
                   </TableHead>
                   {(
                     [
-                      { label: 'รหัสครุภัณฑ์', key: 'code', cls: 'w-[200px]' },
+                      { label: 'หมายเลขครุภัณฑ์', key: 'code', cls: 'w-[200px]' },
                       { label: 'รายการ', key: 'name', cls: '' },
                       { label: 'สาขา', key: 'branch', cls: 'w-[80px] text-center hidden lg:table-cell' },
                       { label: 'หมวด', key: 'groupName', cls: 'w-[92px] hidden xl:table-cell' },
                       { label: 'สถานที่', key: 'location', cls: 'w-[160px] hidden 2xl:table-cell' },
                       { label: 'จำนวน', key: 'quantity', cls: 'w-[84px] num hidden lg:table-cell' },
                       { label: 'มูลค่า (บาท)', key: 'totalSatang', cls: 'w-[124px] num' },
-                      { label: 'สถานะ', key: 'condition', cls: 'w-[88px] text-center' },
+                      { label: 'สภาพ', key: 'condition', cls: 'w-[88px] text-center' },
                       { label: '', key: null, cls: 'w-[76px]' },
                     ] as Array<{ label: string; key: keyof Asset | null; cls: string }>
                   ).map(col => (
@@ -299,7 +299,7 @@ export function RegistryView({
                       <TableCell className="text-center text-slate-700 hidden lg:table-cell" title={a.branch}>
                         {branchAbbr(a.branch) || '—'}
                       </TableCell>
-                      <TableCell className="text-slate-700 hidden xl:table-cell" title={a.category}>
+                      <TableCell className="text-slate-700 hidden xl:table-cell" title={groupFor(a)}>
                         {groupFor(a)}
                       </TableCell>
                       <TableCell className="text-slate-600 hidden 2xl:table-cell" title={a.location}>
@@ -325,8 +325,6 @@ export function RegistryView({
           <div className="md:hidden asset-mobile-cards">
             {pageAssets.map(a => {
               const isSelected = selectedAssetIds.includes(a.id);
-              const cleanGroup = groupFor(a);
-              const importDate = formatImportDate(a.createdAt, a.receivedDate);
               return (
                 <div
                   key={a.id}
@@ -345,7 +343,7 @@ export function RegistryView({
                             onChange={e => toggleSelectAsset(a.id, e)}
                             className="select-check select-check-lg"
                           />
-                          <span className="text-xs font-semibold text-slate-400">{a.code}</span>
+                          <span className="text-xs text-slate-600">{groupFor(a)}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <ConditionBadge condition={a.condition} awaiting={awaiting.get(a.id)} />
@@ -361,17 +359,17 @@ export function RegistryView({
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100 text-xs">
-                    <div>
-                      <span className="text-slate-400 block text-xs">ราคาและจำนวน</span>
-                      <strong className="text-slate-900 text-sm">฿{money(a.unitSatang)}</strong>
-                      <span className="text-slate-500 text-xs block">
-                        {a.quantity.toLocaleString('th-TH')} ชิ้น · รวม ฿{money(a.totalSatang)}
+                    <div className="min-w-0">
+                      <span className="text-slate-600 block text-xs">ราคาต่อหน่วย</span>
+                      <strong className="text-slate-900 text-sm">{baht(a.unitSatang)}</strong>
+                      <span className="text-slate-600 text-xs block">
+                        {a.quantity.toLocaleString('th-TH')} ชิ้น · รวม {baht(a.totalSatang)}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-slate-400 block text-xs">สังกัด / วันที่นำเข้า</span>
+                    <div className="min-w-0">
+                      <span className="text-slate-600 block text-xs">สาขา / สถานที่</span>
                       <span className="text-slate-800 font-medium block truncate">{a.branch}</span>
-                      <span className="text-slate-500 text-xs block truncate">นำเข้า: {importDate.main}</span>
+                      <span className="text-slate-600 text-xs block truncate">{a.location || 'ยังไม่ระบุสถานที่'}</span>
                     </div>
                   </div>
                   <div
@@ -385,7 +383,7 @@ export function RegistryView({
                       onClick={() => onSelect(a)}
                     >
                       <ViewIcon size={12} className="mr-1" />
-                      เปิดดู
+                      ดูรายละเอียด
                     </Button>
                     {editable && a.lifecycle === 'active' && (
                       <Button
@@ -406,15 +404,11 @@ export function RegistryView({
           <Pager page={page} total={filtered.length} onChange={setPage} />
         </>
       ) : (
-        <Empty title={activeCount ? 'ไม่พบรายการที่ตรงกับตัวกรอง' : 'ยังไม่มีรายการที่ยืนยันเข้าทะเบียน'}>
-          <p>
-            {activeCount
-              ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง'
-              : 'ตรวจสอบข้อมูลต้นฉบับ แล้วนำเข้ารายการที่เจ้าหน้าที่ยืนยันแล้ว'}
-          </p>
+        <Empty title={activeCount ? 'ไม่พบรายการที่ตรงกับตัวกรอง' : 'ยังไม่มีครุภัณฑ์ในทะเบียน'}>
+          <p>{activeCount ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง' : 'นำเข้าจากไฟล์ Excel หรือกดปุ่ม “เพิ่มครุภัณฑ์”'}</p>
           {editable && !activeCount && (
             <Button variant="outline" onClick={onOpenImports}>
-              เปิดข้อมูลต้นฉบับ
+              ไปหน้านำเข้า Excel
             </Button>
           )}
         </Empty>
