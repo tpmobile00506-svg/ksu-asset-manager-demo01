@@ -68,7 +68,7 @@ export function voidBlockReason(
   history: { requests: number; counted: number },
 ): string {
   if (a.lifecycle !== 'active') return 'รายการนี้ไม่อยู่ในทะเบียนที่ถือครองแล้ว จึงยกเลิกไม่ได้';
-  if (a.parentId) return 'รายการนี้มาจากการแบ่งล็อต จึงยกเลิกไม่ได้';
+  if (a.parentId) return 'รายการนี้มาจากการแยกรายการ จึงยกเลิกไม่ได้';
   if (a.setId) return 'ครุภัณฑ์ในชุดห้ามแยก จึงยกเลิกทีละรายการไม่ได้';
   if (history.requests) return 'รายการนี้เคยมีคำขอโอนย้าย/ซ่อม/จำหน่ายแล้ว จึงยกเลิกไม่ได้';
   if (history.counted) return 'รายการนี้เคยถูกตรวจนับแล้ว จึงยกเลิกไม่ได้';

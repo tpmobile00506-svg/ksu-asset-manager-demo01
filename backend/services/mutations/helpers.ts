@@ -78,7 +78,7 @@ export async function assertCodesFree(
   const hit = existing.find(a => a.id !== exceptId && wanted.has(codeKey(a.code)));
   if (hit) {
     const state =
-      hit.lifecycle === 'disposed' ? ' ซึ่งจำหน่ายแล้ว' : hit.lifecycle === 'split' ? ' (ประวัติการแบ่งล็อต)' : '';
+      hit.lifecycle === 'disposed' ? ' ซึ่งจำหน่ายแล้ว' : hit.lifecycle === 'split' ? ' (ประวัติการแยกรายการ)' : '';
     throw new ApiError(
       `หมายเลขครุภัณฑ์ ${wanted.get(codeKey(hit.code))} ซ้ำกับรายการที่มีในทะเบียนแล้ว: ${hit.code} · ${hit.name} · ${branchAbbr(hit.branch)}${state}`,
       409,
@@ -133,7 +133,7 @@ export async function splitLotForRequest(
   await insertAsset(tx, target);
   await insertAsset(tx, remainder);
   await copyPhoto(tx, a.id, [target.id, remainder.id]);
-  await audit(tx, m, 'แบ่งล็อตเมื่ออนุมัติคำขอ', a.id, a, [target, remainder], reason);
+  await audit(tx, m, 'แยกรายการเมื่ออนุมัติคำขอ', a.id, a, [target, remainder], reason);
   return target;
 }
 
@@ -154,7 +154,7 @@ export async function copyPhoto(tx: Transaction, parentId: string, childIds: str
 export async function loadEditableAsset({ tx, m, b }: MutationContext) {
   allow(m, ['staff', 'admin']);
   const a = await asset(tx, clean(b.id));
-  if (a.lifecycle !== 'active') throw new ApiError('รายการนี้ถูกแบ่งยอดหรือปิดบัญชีแล้ว');
+  if (a.lifecycle !== 'active') throw new ApiError('รายการนี้ถูกแยกรายการหรือปิดบัญชีแล้ว');
   if (a.version !== b.version) throw new ApiError('ข้อมูลเปลี่ยนแล้ว กรุณาโหลดใหม่', 409);
   trace.ok(`version ตรงกัน (${a.version}) — ไม่มีใครแก้รายการ ${a.code} ทับระหว่างที่เปิดฟอร์ม`);
   if (await tx.assetRequest.findFirst({ where: { assetId: a.id, status: 'pending' } }))

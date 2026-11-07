@@ -27,7 +27,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge, Empty, Pager, api } from '@/frontend/components/common';
-import { Asset, money, conditions } from '@/shared/domain';
+import { Asset, money, conditions, thaiDateTime } from '@/shared/domain';
 import type { WorkspaceData, AuditRecord } from '@/shared/models';
 import { toast } from 'sonner';
 
@@ -36,50 +36,37 @@ type TimeRange = 'all' | 'today' | '7days' | '30days';
 
 // แมปชื่อฟิลด์ภาษาอังกฤษ -> ภาษาไทย
 const fieldLabels: Record<string, string> = {
-  location: 'สถานที่ตั้ง',
-  branch: 'สาขาวิชา / หน่วยงาน',
-  condition: 'สภาพการใช้งาน',
-  custodian: 'ผู้รับผิดชอบ / ผู้ดูแล',
+  location: 'สถานที่',
+  branch: 'สาขา/หน่วยงาน',
+  condition: 'สภาพ',
+  custodian: 'ผู้รับผิดชอบ',
   unitSatang: 'ราคาต่อหน่วย',
   totalSatang: 'มูลค่ารวม',
   quantity: 'จำนวน (ชิ้น)',
-  category: 'หมวดหมู่',
-  name: 'ชื่อรายการครุภัณฑ์',
-  code: 'รหัสครุภัณฑ์',
-  serial: 'หมายเลขเครื่อง / Serial No.',
+  category: 'ประเภทครุภัณฑ์',
+  name: 'ชื่อรายการ',
+  code: 'หมายเลขครุภัณฑ์',
+  serial: 'Serial Number',
   brand: 'ยี่ห้อ / รุ่น',
   notes: 'หมายเหตุ',
-  receivedDate: 'วันที่ตรวจรับ/ได้มา',
-  lifeYears: 'อายุการใช้งานตามเกณฑ์',
-  groupName: 'หมวด/โครงการ',
+  receivedDate: 'วันที่ได้มา',
+  lifeYears: 'อายุใช้งาน',
+  groupName: 'หมวด',
   status: 'สถานะคำขอ',
-  role: 'สิทธิ์การใช้งาน (Role)',
+  role: 'บทบาท',
   active: 'สถานะบัญชี',
 };
 
 const stocktakeResultMeta: Record<string, { label: string; style: string }> = {
-  normal: { label: 'ตรงตามทะเบียน (ปกติ)', style: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
-  damaged: { label: 'ชำรุด / ส่งซ่อม', style: 'bg-amber-100 text-amber-800 border-amber-300' },
-  missing: { label: 'ไม่พบครุภัณฑ์', style: 'bg-rose-100 text-rose-800 border-rose-300' },
+  normal: { label: 'ตรงตามทะเบียน', style: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  damaged: { label: 'พบแต่ชำรุด', style: 'bg-amber-100 text-amber-800 border-amber-300' },
+  missing: { label: 'ไม่พบ', style: 'bg-rose-100 text-rose-800 border-rose-300' },
   mismatch: { label: 'ข้อมูลไม่ตรง', style: 'bg-purple-100 text-purple-800 border-purple-300' },
-  pending: { label: 'รอตรวจนับ', style: 'bg-slate-100 text-slate-700 border-slate-300' },
+  pending: { label: 'ยังไม่ตรวจ', style: 'bg-slate-100 text-slate-700 border-slate-300' },
 };
 
-function formatThaiDateTime(isoStr: string): string {
-  try {
-    const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return isoStr;
-    const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-    const day = d.getDate();
-    const month = months[d.getMonth()];
-    const year = (d.getFullYear() + 543) % 100;
-    const hours = String(d.getHours()).padStart(2, '0');
-    const mins = String(d.getMinutes()).padStart(2, '0');
-    return `${day} ${month} ${year} ${hours}:${mins}`;
-  } catch {
-    return isoStr;
-  }
-}
+// วันที่และเวลาแบบเดียวทั้งระบบ (thaiDateTime): 31 ก.ค. 2569 07:00 น.
+const formatThaiDateTime = (isoStr: string) => thaiDateTime(isoStr);
 
 function formatRelativeTime(isoStr: string): string {
   try {
@@ -126,7 +113,7 @@ function getActionMeta(action: string) {
   }
   if (a.includes('บันทึกตรวจนับ')) {
     return {
-      label: 'บันทึกผลตรวจนับ (QR)',
+      label: 'บันทึกผลตรวจนับ',
       color: 'text-sky-700',
       bg: 'bg-sky-50',
       border: 'border-sky-200',
@@ -144,6 +131,23 @@ function getActionMeta(action: string) {
       badgeBg: 'bg-sky-100/80 text-sky-800 border-sky-200',
       icon: QrCode,
       kind: 'stocktake' as TabKey,
+    };
+  }
+  // แยกรายการ (ข้อความเก่าคือ "แบ่งล็อต") ต้องตรวจก่อน "อนุมัติ" และ "ยื่นคำขอ"
+  // เพราะ "แยกรายการเมื่ออนุมัติคำขอ" มีคำว่าอนุมัติ และ "แบ่งล็อตเพื่อส่งคำขอ" มีคำว่าส่งคำขอ
+  if (a.includes('แบ่งล็อต') || a.includes('แยกรายการ')) {
+    return {
+      label: a.includes('อนุมัติคำขอ')
+        ? 'แยกรายการเมื่ออนุมัติคำขอ'
+        : a.includes('ส่งคำขอ')
+          ? 'แยกรายการเพื่อยื่นคำขอ'
+          : 'แยกรายการ',
+      color: 'text-indigo-700',
+      bg: 'bg-indigo-50',
+      border: 'border-indigo-200',
+      badgeBg: 'bg-indigo-100/80 text-indigo-800 border-indigo-200',
+      icon: ArrowLeftRight,
+      kind: 'edit' as TabKey,
     };
   }
   // ไม่อนุมัติต้องตรวจก่อน "อนุมัติ" เพราะคำว่าอนุมัติอยู่ในข้อความ · ข้อความเก่าที่บันทึกไว้คือ "ส่งคำขอกลับ"
@@ -189,22 +193,6 @@ function getActionMeta(action: string) {
       badgeBg: 'bg-emerald-100/90 text-emerald-800 border-emerald-300',
       icon: CheckCircle2,
       kind: 'transfer' as TabKey,
-    };
-  }
-  // แบ่งล็อต (รวมกรณี "แบ่งล็อตเพื่อส่งคำขอ") ต้องตรวจก่อนกลุ่ม "ส่งคำขอ" ไม่เช่นนั้นจะถูกแสดงเป็นคำขอโอนย้าย
-  if (a.includes('แบ่งล็อต')) {
-    return {
-      label: a.includes('อนุมัติคำขอ')
-        ? 'แบ่งล็อตเมื่ออนุมัติคำขอ'
-        : a.includes('ส่งคำขอ')
-          ? 'แบ่งล็อตเพื่อส่งคำขอ'
-          : 'ตัดแบ่งจำนวน (แยกล็อต)',
-      color: 'text-indigo-700',
-      bg: 'bg-indigo-50',
-      border: 'border-indigo-200',
-      badgeBg: 'bg-indigo-100/80 text-indigo-800 border-indigo-200',
-      icon: ArrowLeftRight,
-      kind: 'edit' as TabKey,
     };
   }
   // คำขอที่บันทึกก่อน 7 พ.ย. 2569 ใช้คำว่า "ส่งคำขอ" ของใหม่ใช้ "ยื่นคำขอ"
@@ -254,7 +242,7 @@ function getActionMeta(action: string) {
   }
   if (a.includes('repair') || a.includes('ซ่อม')) {
     return {
-      label: 'แจ้งส่งซ่อม',
+      label: 'ส่งซ่อม',
       color: 'text-orange-700',
       bg: 'bg-orange-50',
       border: 'border-orange-200',
@@ -276,7 +264,7 @@ function getActionMeta(action: string) {
   }
   if (a.includes('dispose') || a.includes('จำหน่าย')) {
     return {
-      label: 'ขอจำหน่าย',
+      label: 'จำหน่าย',
       color: 'text-rose-700',
       bg: 'bg-rose-50',
       border: 'border-rose-200',
@@ -372,7 +360,7 @@ const technicalKeys = new Set([
 function formatValue(key: string, val: unknown): string {
   if (val === null || val === undefined || val === '') return '—';
   if (key === 'unitSatang' || key === 'totalSatang') {
-    return `฿${money(Number(val))}`;
+    return `${money(Number(val))} บาท`;
   }
   if (key === 'condition' && typeof val === 'string') {
     return conditions[val as keyof typeof conditions] || val;
@@ -470,6 +458,22 @@ function VisualDiffViewer({
     );
   }
 
+  // 3.9 แยกรายการ (ข้อความเก่าคือ "แบ่งล็อต") ต้องอยู่ก่อน "อนุมัติ" และ "ยื่นคำขอ"
+  if (act.includes('แบ่งล็อต') || act.includes('แยกรายการ')) {
+    return (
+      <div className="bg-indigo-50/90 border border-indigo-200 rounded-lg p-2.5 text-xs flex items-center gap-2 text-indigo-900">
+        <ArrowLeftRight size={14} className="text-indigo-600 shrink-0" />
+        <span>
+          {act.includes('อนุมัติคำขอ')
+            ? 'แยกจำนวนที่ระบุในคำขอออกเป็นรายการใหม่ เมื่ออนุมัติขั้นสุดท้าย'
+            : act.includes('ส่งคำขอ')
+              ? 'แยกจำนวนที่ยื่นคำขอออกจากรายการเดิม (ก่อนการอนุมัติ)'
+              : 'แยกจำนวนออกเป็นรายการใหม่ในทะเบียน'}
+        </span>
+      </div>
+    );
+  }
+
   // 4. ไม่อนุมัติ (ต้องตรวจก่อน "อนุมัติ") · ข้อความเก่าคือ "ส่งคำขอกลับ" ซึ่งความจริงคือคำขอสิ้นสุด ไม่ได้ส่งกลับไปแก้
   if (act.includes('ไม่อนุมัติ') || act.includes('ส่งคำขอกลับ') || act.includes('ปฏิเสธ')) {
     return (
@@ -506,22 +510,6 @@ function VisualDiffViewer({
     );
   }
 
-  // 5.5 กรณีแบ่งล็อต (รวม "แบ่งล็อตเพื่อส่งคำขอ") ต้องอยู่ก่อนกลุ่ม "ส่งคำขอ" ด้านล่าง
-  if (act.includes('แบ่งล็อต')) {
-    return (
-      <div className="bg-indigo-50/90 border border-indigo-200 rounded-lg p-2.5 text-xs flex items-center gap-2 text-indigo-900">
-        <ArrowLeftRight size={14} className="text-indigo-600 shrink-0" />
-        <span>
-          {act.includes('อนุมัติคำขอ')
-            ? 'แบ่งล็อตเมื่ออนุมัติขั้นสุดท้าย เพื่อแยกจำนวนที่ระบุในคำขอออกจากรายการเดิม'
-            : act.includes('ส่งคำขอ')
-              ? 'แบ่งล็อตเพื่อแยกจำนวนที่ยื่นคำขอออกจากรายการเดิม (ทำก่อนการอนุมัติ)'
-              : 'ตัดแบ่งจำนวนเพื่อแยกล็อตในทะเบียนครุภัณฑ์เรียบร้อยแล้ว'}
-        </span>
-      </div>
-    );
-  }
-
   // 6. กรณียื่นคำขอ (โอนย้าย / ส่งซ่อม / จำหน่าย) · ของเก่าบันทึกว่า "ส่งคำขอ"
   if (act.includes('ส่งคำขอ') || act.includes('ยื่นคำขอ')) {
     const reqPayload =
@@ -538,7 +526,7 @@ function VisualDiffViewer({
         <div className="bg-orange-50/80 border border-orange-200 rounded-lg p-2.5 text-xs space-y-1">
           <div className="flex flex-wrap items-center gap-2 text-orange-950">
             <Wrench size={14} className="text-orange-600 shrink-0" />
-            <span className="font-semibold">ยื่นคำขอส่งซ่อมแซม:</span>
+            <span className="font-semibold">ยื่นคำขอส่งซ่อม:</span>
             {reqPayload.symptom ? (
               <span>
                 อาการ: <strong>{String(reqPayload.symptom)}</strong>
@@ -546,7 +534,7 @@ function VisualDiffViewer({
             ) : null}
             {estimate > 0 ? (
               <span>
-                · ประมาณการค่าใช้จ่าย: <strong>฿{money(estimate)}</strong>
+                · ค่าซ่อมประมาณ: <strong>{money(estimate)} บาท</strong>
               </span>
             ) : null}
           </div>
@@ -559,7 +547,7 @@ function VisualDiffViewer({
         <div className="bg-rose-50/80 border border-rose-200 rounded-lg p-2.5 text-xs space-y-1">
           <div className="flex flex-wrap items-center gap-2 text-rose-950">
             <Trash2 size={14} className="text-rose-600 shrink-0" />
-            <span className="font-semibold">ยื่นคำขอจำหน่ายครุภัณฑ์ออกจากบัญชี:</span>
+            <span className="font-semibold">ยื่นคำขอจำหน่าย:</span>
             {reqPayload.method ? (
               <span>
                 วิธีจำหน่าย: <strong>{String(reqPayload.method)}</strong>
@@ -580,7 +568,7 @@ function VisualDiffViewer({
       <div className="bg-purple-50/80 border border-purple-200 rounded-lg p-2.5 text-xs space-y-1">
         <div className="flex flex-wrap items-center gap-2 text-purple-950">
           <ArrowLeftRight size={14} className="text-purple-600 shrink-0" />
-          <span className="font-semibold">ยื่นคำขอโอนย้ายสถานที่ / ผู้ถือครอง:</span>
+          <span className="font-semibold">ยื่นคำขอโอนย้าย:</span>
           {/* คีย์ที่ backend บันทึกคือ branch / location (targetBranch / targetLocation เป็นชื่อเก่า) */}
           {(reqPayload.branch ?? reqPayload.targetBranch) ? (
             <span>
@@ -613,7 +601,7 @@ function VisualDiffViewer({
       return (
         <div className="bg-rose-50/90 border border-rose-200 rounded-lg p-2.5 text-xs flex items-center gap-2 text-rose-900">
           <CheckCircle2 size={15} className="text-rose-600 shrink-0" />
-          <span>ตัดจำหน่ายครุภัณฑ์ออกจากทะเบียนใช้งานเรียบร้อยแล้ว</span>
+          <span>จำหน่ายแล้ว ย้ายไปหมวด “จำหน่ายแล้ว”</span>
         </div>
       );
     }
@@ -623,7 +611,7 @@ function VisualDiffViewer({
         <span className="font-semibold">ดำเนินการโอนย้ายสำเร็จ:</span>
         {(afterObj.branch ?? afterObj.targetBranch) ? (
           <span>
-            สังกัดใหม่: <strong>{String(afterObj.branch ?? afterObj.targetBranch)}</strong>
+            สาขาใหม่: <strong>{String(afterObj.branch ?? afterObj.targetBranch)}</strong>
           </span>
         ) : null}
         {(afterObj.location ?? afterObj.targetLocation) ? (
@@ -646,11 +634,11 @@ function VisualDiffViewer({
       <div className="bg-emerald-50/90 border border-emerald-200 rounded-lg p-2.5 text-xs flex flex-wrap items-center gap-2 text-emerald-900">
         <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
         <span>
-          ซ่อมบำรุงเสร็จสิ้น ปรับสภาพเป็น: <strong>ปกติ (พร้อมใช้งาน)</strong>
+          ซ่อมเสร็จ สภาพกลับเป็น <strong>ปกติ</strong>
         </span>
         {afterObj.costSatang ? (
           <span>
-            · ค่าใช้จ่ายจริง: <strong>฿{money(Number(afterObj.costSatang))} บาท</strong>
+            · ค่าซ่อมจริง: <strong>{money(Number(afterObj.costSatang))} บาท</strong>
           </span>
         ) : null}
       </div>
@@ -738,7 +726,7 @@ function VisualDiffViewer({
   const count = afterObj.rows ?? afterObj.rowCount ?? afterObj.imported ?? afterObj.count;
   if (count !== undefined && count !== null) {
     const filename = typeof afterObj.filename === 'string' ? ` (ไฟล์: ${afterObj.filename})` : '';
-    const totalMoney = afterObj.totalSatang ? ` · มูลค่ารวม ฿${money(Number(afterObj.totalSatang))} บาท` : '';
+    const totalMoney = afterObj.totalSatang ? ` · มูลค่ารวม ${money(Number(afterObj.totalSatang))} บาท บาท` : '';
     return (
       <div className="bg-emerald-50/90 border border-emerald-200/90 rounded-lg p-2.5 text-xs flex flex-wrap items-center gap-2">
         <span className="font-bold text-emerald-800 flex items-center gap-1.5">
@@ -1060,10 +1048,10 @@ export default function AuditView({
         <div className="flex flex-wrap items-center gap-2">
           {[
             { key: 'all' as TabKey, label: `ทั้งหมด (${events.length})` },
-            { key: 'stocktake' as TabKey, label: 'ตรวจนับ (QR)' },
+            { key: 'stocktake' as TabKey, label: 'ตรวจนับ' },
             { key: 'transfer' as TabKey, label: 'โอนย้าย' },
             { key: 'repair' as TabKey, label: 'ส่งซ่อม' },
-            { key: 'dispose' as TabKey, label: 'ขอจำหน่าย' },
+            { key: 'dispose' as TabKey, label: 'จำหน่าย' },
             { key: 'edit' as TabKey, label: `แก้ไขข้อมูล (${stats.editCount})` },
             { key: 'import' as TabKey, label: 'นำเข้าข้อมูล' },
             { key: 'user' as TabKey, label: 'ผู้ใช้/สิทธิ์' },

@@ -152,7 +152,7 @@ export async function bulkEdit({ tx, m, b }: MutationContext) {
   if (rows.length !== ids.length) throw new ApiError('บางรายการไม่พบแล้ว กรุณาโหลดใหม่', 409);
   const versions = b.versions && typeof b.versions === 'object' ? (b.versions as Record<string, unknown>) : {};
   for (const r of rows) {
-    if (r.lifecycle !== 'active') throw new ApiError('รายการ ' + r.code + ' ถูกแบ่งยอดหรือปิดบัญชีแล้ว');
+    if (r.lifecycle !== 'active') throw new ApiError('รายการ ' + r.code + ' ถูกแยกรายการหรือปิดบัญชีแล้ว');
     if (versions[r.id] !== r.version) throw new ApiError('ข้อมูลเปลี่ยนแล้ว กรุณาโหลดใหม่', 409);
     if (changes.condition && r.condition === 'repair')
       throw new ApiError('รายการ ' + r.code + ' อยู่ระหว่างซ่อม ต้องบันทึกซ่อมเสร็จก่อน');
@@ -185,7 +185,7 @@ export async function editAsset(ctx: MutationContext) {
   if (next.branch !== a.branch && !isStandardBranch(next.branch!))
     throw new ApiError('สาขาไม่ถูกต้อง กรุณาเลือกสาขาจากรายการมาตรฐาน');
   if (next.quantity !== a.quantity || next.totalSatang !== a.totalSatang || next.unitSatang !== a.unitSatang)
-    throw new ApiError('จำนวนและมูลค่าที่ลงทะเบียนแล้วแก้ตรงนี้ไม่ได้ ใช้แบ่งล็อตพร้อมหลักฐาน');
+    throw new ApiError('จำนวนและมูลค่าที่ลงทะเบียนแล้วแก้ตรงนี้ไม่ได้ ใช้ แยกรายการ พร้อมเหตุผล');
   if (codeKey(next.code!) !== codeKey(a.code)) await assertCodesFree(tx, [next.code!], a.id);
   await dimensions(tx, next);
   await tx.asset.update({ where: { id: a.id }, data: { ...financialData(next), version: { increment: 1 } } });
@@ -197,9 +197,9 @@ export async function editAsset(ctx: MutationContext) {
 export async function splitAsset(ctx: MutationContext) {
   const { tx, m, b } = ctx;
   const { a, reason } = await loadEditableAsset(ctx);
-  if (a.setId) throw new ApiError('ครุภัณฑ์ในชุดห้ามแยก จึงแบ่งล็อตไม่ได้');
-  if (a.condition === 'repair') throw new ApiError('กรุณาบันทึกผลการซ่อมก่อนแบ่งล็อต');
-  if (!reason) throw new ApiError('กรุณาระบุเหตุผลการแบ่งล็อต');
+  if (a.setId) throw new ApiError('ครุภัณฑ์ในชุดห้ามแยก จึงแยกรายการไม่ได้');
+  if (a.condition === 'repair') throw new ApiError('กรุณาบันทึกผลการซ่อมก่อนแยกรายการ');
+  if (!reason) throw new ApiError('กรุณาระบุเหตุผลที่แยกรายการ');
   const take = Number(b.quantity),
     amounts = split(a.quantity, a.totalSatang, take),
     salvage = split(a.quantity, a.salvageSatang, take),
@@ -237,7 +237,7 @@ export async function splitAsset(ctx: MutationContext) {
     a.id,
     children.map(child => child.id),
   );
-  await audit(tx, m, 'แบ่งล็อต', a.id, a, children, reason);
+  await audit(tx, m, 'แยกรายการ', a.id, a, children, reason);
   return { ok: true };
 }
 

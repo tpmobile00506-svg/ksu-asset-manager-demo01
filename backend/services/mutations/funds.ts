@@ -66,7 +66,7 @@ export async function fundAction({ tx, m, action, b }: MutationContext) {
   if (action === 'fundAssign') {
     const f = await fundOf(clean(b.fundId));
     const inactive = rows.find(x => x.lifecycle !== 'active');
-    if (inactive) throw new ApiError('รายการ ' + inactive.code + ' ถูกแบ่งยอดหรือจำหน่ายแล้ว');
+    if (inactive) throw new ApiError('รายการ ' + inactive.code + ' ถูกแยกรายการหรือจำหน่ายแล้ว');
     const other = rows.find(x => x.fundId && x.fundId !== f.id);
     if (other) throw new ApiError('รายการ ' + other.code + ' อยู่ในทุนอื่นแล้ว ต้องเอาออกจากทุนเดิมก่อน', 409);
     const add = rows.filter(x => x.fundId !== f.id).map(x => x.id);
