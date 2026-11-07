@@ -209,6 +209,12 @@ export default function Workspace() {
     try {
       const r = await api('', { token: modal?.token || crypto.randomUUID(), ...body });
       if (generation !== sessionGeneration.current) return null;
+      // เปลี่ยนรหัสผ่านเองแล้ว เซิร์ฟเวอร์ออกจากระบบทุกเครื่อง → กลับหน้าเข้าสู่ระบบพร้อมบอกเหตุผล
+      if ((r as Any)?.signedOut) {
+        clearSession();
+        setError('เปลี่ยนรหัสผ่านแล้ว กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่');
+        return r;
+      }
       await reload();
       if (generation !== sessionGeneration.current) return null;
       setModal(null);
@@ -302,6 +308,7 @@ export default function Workspace() {
         onSelect={switchView}
         pendingCount={pendingForUser(data.requests, data.me, assets).length}
         me={data.me}
+        onChangePassword={() => open('password')}
       />
 
       <SidebarInset className="app-main">

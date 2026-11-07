@@ -76,7 +76,7 @@ export function LoginScreen({
         <form onSubmit={onSubmit} className="space-y-4" autoComplete="off">
           <div>
             <label htmlFor="login-email" className="block text-sm font-bold text-slate-700 mb-1.5">
-              อีเมล / บัญชีผู้ใช้งาน
+              อีเมล
             </label>
             <div className="relative flex items-center">
               <span className="absolute left-3.5 text-slate-400 pointer-events-none">
@@ -89,7 +89,7 @@ export function LoginScreen({
                 type="email"
                 value={email}
                 onChange={e => onEmail(e.target.value)}
-                placeholder="กรอกอีเมลหรือชื่อบัญชีผู้ใช้งาน"
+                placeholder="เช่น name@ksu.ac.th"
                 className="pl-10 h-11 bg-slate-50/70 border-slate-300 text-sm focus:bg-white transition-colors"
                 required
               />
@@ -98,7 +98,7 @@ export function LoginScreen({
 
           <div>
             <label htmlFor="login-password" className="block text-sm font-bold text-slate-700 mb-1.5">
-              รหัสผ่าน (Password)
+              รหัสผ่าน
             </label>
             <div className="relative flex items-center">
               <span className="absolute left-3.5 text-slate-400 pointer-events-none">
@@ -143,14 +143,9 @@ export function LoginScreen({
             disabled={loggingIn}
             className="w-full h-11 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-sm rounded-lg shadow-md shadow-blue-500/20 transition-all mt-2 cursor-pointer"
           >
-            {loggingIn ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ (Sign In)'}
+            {loggingIn ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}
           </Button>
 
-          <div className="mt-4 p-2.5 rounded-lg bg-slate-100/90 border border-slate-200/70 text-center">
-            <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              รองรับ 5 สิทธิ์: เจ้าหน้าที่พัสดุ · หัวหน้าสาขา · รองคณบดี · คณบดี · ผู้ดูแลระบบ
-            </p>
-          </div>
         </form>
       </div>
 
@@ -161,7 +156,9 @@ export function LoginScreen({
               <Lock size={18} className="text-[#2563eb]" />
               ลืมรหัสผ่าน
             </DialogTitle>
-            <DialogDescription>กรุณาติดต่อผู้ดูแลระบบ (Admin) เพื่อตั้งรหัสผ่านใหม่</DialogDescription>
+            <DialogDescription>
+              ติดต่อผู้ดูแลระบบเพื่อตั้งรหัสผ่านใหม่ · ถ้ายังจำรหัสเดิมได้ เปลี่ยนเองได้ที่เมนูข้างหลังเข้าสู่ระบบ
+            </DialogDescription>
           </DialogHeader>
           <Button
             type="button"
@@ -173,7 +170,7 @@ export function LoginScreen({
         </DialogContent>
       </Dialog>
 
-      <footer className="relative z-10 text-center text-xs text-slate-400 py-3 mt-4">
+      <footer className="relative z-10 text-center text-xs text-slate-500 py-3 mt-4">
         © 2026 ระบบบริหารจัดการครุภัณฑ์ คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม มหาวิทยาลัยกาฬสินธุ์
       </footer>
     </div>

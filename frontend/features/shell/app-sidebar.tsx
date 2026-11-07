@@ -63,11 +63,13 @@ export function AppSidebar({
   onSelect,
   pendingCount,
   me,
+  onChangePassword,
 }: {
   view: string;
   onSelect: (view: string) => void;
   pendingCount: number;
   me: WorkspaceData['me'];
+  onChangePassword?: () => void;
 }) {
   return (
     <Sidebar>
@@ -106,6 +108,15 @@ export function AppSidebar({
             <div className="text-[10px] text-slate-400 truncate">{me.email}</div>
           </div>
         </div>
+        {onChangePassword && (
+          <button
+            type="button"
+            onClick={onChangePassword}
+            className="mt-2 w-full min-h-9 rounded-lg px-3 text-left text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white cursor-pointer"
+          >
+            เปลี่ยนรหัสผ่าน
+          </button>
+        )}
       </SidebarFooter>
     </Sidebar>
   );

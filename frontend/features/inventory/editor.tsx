@@ -47,6 +47,7 @@ const titleMap: Record<string, string> = {
   approve: 'อนุมัติคำขอ',
   reject: 'ไม่อนุมัติคำขอ',
   cancelRequest: 'ยกเลิกคำขอ',
+  password: 'เปลี่ยนรหัสผ่าน',
   round: 'เปิดรอบตรวจนับ',
   check: 'บันทึกผลตรวจนับ',
   user: 'กำหนดสิทธิ์ผู้ใช้',
@@ -69,6 +70,7 @@ const submitLabels: Record<string, string> = {
   round: 'เปิดรอบตรวจนับ',
   check: 'บันทึกผลตรวจนับ',
   repairComplete: 'บันทึกซ่อมเสร็จ',
+  password: 'เปลี่ยนรหัสผ่าน',
 };
 
 export default function Editor({
@@ -164,6 +166,12 @@ export default function Editor({
           version: modal.request.version,
           reason: f.reason,
         });
+      } else if (modal.kind === 'password') {
+        if (f.password !== f.confirm) {
+          setError('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน');
+          return;
+        }
+        await write({ action: 'password', currentPassword: f.currentPassword, password: f.password });
       } else if (modal.kind === 'round') {
         await write({
           action: 'round',
@@ -246,6 +254,7 @@ export default function Editor({
               {modal?.asset?.name ||
                 modal?.request?.name ||
                 modal?.item?.name ||
+                (modal?.kind === 'password' ? 'ใช้ได้ทุกบทบาท' : '') ||
                 'ระบบบันทึกชื่อผู้ทำรายการและเวลาไว้ทุกครั้ง'}
             </DialogDescription>
           </DialogHeader>
@@ -629,6 +638,42 @@ export default function Editor({
                         rows={3}
                       />
                     </label>
+                  </div>
+                )}
+
+                {modal?.kind === 'password' && (
+                  <div className="form-grid form-grid-single">
+                    <div className="notice">
+                      {data.me.name} · {data.me.email}
+                      <p className="mt-1">เปลี่ยนแล้วระบบจะออกจากระบบทุกเครื่อง ให้เข้าใหม่ด้วยรหัสผ่านใหม่</p>
+                    </div>
+                    <Field
+                      label="รหัสผ่านเดิม"
+                      name="currentPassword"
+                      type="password"
+                      autoComplete="current-password"
+                      maxLength={128}
+                      required
+                    />
+                    <Field
+                      label="รหัสผ่านใหม่"
+                      name="password"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={12}
+                      maxLength={128}
+                      required
+                      hint="อย่างน้อย 12 ตัวอักษร"
+                    />
+                    <Field
+                      label="พิมพ์รหัสผ่านใหม่อีกครั้ง"
+                      name="confirm"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={12}
+                      maxLength={128}
+                      required
+                    />
                   </div>
                 )}
 
