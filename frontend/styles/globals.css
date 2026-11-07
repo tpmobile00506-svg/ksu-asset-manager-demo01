@@ -1187,6 +1187,24 @@ a:focus-visible {
   margin-bottom: 0;
 }
 
+/* ส่วน "ข้อมูลเพิ่มเติม" ในฟอร์มครุภัณฑ์: พับได้ ช่องข้างในยังส่งไปพร้อมฟอร์ม */
+.form-details > summary {
+  list-style: none;
+  min-height: 40px;
+}
+.form-details > summary::-webkit-details-marker {
+  display: none;
+}
+.form-details > summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 1.1em;
+  color: #475569;
+}
+.form-details[open] > summary::before {
+  content: '▾';
+}
+
 .form-section-title {
   font-size: 13.5px;
   font-weight: 600;

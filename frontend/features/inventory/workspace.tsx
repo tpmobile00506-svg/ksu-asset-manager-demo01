@@ -384,7 +384,9 @@ export default function Workspace() {
                       {editable && (
                         <Button
                           className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold cursor-pointer"
-                          onClick={() => open('create')}
+                          onClick={() =>
+                            open('create', { initialBranch: registry.branch !== 'all' ? registry.branch : '' })
+                          }
                         >
                           <Plus size={16} className="mr-1" />
                           เพิ่มครุภัณฑ์

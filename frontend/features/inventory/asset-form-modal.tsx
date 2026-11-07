@@ -61,7 +61,7 @@ export function BranchSelect({
       className={selectClass}
     >
       <option value="" disabled>
-        {legacy ? `ค่าเดิม "${legacy}" ไม่อยู่ในรายการ กรุณาเลือกใหม่` : 'เลือกสาขาวิชา / หน่วยงาน'}
+        {legacy ? `ค่าเดิม "${legacy}" ไม่อยู่ในรายการ กรุณาเลือกใหม่` : 'เลือกสาขา/หน่วยงาน'}
       </option>
       <optgroup label="สาขาวิชา">
         {academicBranches.map(branch => (
@@ -226,7 +226,8 @@ export default function AssetFormModal({
 
   useEffect(() => {
     if (modal && ['create', 'edit', 'import'].includes(modal.kind)) {
-      const b = modal.asset?.branch || 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)';
+      // ไม่เลือกสาขาให้ล่วงหน้า (เดิมตั้งเป็นสำนักงานคณบดี ของจึงเข้าผิดสาขาง่าย) ยกเว้นหน้าทะเบียนกรองสาขาไว้อยู่
+      const b = modal.asset?.branch || modal.initialBranch || '';
       // ประเภทแบบสั้นในข้อมูลเก่า (เช่น "คอมพิวเตอร์") แปลงเป็นชื่อเต็มในรายการ
       const raw = modal.asset?.category || '';
       const c = assetTypeOf(raw) || assetTypeOf('ครุภัณฑ์' + raw) || raw;
@@ -417,8 +418,10 @@ export default function AssetFormModal({
       : null);
 
   const conditionOptions = prioritized(conditions, modal.asset?.condition || 'normal').filter(([condition]) =>
-    modal.kind !== 'edit'
-      ? condition !== 'repair' // เพิ่ม/นำเข้า: ห้ามเลือก "กำลังซ่อม" (ต้องผ่านคำขอซ่อม)
+    modal.kind === 'create'
+      ? condition !== 'repair' && condition !== 'missing' // เพิ่มของใหม่: ไม่มี "กำลังซ่อม" (ต้องผ่านคำขอซ่อม) และ "ไม่พบ" (ของที่เพิ่งรับมาต้องมีอยู่)
+      : modal.kind !== 'edit'
+        ? condition !== 'repair' // นำเข้าจากไฟล์: ไม่พบ ยังเลือกได้ เพราะไฟล์เก่าอาจบันทึกไว้แบบนั้น
       : modal.asset?.condition === 'repair'
         ? condition === 'repair'
         : condition !== 'repair',
@@ -449,8 +452,8 @@ export default function AssetFormModal({
             <DialogTitle>{titleMap[modal?.kind || ''] || 'หน้าต่างรายการ'}</DialogTitle>
             <DialogDescription>
               {modal?.kind === 'create'
-                ? 'กรอกข้อมูลเพื่อบันทึกครุภัณฑ์ใหม่เข้าสู่ทะเบียนกลาง'
-                : modal?.asset?.name || 'ระบบบันทึกชื่อผู้ดำเนินการและเวลาที่ทำรายการเสมอ'}
+                ? 'ช่องที่มี * ต้องกรอก ข้อมูลเพิ่มเติมกรอกภายหลังได้'
+                : modal?.asset?.name || 'ระบบบันทึกชื่อผู้ทำรายการและเวลาไว้ทุกครั้ง'}
             </DialogDescription>
           </DialogHeader>
 
@@ -465,7 +468,7 @@ export default function AssetFormModal({
               {modal?.row && (
                 <div className={'notice mb-4 ' + (modal.row.issue ? 'warn' : '')}>
                   ชีต {modal.row.sheet} · แถว {modal.row.row}
-                  <p>{modal.row.issue || 'ตรวจสอบสถานที่ สาขา สถานะ และยอดเงินก่อนยืนยัน'}</p>
+                  <p>{modal.row.issue || 'ตรวจสถานที่ สาขา สภาพ และยอดเงินก่อนยืนยัน'}</p>
                 </div>
               )}
 
@@ -481,7 +484,7 @@ export default function AssetFormModal({
                     required
                   />
                   <Field
-                    label="ชื่อรายการครุภัณฑ์"
+                    label="ชื่อรายการ"
                     name="name"
                     defaultValue={modal?.asset?.name || ''}
                     placeholder="เช่น เครื่องคอมพิวเตอร์แม่ข่าย"
@@ -489,7 +492,7 @@ export default function AssetFormModal({
                     required
                   />
                   <label>
-                    <span>ประเภทครุภัณฑ์ (สำนักงาน) *</span>
+                    <span>ประเภทครุภัณฑ์ *</span>
                     {/* เลือกจาก 11 ประเภทเท่านั้น พิมพ์ผิดแล้วของจะตกไป "รอจัดหมวด" (ผู้ใช้ขอ 17 ต.ค. 2569)
                         ค่าเดิมที่ไม่อยู่ในรายการ (ข้อมูลเก่า) ยังเลือกค้างไว้ได้ ไม่บังคับเปลี่ยนตอนแก้ช่องอื่น */}
                     <select
@@ -515,7 +518,7 @@ export default function AssetFormModal({
                   {/* หมวด = ชื่อแผ่นงานของประเภท (สำนักงาน คอม ไฟฟ้า ...) คู่กันหนึ่งต่อหนึ่ง เลือกหมวดแล้วประเภทเปลี่ยนตาม (ผู้ใช้ขอ 18 ต.ค. 2569)
                       ไม่ส่งช่องนี้ไปเซิร์ฟเวอร์ เซิร์ฟเวอร์คิดหมวดจากประเภทเองเสมอ */}
                   <label>
-                    <span>หมวด (กลุ่มต่างๆ) *</span>
+                    <span>หมวด *</span>
                     <select
                       value={categoryInput ? assetGroupOfType(categoryInput) : ''}
                       onChange={e => setCategoryInput(assetTypeOf(e.target.value))}
@@ -574,8 +577,8 @@ export default function AssetFormModal({
                     onChange={handleTotalChange}
                     hint={
                       modal.kind === 'edit'
-                        ? 'จำนวนและมูลค่าที่ลงทะเบียนแล้วแก้ตรงนี้ไม่ได้ หากต้องการแยกจำนวนให้ใช้แบ่งล็อต'
-                        : 'คำนวณอัตโนมัติ (จำนวน × ราคาต่อหน่วย) สามารถปรับแก้ได้'
+                        ? 'จำนวนและมูลค่าที่ลงทะเบียนแล้วแก้ตรงนี้ไม่ได้ ถ้าต้องแยกจำนวนให้ใช้ปุ่ม “แยกรายการ”'
+                        : 'คิดให้อัตโนมัติ (จำนวน × ราคาต่อหน่วย) แก้ได้ถ้าไม่ตรงกับเอกสาร'
                     }
                   />
                 </div>
@@ -583,35 +586,48 @@ export default function AssetFormModal({
 
               {/* ส่วนที่ 3: สถานที่และการครอบครอง */}
               <div className="form-section">
-                <div className="form-section-title">สถานที่และการครอบครอง</div>
+                <div className="form-section-title">สถานที่ ผู้รับผิดชอบ และสภาพ</div>
                 <div className="form-grid">
                   <Field
-                    label="สถานที่ตั้ง / ห้อง"
+                    label="สถานที่ / ห้อง"
                     name="location"
                     defaultValue={modal?.asset?.location || ''}
                     placeholder="เช่น ห้องปฏิบัติการ 402 อาคารวิศวกรรม"
                     required
+                    hint={modal?.kind === 'edit' ? 'แก้เฉพาะกรอกผิด ถ้าย้ายของจริงให้ยื่นคำขอโอนย้าย' : undefined}
                   />
                   <label>
-                    <span>สาขาวิชา / หน่วยงาน *</span>
+                    <span>สาขา/หน่วยงาน *</span>
                     <BranchSelect
                       name="branch"
-                      defaultValue={modal?.asset?.branch || 'สำนักงานคณะฯ / คณบดี (สนง.ควอ.)'}
+                      defaultValue={modal?.asset?.branch || modal?.initialBranch || ''}
                       onChange={handleBranchChange}
                     />
                   </label>
                   <Field
-                    label="ผู้รับผิดชอบ / ผู้ดูแล"
+                    label="ผู้รับผิดชอบ"
                     name="custodian"
                     defaultValue={modal?.asset?.custodian || ''}
                     placeholder="เช่น ดร.สมชาย ใจดี"
                   />
+                  <label>
+                    <span>สภาพ</span>
+                    <Pick
+                      label="สภาพ"
+                      name="condition"
+                      defaultValue={modal?.asset?.condition || 'normal'}
+                      options={conditionOptions}
+                    />
+                  </label>
                 </div>
               </div>
 
-              {/* ส่วนที่ 4: คุณลักษณะและอายุใช้งาน */}
-              <div className="form-section">
-                <div className="form-section-title">คุณลักษณะและอายุใช้งาน</div>
+              {/* ส่วนที่ 4: ข้อมูลเพิ่มเติม (ไม่บังคับ) พับไว้ตอนเพิ่มของใหม่ เปิดไว้ตอนแก้ไข · ช่องในส่วนที่พับยังถูกส่งไปพร้อมฟอร์ม */}
+              <details className="form-section form-details" open={modal?.kind !== 'create'}>
+                <summary className="form-section-title cursor-pointer select-none">
+                  ข้อมูลเพิ่มเติม (ไม่บังคับ)
+                  <span className="text-xs font-normal text-slate-600 ml-2">ยี่ห้อ Serial วันที่ได้มา อายุใช้งาน หมายเหตุ</span>
+                </summary>
                 <div className="form-grid">
                   <Field
                     label="ยี่ห้อ / รุ่น"
@@ -620,29 +636,20 @@ export default function AssetFormModal({
                     placeholder="เช่น Dell PowerEdge R750"
                   />
                   <Field
-                    label="หมายเลขเครื่อง (Serial Number)"
+                    label="Serial Number"
                     name="serial"
                     defaultValue={modal?.asset?.serial || ''}
                     placeholder="เช่น SN-ABC1234567"
                   />
                   <Field
-                    label="วันที่ตรวจรับเข้าคลัง"
+                    label="วันที่ได้มา"
                     name="receivedDate"
                     type="date"
                     value={dateInput}
                     onChange={e => setDateInput(e.target.value)}
                   />
-                  <label>
-                    <span>สภาพความพร้อมใช้งาน</span>
-                    <Pick
-                      label="สภาพความพร้อมใช้งาน"
-                      name="condition"
-                      defaultValue={modal?.asset?.condition || 'normal'}
-                      options={conditionOptions}
-                    />
-                  </label>
                   <Field
-                    label="อายุใช้งานมาตรฐาน (ปี)"
+                    label="อายุใช้งาน (ปี)"
                     name="lifeYears"
                     type="number"
                     defaultValue={modal?.asset?.lifeYears || 0}
@@ -653,29 +660,25 @@ export default function AssetFormModal({
                     name="salvage"
                     defaultValue={(modal?.asset?.salvageSatang || 0) / 100}
                     placeholder="1.00"
-                    hint="ปกติกำหนด 1 บาท หรือตามระเบียบพัสดุ"
+                    hint="ปกติ 1 บาท หรือตามระเบียบพัสดุ"
                   />
                   <label className="span-2">
-                    <span>หมายเหตุ / บันทึกประวัติการใช้งาน</span>
+                    <span>หมายเหตุของรายการ</span>
                     <Textarea
                       name="notes"
                       defaultValue={modal?.asset?.notes || ''}
-                      placeholder="เช่น รับประกัน 3 ปี ซ่อมบำรุง onsite หรือข้อความเพิ่มเติม"
+                      placeholder="เช่น รับประกัน 3 ปี"
                       rows={2}
                     />
                   </label>
                 </div>
-              </div>
+              </details>
 
               {/* ส่วนที่ 5: รูปถ่ายครุภัณฑ์ */}
               <div className="form-section">
                 <div className="form-section-title">
                   <ImageIcon size={16} /> รูปถ่ายครุภัณฑ์
-                  <span className="text-xs font-normal text-slate-500 ml-2">
-                    {modal?.kind === 'edit'
-                      ? '(แสดงรูปปัจจุบัน สามารถคลิกเปลี่ยนรูปใหม่หรือลบรูปได้)'
-                      : '(แนบรูปได้ทันที)'}
-                  </span>
+                  <span className="text-xs font-normal text-slate-600 ml-2">(ไม่บังคับ)</span>
                 </div>
 
                 <input
@@ -702,7 +705,7 @@ export default function AssetFormModal({
                           <span className="text-xs text-slate-500">{(newPhoto.file.size / 1024).toFixed(1)} KB</span>
                         </div>
                         <p className="text-sm font-medium text-slate-800 truncate mt-1">{newPhoto.file.name}</p>
-                        <p className="text-xs text-blue-600 mt-0.5">พร้อมบันทึกเข้าระบบเมื่อกดปุ่มบันทึก</p>
+                        <p className="text-xs text-blue-700 mt-0.5">บันทึกพร้อมข้อมูลเมื่อกดปุ่มบันทึก</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
@@ -736,7 +739,7 @@ export default function AssetFormModal({
                           <Trash2 size={20} />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-red-900">ตั้งค่าลบรูปปัจจุบัน</p>
+                          <p className="text-sm font-medium text-red-900">จะลบรูปนี้</p>
                           <p className="text-xs text-red-600 mt-0.5">
                             รูปถ่ายของครุภัณฑ์นี้จะถูกนำออกจากระบบเมื่อกดบันทึก
                           </p>
@@ -777,7 +780,7 @@ export default function AssetFormModal({
                           </span>
                         </div>
                         <p className="text-sm font-medium text-slate-800 truncate mt-1">{modal?.asset?.name}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">คุณสามารถเลือกเปลี่ยนรูปใหม่ หรือลบรูปภาพนี้ได้</p>
+                        <p className="text-xs text-slate-600 mt-0.5">เปลี่ยนหรือลบรูปได้</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
@@ -806,11 +809,11 @@ export default function AssetFormModal({
                         onClick={() => photoInputRef.current?.click()}
                         className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50/50 rounded-lg text-sm text-slate-600 transition-colors"
                       >
-                        <Upload size={17} className="text-slate-400" />
+                        <Upload size={17} className="text-slate-500" />
                         <span>
                           {modal?.kind === 'edit'
-                            ? 'ยังไม่มีรูปครุภัณฑ์ · คลิกเพื่ออัปโหลดรูปถ่าย (JPEG, PNG หรือ WebP ขนาดไม่เกิน 4 MB)'
-                            : 'คลิกเพื่อแนบรูปถ่ายครุภัณฑ์ (JPEG, PNG หรือ WebP ขนาดไม่เกิน 4 MB)'}
+                            ? 'ยังไม่มีรูป · กดเพื่อเลือกรูป (JPEG, PNG หรือ WebP ไม่เกิน 4 MB)'
+                            : 'กดเพื่อแนบรูป (JPEG, PNG หรือ WebP ไม่เกิน 4 MB)'}
                         </span>
                       </button>
                     </div>
@@ -821,21 +824,23 @@ export default function AssetFormModal({
               {/* ส่วนที่ 6: บันทึกประวัติและเหตุผล */}
               <div className="form-section">
                 <div className="form-section-title">
-                  {modal?.kind === 'create' ? 'บันทึกเพิ่มเติม' : 'บันทึกประวัติการเปลี่ยนแปลง'}
+                  {modal?.kind === 'edit' ? 'เหตุผลที่แก้ไข' : 'ที่มาของรายการ'}
                 </div>
                 <label className="span-2">
                   <span>
-                    {modal?.kind === 'create'
-                      ? 'หมายเหตุการรับเข้า / ที่มาของรายการ (ถ้ามี)'
-                      : 'เหตุผลการแก้ไขข้อมูล *'}
+                    {modal?.kind === 'edit'
+                      ? 'เหตุผลที่แก้ไข *'
+                      : modal?.row?.issue
+                        ? 'เหตุผลที่ใช้ยอดนี้ *'
+                        : 'ที่มาของรายการ (ถ้ามี)'}
                   </span>
                   <Textarea
                     name="reason"
                     required={modal?.kind === 'edit' || !!modal?.row?.issue}
                     placeholder={
-                      modal?.kind === 'create'
-                        ? 'เช่น จัดซื้อตามสัญญาเลขที่... หรือ รับมอบจากโครงการ... (ไม่บังคับ)'
-                        : 'ระบุเหตุผลการปรับปรุงข้อมูล เพื่อบันทึกประวัติการดำเนินงาน (Audit Trail)'
+                      modal?.kind === 'edit'
+                        ? 'เช่น พิมพ์ชื่อผิด หรือใส่สถานที่ผิด · ระบบเก็บไว้ในประวัติ'
+                        : 'เช่น จัดซื้อตามสัญญาเลขที่ … หรือรับมอบจากโครงการ …'
                     }
                     rows={2}
                   />
@@ -843,7 +848,7 @@ export default function AssetFormModal({
                 {modal?.kind === 'import' && (
                   <label className="span-2 flex! items-start gap-3 mt-3">
                     <Checkbox name="reviewed" required />
-                    <span>ตรวจสอบกับต้นฉบับแล้ว ยืนยันจำนวน มูลค่า สถานะ และไม่ซ้ำกับทะเบียน</span>
+                    <span>ตรวจกับต้นฉบับแล้ว จำนวน มูลค่า สภาพ ถูกต้อง และไม่ซ้ำกับทะเบียน</span>
                   </label>
                 )}
               </div>
@@ -856,8 +861,7 @@ export default function AssetFormModal({
               )}
               {modal?.kind === 'edit' && (
                 <div className="notice">
-                  สามารถแก้ไขรายละเอียดครุภัณฑ์ สถานที่/ห้อง และบันทึกประวัติเพิ่มเติมได้
-                  โดยระบุเหตุผลเพื่อเก็บบันทึกประวัติ (Audit Log) (กรณีต้องการแยกจำนวน ให้ใช้ปุ่ม “แบ่งล็อต”)
+                  ใช้แก้ข้อมูลที่กรอกผิด ถ้าย้ายของจริงให้ยื่นคำขอโอนย้าย ถ้าต้องแยกจำนวนให้ใช้ปุ่ม “แยกรายการ”
                 </div>
               )}
             </div>
@@ -884,7 +888,7 @@ export default function AssetFormModal({
                 {busy
                   ? 'กำลังบันทึก…'
                   : modal?.kind === 'create'
-                    ? 'บันทึกข้อมูลครุภัณฑ์'
+                    ? 'เพิ่มครุภัณฑ์'
                     : modal?.kind === 'import'
                       ? 'ยืนยันนำเข้าทะเบียน'
                       : 'บันทึก'}
@@ -897,16 +901,11 @@ export default function AssetFormModal({
       <AlertDialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
         <AlertDialogContent className="bg-white max-w-md p-6 rounded-xl border border-slate-200 shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-lg font-bold text-slate-900">
-              ต้องการยกเลิกการกรอกข้อมูลใช่หรือไม่?
-            </AlertDialogTitle>
+            <AlertDialogTitle className="text-lg font-bold text-slate-900">ปิดโดยไม่บันทึก?</AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-slate-600 mt-2">
-              ข้อมูลที่คุณกรอกไว้ในหน้าต่างนี้จะสูญหายและไม่ถูกบันทึกเข้าระบบ
+              ข้อมูลที่กรอกในหน้าต่างนี้จะหายไป
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="bg-amber-50 border border-amber-200/80 rounded-lg p-3 text-xs text-amber-900 my-2">
-            หากกดยืนยัน ข้อมูลที่กรอกทั้งหมดจะถูกล้างและปิดหน้าต่างลง
-          </div>
           <AlertDialogFooter className="mt-4 flex gap-2 justify-end">
             <AlertDialogCancel className="rounded-lg border-slate-200">กรอกข้อมูลต่อ</AlertDialogCancel>
             <AlertDialogAction
@@ -916,7 +915,7 @@ export default function AssetFormModal({
                 onClose();
               }}
             >
-              ยืนยันยกเลิก
+              ปิดโดยไม่บันทึก
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
