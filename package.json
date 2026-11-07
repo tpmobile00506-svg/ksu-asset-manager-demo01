@@ -23,7 +23,6 @@
     "test:domain": "node --experimental-strip-types backend/tests/critical-workflows.mjs --domain-only",
     "test:integration": "node backend/tests/run-integration.mjs",
     "db:seed": "tsx backend/prisma/seed.ts",
-    "db:seed:tester": "tsx backend/scripts/seed-tester.ts",
     "source:seed": "tsx backend/scripts/seed-source.ts"
   },
   "dependencies": {

@@ -30,7 +30,7 @@ export function NotificationBell({ data, onGo }: { data: WorkspaceData; onGo: (v
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [notifOpen]);
-  const approver = ['head', 'deputy', 'dean', 'tester'].includes(data.me.role);
+  const approver = ['head', 'deputy', 'dean'].includes(data.me.role);
   const awaitsMe = (r: WorkspaceData['requests'][number]) =>
     awaitsApprovalBy(r, data.me, data.assets.find((a: Asset) => a.id === r.assetId)?.branch);
   const pendingRequests = data.requests?.filter(r => r.status === 'pending' && (!approver || awaitsMe(r))) || [];

@@ -534,13 +534,12 @@ export default function Editor({
                           ผู้ยื่นคำขอ: <b>{modal.request.requesterName}</b>
                         </p>
                       )}
-                      {modal.kind === 'approve' &&
-                        (data.me.role === 'tester' || (ADMIN_APPROVES_ALL && data.me.role === 'admin')) && (
-                          <p className="mt-2 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-teal-800">
-                            {data.me.role === 'admin' ? 'Admin' : 'บัญชีทดลอง'}: กดบันทึกแล้วคำขอนี้จะ
-                            <b>อนุมัติครบทุกขั้นทันที</b> (ข้ามขั้นที่เหลือ) และทะเบียนจะเปลี่ยนตามคำขอ
-                          </p>
-                        )}
+                      {modal.kind === 'approve' && ADMIN_APPROVES_ALL && data.me.role === 'admin' && (
+                        <p className="mt-2 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-teal-800">
+                          Admin: กดบันทึกแล้วคำขอนี้จะ
+                          <b>อนุมัติครบทุกขั้นทันที</b> (ข้ามขั้นที่เหลือ) และทะเบียนจะเปลี่ยนตามคำขอ
+                        </p>
+                      )}
                       <p className="mt-1">เหตุผลของผู้ขอ: {modal.request.reason}</p>
                       {/* สิ่งที่จะเกิดขึ้นเมื่ออนุมัติ: ผู้อนุมัติต้องเห็นปลายทาง/จำนวนก่อนตัดสินใจ */}
                       {(() => {

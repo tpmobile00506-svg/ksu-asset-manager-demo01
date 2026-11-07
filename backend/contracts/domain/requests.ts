@@ -112,8 +112,6 @@ export function awaitsApprovalBy(
   if (r.status !== 'pending') return false;
   if (ADMIN_APPROVES_ALL && me.role === 'admin') return true;
   if (r.actor === me.id) return false;
-  // บัญชีผู้ทดสอบ (ผู้ใช้ตัดสินใจ 18 ต.ค. 2569): อนุมัติได้ทุกคำขอทุกสาขา กดครั้งเดียวจบทุกขั้นที่เหลือ
-  if (me.role === 'tester') return true;
   let chain: string[] = [...DEFAULT_APPROVAL_CHAIN];
   try {
     chain = JSON.parse(r.chain);
