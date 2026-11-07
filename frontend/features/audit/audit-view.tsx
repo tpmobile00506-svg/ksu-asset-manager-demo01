@@ -146,6 +146,40 @@ function getActionMeta(action: string) {
       kind: 'stocktake' as TabKey,
     };
   }
+  // ไม่อนุมัติต้องตรวจก่อน "อนุมัติ" เพราะคำว่าอนุมัติอยู่ในข้อความ · ข้อความเก่าที่บันทึกไว้คือ "ส่งคำขอกลับ"
+  if (a.includes('ไม่อนุมัติ') || a.includes('ส่งคำขอกลับ') || a.includes('ปฏิเสธ')) {
+    return {
+      label: 'ไม่อนุมัติคำขอ',
+      color: 'text-rose-700',
+      bg: 'bg-rose-50',
+      border: 'border-rose-200',
+      badgeBg: 'bg-rose-100/90 text-rose-800 border-rose-300',
+      icon: AlertTriangle,
+      kind: 'transfer' as TabKey,
+    };
+  }
+  if (a.includes('ยกเลิกคำขอ')) {
+    return {
+      label: 'ผู้ยื่นยกเลิกคำขอ',
+      color: 'text-slate-700',
+      bg: 'bg-slate-50',
+      border: 'border-slate-200',
+      badgeBg: 'bg-slate-100/90 text-slate-800 border-slate-300',
+      icon: X,
+      kind: 'transfer' as TabKey,
+    };
+  }
+  if (a.includes('เปลี่ยนรหัสผ่าน')) {
+    return {
+      label: 'เปลี่ยนรหัสผ่าน',
+      color: 'text-teal-700',
+      bg: 'bg-teal-50',
+      border: 'border-teal-200',
+      badgeBg: 'bg-teal-100/80 text-teal-800 border-teal-200',
+      icon: ShieldCheck,
+      kind: 'user' as TabKey,
+    };
+  }
   if (a.includes('อนุมัติ')) {
     return {
       label: 'อนุมัติคำขอ',
@@ -154,17 +188,6 @@ function getActionMeta(action: string) {
       border: 'border-emerald-200',
       badgeBg: 'bg-emerald-100/90 text-emerald-800 border-emerald-300',
       icon: CheckCircle2,
-      kind: 'transfer' as TabKey,
-    };
-  }
-  if (a.includes('ส่งคำขอกลับ') || a.includes('ปฏิเสธ')) {
-    return {
-      label: 'ส่งคำขอกลับ',
-      color: 'text-rose-700',
-      bg: 'bg-rose-50',
-      border: 'border-rose-200',
-      badgeBg: 'bg-rose-100/90 text-rose-800 border-rose-300',
-      icon: AlertTriangle,
       kind: 'transfer' as TabKey,
     };
   }
@@ -184,10 +207,11 @@ function getActionMeta(action: string) {
       kind: 'edit' as TabKey,
     };
   }
-  if (a.includes('ส่งคำขอ') || a.includes('ดำเนินการ')) {
+  // คำขอที่บันทึกก่อน 7 พ.ย. 2569 ใช้คำว่า "ส่งคำขอ" ของใหม่ใช้ "ยื่นคำขอ"
+  if (a.includes('ส่งคำขอ') || a.includes('ยื่นคำขอ') || a.includes('ดำเนินการ')) {
     if (a.includes('ซ่อม')) {
       return {
-        label: a.includes('ดำเนินการ') ? 'ส่งซ่อมสำเร็จ' : 'ส่งคำขอส่งซ่อม',
+        label: a.includes('ดำเนินการ') ? 'ส่งซ่อมสำเร็จ' : 'ยื่นคำขอส่งซ่อม',
         color: 'text-orange-700',
         bg: 'bg-orange-50',
         border: 'border-orange-200',
@@ -198,7 +222,7 @@ function getActionMeta(action: string) {
     }
     if (a.includes('จำหน่าย')) {
       return {
-        label: a.includes('ดำเนินการ') ? 'จำหน่ายสำเร็จ' : 'ส่งคำขอจำหน่าย',
+        label: a.includes('ดำเนินการ') ? 'จำหน่ายสำเร็จ' : 'ยื่นคำขอจำหน่าย',
         color: 'text-rose-700',
         bg: 'bg-rose-50',
         border: 'border-rose-200',
@@ -208,7 +232,7 @@ function getActionMeta(action: string) {
       };
     }
     return {
-      label: a.includes('ดำเนินการ') ? 'โอนย้ายสำเร็จ' : 'ส่งคำขอโอนย้าย',
+      label: a.includes('ดำเนินการ') ? 'โอนย้ายสำเร็จ' : 'ยื่นคำขอโอนย้าย',
       color: 'text-purple-700',
       bg: 'bg-purple-50',
       border: 'border-purple-200',
@@ -446,7 +470,27 @@ function VisualDiffViewer({
     );
   }
 
-  // 4. กรณีอนุมัติคำขอ
+  // 4. ไม่อนุมัติ (ต้องตรวจก่อน "อนุมัติ") · ข้อความเก่าคือ "ส่งคำขอกลับ" ซึ่งความจริงคือคำขอสิ้นสุด ไม่ได้ส่งกลับไปแก้
+  if (act.includes('ไม่อนุมัติ') || act.includes('ส่งคำขอกลับ') || act.includes('ปฏิเสธ')) {
+    return (
+      <div className="bg-rose-50/90 border border-rose-200 rounded-lg p-2.5 text-xs flex items-center gap-2 text-rose-900">
+        <AlertTriangle size={15} className="text-rose-600 shrink-0" />
+        <span>ไม่อนุมัติ คำขอนี้สิ้นสุดแล้ว ถ้ายังต้องการต้องยื่นคำขอใหม่</span>
+      </div>
+    );
+  }
+
+  // 4.1 ผู้ยื่นยกเลิกคำขอเอง
+  if (act.includes('ยกเลิกคำขอ')) {
+    return (
+      <div className="bg-slate-50/90 border border-slate-200 rounded-lg p-2.5 text-xs flex items-center gap-2 text-slate-800">
+        <X size={15} className="text-slate-600 shrink-0" />
+        <span>ผู้ยื่นยกเลิกคำขอเอง ทะเบียนไม่เปลี่ยน</span>
+      </div>
+    );
+  }
+
+  // 4.2 กรณีอนุมัติคำขอ
   if (act.includes('อนุมัติ')) {
     const isFinal = Boolean(afterObj.final);
     const stage = afterObj.stage ? Number(afterObj.stage) : 1;
@@ -458,16 +502,6 @@ function VisualDiffViewer({
             ? 'อนุมัติคำขอสมบูรณ์ครบทุกขั้นตอนเรียบร้อยแล้ว (มีผลบังคับใช้ในระบบทันที)'
             : `ผ่านการอนุมัติขั้นที่ ${stage} เรียบร้อยแล้ว (ส่งต่อยังผู้มีอำนาจลำดับถัดไป)`}
         </span>
-      </div>
-    );
-  }
-
-  // 5. กรณีส่งคำขอกลับ / ปฏิเสธคำขอ
-  if (act.includes('ส่งคำขอกลับ') || act.includes('ปฏิเสธ')) {
-    return (
-      <div className="bg-rose-50/90 border border-rose-200 rounded-lg p-2.5 text-xs flex items-center gap-2 text-rose-900">
-        <AlertTriangle size={15} className="text-rose-600 shrink-0" />
-        <span>ส่งคำขอกลับให้ผู้ยื่นคำขอแก้ไขหรือทบทวนข้อมูลใหม่</span>
       </div>
     );
   }
@@ -488,8 +522,8 @@ function VisualDiffViewer({
     );
   }
 
-  // 6. กรณียื่นส่งคำขอ (โอนย้าย / ส่งซ่อม / จำหน่าย)
-  if (act.includes('ส่งคำขอ')) {
+  // 6. กรณียื่นคำขอ (โอนย้าย / ส่งซ่อม / จำหน่าย) · ของเก่าบันทึกว่า "ส่งคำขอ"
+  if (act.includes('ส่งคำขอ') || act.includes('ยื่นคำขอ')) {
     const reqPayload =
       typeof afterObj.payload === 'string'
         ? parseJsonSafe(afterObj.payload)

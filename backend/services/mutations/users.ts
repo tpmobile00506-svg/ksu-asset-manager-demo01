@@ -1,10 +1,10 @@
 import { json } from '../../db/client';
-import { publicUserFields } from '../../auth/sessions';
+import { publicUserFields, verifyPassword } from '../../auth/sessions';
 import { ApiError, allow, now, id, audit } from '../asset-service';
-import { validate, userMutationSchema, workflowMutationSchema } from '../../validation';
+import { validate, userMutationSchema, workflowMutationSchema, passwordChangeSchema } from '../../validation';
 import { type MutationContext } from './types';
 
-// คำสั่งของ Admin: จัดการบัญชีผู้ใช้ และสายอนุมัติ
+// คำสั่งของ Admin: จัดการบัญชีผู้ใช้ และสายอนุมัติ · คำสั่งของทุกคน: เปลี่ยนรหัสผ่านของตัวเอง
 
 // สร้าง/แก้บัญชีผู้ใช้ (Admin เท่านั้น): บทบาท สาขา เปิด/ปิดบัญชี และตั้งรหัสผ่านใหม่
 export async function saveUser({ tx, m, b, passwordHash }: MutationContext) {
@@ -68,4 +68,18 @@ export async function saveWorkflow({ tx, m, b }: MutationContext) {
   });
   await audit(tx, m, 'กำหนดสายอนุมัติ', null, null, chain);
   return { ok: true };
+}
+
+// เปลี่ยนรหัสผ่านของตัวเอง (ทุกบทบาท): ตรวจรหัสเดิมก่อน แล้วออกจากระบบทุกเครื่อง ให้เข้าใหม่ด้วยรหัสใหม่
+// รหัสใหม่ถูก hash ไว้ก่อนเปิด transaction (passwordHash) เหมือนคำสั่ง user ไม่มีรหัสจริงในประวัติหรือในตาราง operations
+export async function changeOwnPassword({ tx, m, b, passwordHash }: MutationContext) {
+  const { currentPassword } = validate(passwordChangeSchema, b);
+  if (!passwordHash) throw new ApiError('รหัสผ่านต้องมีความยาว 12–128 ตัวอักษร');
+  const user = await tx.user.findUnique({ where: { id: m.id }, select: { id: true, passwordHash: true } });
+  if (!user || !(await verifyPassword(currentPassword, user.passwordHash)))
+    throw new ApiError('รหัสผ่านเดิมไม่ถูกต้อง');
+  await tx.user.update({ where: { id: m.id }, data: { passwordHash } });
+  await tx.session.deleteMany({ where: { userId: m.id } });
+  await audit(tx, m, 'เปลี่ยนรหัสผ่านของตนเอง', null, null, { email: m.email });
+  return { ok: true, signedOut: true };
 }

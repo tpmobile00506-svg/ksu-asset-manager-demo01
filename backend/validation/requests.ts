@@ -96,10 +96,24 @@ export const approvalMutationSchema = z
       }
       return true;
     },
-    { message: 'กรุณาระบุเหตุผลส่งกลับ', path: ['reason'] },
+    { message: 'กรุณาระบุเหตุผลที่ไม่อนุมัติ', path: ['reason'] },
   );
 
 export type ApprovalMutationInput = z.infer<typeof approvalMutationSchema>;
+
+// ผู้ยื่นยกเลิกคำขอของตัวเองได้ระหว่างรออนุมัติทุกขั้น (ผู้ใช้เลือก 7 พ.ย. 2569) เหตุผลไม่บังคับ
+export const cancelRequestSchema = z.object({
+  action: z.literal('cancelRequest'),
+  token: z.string().max(100).optional(),
+  id: z
+    .string({ required_error: 'กรุณาระบุรหัสคำขอ', invalid_type_error: 'กรุณาระบุรหัสคำขอ' })
+    .trim()
+    .min(1, 'กรุณาระบุรหัสคำขอ'),
+  version: z
+    .number({ required_error: 'คำขอเปลี่ยนแล้ว กรุณาโหลดใหม่', invalid_type_error: 'คำขอเปลี่ยนแล้ว กรุณาโหลดใหม่' })
+    .int('คำขอเปลี่ยนแล้ว กรุณาโหลดใหม่'),
+  reason: z.string().max(500, 'เหตุผลยาวเกินกำหนด').optional().nullable(),
+});
 
 export const workflowMutationSchema = z.object({
   action: z.literal('workflow'),

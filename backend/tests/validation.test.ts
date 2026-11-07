@@ -281,7 +281,7 @@ test('approvalMutationSchema validates approve and reject', () => {
         version: 1,
         reason: '',
       }),
-    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'กรุณาระบุเหตุผลส่งกลับ',
+    (err: unknown) => err instanceof ApiError && err.status === 400 && err.message === 'กรุณาระบุเหตุผลที่ไม่อนุมัติ',
   );
 });
 

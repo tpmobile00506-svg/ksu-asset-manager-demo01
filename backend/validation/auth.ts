@@ -14,3 +14,22 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+// เปลี่ยนรหัสผ่านของตัวเอง: ต้องใส่รหัสเดิม รหัสใหม่ยาว 12–128 ตัวอักษร (เกณฑ์เดียวกับที่ Admin ตั้งให้)
+export const passwordChangeSchema = z
+  .object({
+    action: z.literal('password'),
+    token: z.string().max(100).optional(),
+    currentPassword: z
+      .string({ required_error: 'กรุณากรอกรหัสผ่านเดิม', invalid_type_error: 'กรุณากรอกรหัสผ่านเดิม' })
+      .min(1, 'กรุณากรอกรหัสผ่านเดิม')
+      .max(128, 'รหัสผ่านเดิมไม่ถูกต้อง'),
+    password: z
+      .string({ required_error: 'รหัสผ่านต้องมีความยาว 12–128 ตัวอักษร' })
+      .min(12, 'รหัสผ่านต้องมีความยาว 12–128 ตัวอักษร')
+      .max(128, 'รหัสผ่านต้องมีความยาว 12–128 ตัวอักษร'),
+  })
+  .refine(d => d.currentPassword !== d.password, {
+    message: 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม',
+    path: ['password'],
+  });

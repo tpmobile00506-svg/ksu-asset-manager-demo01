@@ -6,11 +6,11 @@ import { ApiError, clean, allow, now, id, getSource, loadOverrides } from '../as
 import { trace } from '../../debug/trace';
 import { type Input, type MutationContext, type Handler } from './types';
 import { importFileAction } from './import-files';
-import { saveUser, saveWorkflow } from './users';
+import { saveUser, saveWorkflow, changeOwnPassword } from './users';
 import { createAsset, bulkEdit, editAsset, splitAsset, repairComplete, voidAsset, restoreAsset } from './assets';
 import { batchImport, rowOverride } from './imports';
 import { fundAction } from './funds';
-import { createRequest, decideRequest } from './requests';
+import { createRequest, decideRequest, cancelRequest } from './requests';
 import { openRound, recordCheck, closeRound } from './stocktakes';
 
 // ชนกับคำขอของคนอื่นพร้อมกัน: ลองใหม่ได้สูงสุดกี่รอบ (รวมรอบแรก) ก่อนแจ้งผู้ใช้ให้ลองใหม่เอง
@@ -22,6 +22,7 @@ const handlers: Record<string, Handler> = {
   // บัญชีและการตั้งค่า (users.ts)
   user: saveUser,
   workflow: saveWorkflow,
+  password: changeOwnPassword,
   // ทะเบียนครุภัณฑ์ (assets.ts)
   create: createAsset,
   import: createAsset,
@@ -45,6 +46,7 @@ const handlers: Record<string, Handler> = {
   request: createRequest,
   approve: decideRequest,
   reject: decideRequest,
+  cancelRequest,
   // ตรวจนับประจำปี (stocktakes.ts)
   round: openRound,
   check: recordCheck,
@@ -65,8 +67,14 @@ export async function mutate(member: Member, input: Input) {
     passwordHash = await hashPassword(input.password);
     fingerprint = await passwordFingerprint(input.password, token);
   }
+  // เปลี่ยนรหัสผ่านของตัวเอง: ทุกคนที่ล็อกอินแล้วทำได้ ลายนิ้วมือรวมรหัสเดิมด้วย กดซ้ำด้วยค่าเดิมจึงได้ผลเดิม
+  if (action === 'password' && typeof input.password === 'string' && typeof input.currentPassword === 'string') {
+    trace.step('เข้ารหัสรหัสผ่านใหม่ด้วย scrypt ก่อนเก็บ (ไม่เก็บรหัสจริง)');
+    passwordHash = await hashPassword(input.password);
+    fingerprint = await passwordFingerprint(input.currentPassword + ' ' + input.password, token);
+  }
   // รหัสผ่านจริงไม่เข้า requestHash: แทนด้วยลายนิ้วมือ scrypt จึงยังแยกได้ว่าส่งซ้ำด้วยรหัสผ่านเดิมหรือไม่
-  const { password: _password, ...hashedInput } = input;
+  const { password: _password, currentPassword: _currentPassword, ...hashedInput } = input;
   const requestHash = createHash('sha256')
     .update(json(fingerprint ? { ...hashedInput, password: fingerprint } : hashedInput))
     .digest('hex');

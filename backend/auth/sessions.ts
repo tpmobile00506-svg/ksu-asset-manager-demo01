@@ -44,7 +44,7 @@ export async function hashPassword(password: string) {
 export async function passwordFingerprint(password: string, salt: string) {
   return ((await scrypt(password, 'operation:' + salt, 64)) as Buffer).toString('hex');
 }
-async function verifyPassword(password: string, hash: string) {
+export async function verifyPassword(password: string, hash: string) {
   const parts = hash.split(':');
   if (
     parts.length !== 3 ||

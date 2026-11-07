@@ -13,11 +13,11 @@ import {
 } from '../../contracts/domain';
 import { ApiError, clean, allow, now, id, asset, audit } from '../asset-service';
 import { trace } from '../../debug/trace';
-import { validate, assetRequestSchema, approvalMutationSchema } from '../../validation';
+import { validate, assetRequestSchema, approvalMutationSchema, cancelRequestSchema } from '../../validation';
 import { type Input, type MutationContext } from './types';
 import { setMembers, splitLotForRequest, loadEditableAsset } from './helpers';
 
-// คำสั่งของคำขอ: ยื่นคำขอ และอนุมัติ/ส่งกลับ
+// คำสั่งของคำขอ: ยื่นคำขอ อนุมัติ/ไม่อนุมัติ และผู้ยื่นยกเลิกคำขอของตัวเอง
 
 // ยื่นคำขอโอนย้าย / ซ่อม / จำหน่าย: ยังไม่เปลี่ยนทะเบียน จนกว่าจะอนุมัติครบทุกขั้น
 export async function createRequest(ctx: MutationContext) {
@@ -59,7 +59,7 @@ export async function createRequest(ctx: MutationContext) {
     if (!Number.isInteger(splitQty) || splitQty < 1 || splitQty >= a.quantity) {
       throw new ApiError('จำนวนที่แบ่งต้องเป็นจำนวนเต็ม ตั้งแต่ 1 ถึง ' + (a.quantity - 1));
     }
-    if (a.condition === 'repair') throw new ApiError('กรุณาบันทึกผลการซ่อมก่อนแบ่งล็อต');
+    if (a.condition === 'repair') throw new ApiError('กรุณาบันทึกผลการซ่อมก่อนแยกรายการ');
     // กฎ: ยังไม่แบ่งล็อตตอนยื่นคำขอ เก็บจำนวนไว้ในคำขอ แล้วแบ่งเมื่ออนุมัติขั้นสุดท้าย (ถูกปฏิเสธ = ทะเบียนไม่เปลี่ยน)
     payload.splitQuantity = splitQty;
   }
@@ -103,11 +103,11 @@ export async function createRequest(ctx: MutationContext) {
     },
   });
   await tx.asset.update({ where: { id: a.id }, data: { version: { increment: 1 } } });
-  await audit(tx, m, 'ส่งคำขอ ' + requestTypes[kind as keyof typeof requestTypes], a.id, a, req, reason);
+  await audit(tx, m, 'ยื่นคำขอ ' + requestTypes[kind as keyof typeof requestTypes], a.id, a, req, reason);
   return { ok: true, id: req.id, assetId: a.id };
 }
 
-// อนุมัติ / ส่งกลับคำขอ ทีละขั้นตามสายอนุมัติ · ขั้นสุดท้ายอนุมัติ = ระบบแก้ทะเบียนให้อัตโนมัติ
+// อนุมัติ / ไม่อนุมัติคำขอ ทีละขั้นตามสายอนุมัติ (ไม่อนุมัติ = คำขอสิ้นสุด ไม่ได้ส่งกลับไปแก้) · ขั้นสุดท้ายอนุมัติ = ระบบแก้ทะเบียนให้อัตโนมัติ
 export async function decideRequest({ tx, m, action, b }: MutationContext) {
   const validatedApproval = validate(approvalMutationSchema, b);
   const { id: reqId, version: reqVersion, reason } = validatedApproval;
@@ -133,7 +133,7 @@ export async function decideRequest({ tx, m, action, b }: MutationContext) {
   }
 
   const note = clean(reason ?? '');
-  if (action === 'reject' && !note) throw new ApiError('กรุณาระบุเหตุผลส่งกลับ');
+  if (action === 'reject' && !note) throw new ApiError('กรุณาระบุเหตุผลที่ไม่อนุมัติ');
   // สวิตช์สาธิตของ Admin: ลงนามทุกขั้นที่เหลือในครั้งเดียว และระบุในหมายเหตุว่าข้ามขั้น ไม่ปนกับลายเซ็นจริงของผู้บริหาร
   const skipAll = adminAll && action === 'approve';
   const stages: number[] = skipAll ? chain.map((_: string, i: number) => i).slice(r.stage) : [r.stage];
@@ -143,7 +143,7 @@ export async function decideRequest({ tx, m, action, b }: MutationContext) {
     `${action === 'approve' ? 'อนุมัติ' : 'ไม่อนุมัติ'} ขั้นที่ ${r.stage + 1}/${chain.length} (${(roles as Record<string, string>)[chain[r.stage]] ?? chain[r.stage]})${skipAll ? ` · Admin: ลงนามทุกขั้นที่เหลือในครั้งเดียว` : ''}`,
   );
   if (final) trace.ok('อนุมัติครบทุกขั้น → อัปเดตทะเบียนครุภัณฑ์ให้อัตโนมัติ');
-  const signedNote = skipAll ? ['อนุมัติข้ามขั้นโดยAdmin', note].filter(Boolean).join(' · ') : note;
+  const signedNote = skipAll ? ['อนุมัติข้ามขั้นโดย Admin', note].filter(Boolean).join(' · ') : note;
   for (const stage of stages)
     await tx.approval.create({
       data: { id: id(), requestId: r.id, stage, decision: action, actor: m.id, note: signedNote, createdAt: now() },
@@ -159,11 +159,7 @@ export async function decideRequest({ tx, m, action, b }: MutationContext) {
   await audit(
     tx,
     m,
-    action === 'reject'
-      ? 'ส่งคำขอกลับ'
-      : skipAll
-        ? `อนุมัติคำขอ (ข้ามขั้น · ${adminAll ? 'Admin' : 'บัญชีทดลอง'})`
-        : 'อนุมัติคำขอ',
+    action === 'reject' ? 'ไม่อนุมัติคำขอ' : skipAll ? 'อนุมัติคำขอ (ข้ามขั้น · Admin)' : 'อนุมัติคำขอ',
     a.id,
     r,
     { stage: last + 1, final },
@@ -224,5 +220,20 @@ export async function decideRequest({ tx, m, action, b }: MutationContext) {
       r.reason,
     );
   }
+  return { ok: true };
+}
+
+// ผู้ยื่นยกเลิกคำขอของตัวเอง ระหว่างรออนุมัติขั้นไหนก็ได้ (ผู้ใช้เลือก 7 พ.ย. 2569)
+// ทะเบียนไม่เปลี่ยน เพราะคำขอยังไม่มีผลจนกว่าจะอนุมัติครบ · ลายเซ็นที่มีแล้วยังอยู่ในประวัติ
+export async function cancelRequest({ tx, m, b }: MutationContext) {
+  const { id: reqId, version, reason } = validate(cancelRequestSchema, b);
+  const r = await tx.assetRequest.findUnique({ where: { id: reqId } });
+  if (!r) throw new ApiError('ไม่พบคำขอนี้', 404);
+  if (r.actor !== m.id) throw new ApiError('ยกเลิกได้เฉพาะคำขอที่คุณยื่นเอง', 403);
+  if (r.status !== 'pending' || r.version !== version) throw new ApiError('คำขอเปลี่ยนแล้ว กรุณาโหลดใหม่', 409);
+  const note = clean(reason ?? '');
+  await tx.assetRequest.update({ where: { id: r.id }, data: { status: 'cancelled', version: { increment: 1 } } });
+  trace.ok(`ผู้ยื่นยกเลิกคำขอเองที่ขั้น ${r.stage + 1}`);
+  await audit(tx, m, 'ยกเลิกคำขอ', r.assetId, r, { status: 'cancelled', stage: r.stage }, note);
   return { ok: true };
 }
