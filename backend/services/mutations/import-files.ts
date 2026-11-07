@@ -2,9 +2,10 @@ import type { Transaction } from '../../db/client';
 import type { Member } from '../../auth/sessions';
 import { ApiError, allow, audit, clean, overridesKey, archivedKey } from '../asset-service';
 
-// ลบ / เก็บเข้าคลังไฟล์ต้นฉบับ Excel (ผู้ใช้ขอ 17 ต.ค. 2569)
-// - ยังไม่ได้นำเข้าเลยสักแถว → ลบได้จริง (เช่น อัปผิดไฟล์)
-// - นำเข้าไปแล้ว → ลบไม่ได้ เพราะครุภัณฑ์ยังชี้กลับไปแถวต้นฉบับ (sourceId/sourceRow) ใช้ "เก็บเข้าคลัง" แทน
+// ลบ / ย้ายไปไฟล์เก่า ของไฟล์ต้นฉบับ Excel
+// - ลบได้เสมอ แม้นำเข้าไปแล้ว (ผู้ใช้เลือก 8 พ.ย. 2569 ไม่อยากเก็บไฟล์ถาวร · เดิม 17 ต.ค. 2569 ห้ามลบไฟล์ที่นำเข้าแล้ว)
+//   ครุภัณฑ์ที่นำเข้าแล้วไม่ถูกแตะ ยังเก็บ sourceId/sourceRow เดิมไว้ (ไม่มี FK) แต่ดูแถวต้นฉบับไม่ได้อีก
+// - ย้ายไปไฟล์เก่า = ซ่อนจากรายการหลัก ไฟล์ยังอยู่
 // สถานะคลังเก็บเป็นไฟล์เครื่องหมายใน stored_files (archivedKey) แบบเดียวกับ overrides
 
 export const importFileActions = ['sourceDelete', 'sourceArchive'] as const;
@@ -34,16 +35,20 @@ export async function importFileAction(
 
   if (action === 'sourceDelete') {
     const used = await usage(tx, sourceId);
-    if (used)
-      throw new ApiError(
-        `ไฟล์นี้นำเข้าทะเบียนไปแล้ว ${used.toLocaleString('th-TH')} แถว จึงลบไม่ได้ ใช้ "เก็บเข้าคลัง" แทน`,
-        409,
-      );
+    // การตัดสินใจรายแถว (แถวไหนนำเข้าแล้ว) ผูกกับไฟล์นี้เท่านั้น ลบพร้อมไฟล์ · ครุภัณฑ์ไม่ถูกแตะ
+    await tx.sourceRow.deleteMany({ where: { sourceId } });
     await tx.storedFile.deleteMany({
       where: { key: { in: [file.objectKey, file.objectKey + '.json', overridesKey(sourceId), archivedKey(sourceId)] } },
     });
     await tx.importFile.delete({ where: { id: sourceId } });
-    await audit(tx, m, 'ลบไฟล์ต้นฉบับ', null, { id: file.id, name: file.name, rows: file.rowCount }, null);
+    await audit(
+      tx,
+      m,
+      'ลบไฟล์ต้นฉบับ',
+      null,
+      { id: file.id, name: file.name, rows: file.rowCount, importedRows: used },
+      null,
+    );
     return { ok: true };
   }
 

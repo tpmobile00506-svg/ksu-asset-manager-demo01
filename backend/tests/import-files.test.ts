@@ -20,7 +20,8 @@ function setup(imported: number, who: Member = staff) {
   };
   const deletedKeys: string[] = [],
     createdKeys: string[] = [],
-    audits: string[] = [];
+    audits: string[] = [],
+    deletedRowSources: string[] = [];
   let fileDeleted = false;
   const tx = {
     user: { findUnique: async () => who },
@@ -32,7 +33,14 @@ function setup(imported: number, who: Member = staff) {
         return file;
       },
     },
-    sourceRow: { count: async () => imported },
+    sourceRow: {
+      count: async () => imported,
+      deleteMany: async ({ where }: { where: { sourceId: string } }) => {
+        deletedRowSources.push(where.sourceId);
+        return { count: imported };
+      },
+    },
+    // มีแค่ count: ถ้าคำสั่งลบไฟล์ไปแก้ครุภัณฑ์ (update/delete) จะเรียกเมธอดที่ไม่มีแล้วเทสต์ล้ม
     asset: { count: async () => imported },
     storedFile: {
       deleteMany: async ({ where }: { where: { key: string | { in: string[] } } }) => {
@@ -58,7 +66,7 @@ function setup(imported: number, who: Member = staff) {
     },
     { strict: true },
   );
-  return { restore, deletedKeys, createdKeys, audits, wasDeleted: () => fileDeleted };
+  return { restore, deletedKeys, createdKeys, audits, deletedRowSources, wasDeleted: () => fileDeleted };
 }
 
 test('ลบไฟล์ต้นฉบับที่ยังไม่นำเข้าเลย: ลบไฟล์ ข้อมูลที่อ่านแล้ว การเปลี่ยนประเภทแถว และเครื่องหมายคลัง พร้อมบันทึกประวัติ', async () => {
@@ -78,12 +86,20 @@ test('ลบไฟล์ต้นฉบับที่ยังไม่นำ�
   }
 });
 
-test('ลบไฟล์ที่นำเข้าทะเบียนไปแล้วไม่ได้ ให้ใช้เก็บเข้าคลังแทน และไม่ลบอะไรเลย', async () => {
+// กฎใหม่ (ผู้ใช้เลือก 8 พ.ย. 2569): ลบไฟล์ได้เสมอ ครุภัณฑ์ 1,180 รายการที่นำเข้าแล้วไม่ถูกแตะ
+test('ลบไฟล์ที่นำเข้าทะเบียนไปแล้วได้: ลบไฟล์และการตัดสินใจรายแถว ครุภัณฑ์ที่นำเข้าแล้วไม่ถูกแตะ', async () => {
   const s = setup(1180);
   try {
-    await assert.rejects(mutate(staff, { action: 'sourceDelete', sourceId: 'src-1' }), /นำเข้าทะเบียนไปแล้ว 1,180 แถว/);
-    assert.equal(s.wasDeleted(), false);
-    assert.deepEqual(s.deletedKeys, []);
+    assert.deepEqual(await mutate(staff, { action: 'sourceDelete', sourceId: 'src-1' }), { ok: true });
+    assert.ok(s.wasDeleted());
+    assert.deepEqual(s.deletedRowSources, ['src-1']);
+    assert.deepEqual(s.deletedKeys, [
+      'imports/src-1',
+      'imports/src-1.json',
+      'imports/src-1-overrides.json',
+      'imports/src-1-archived.json',
+    ]);
+    assert.deepEqual(s.audits, ['ลบไฟล์ต้นฉบับ']);
   } finally {
     s.restore();
   }

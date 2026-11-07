@@ -333,9 +333,11 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
     setConfirmState({
       isOpen: true,
       danger: true,
-      title: 'ลบไฟล์ต้นฉบับนี้?',
+      title: 'ลบไฟล์นี้ถาวร?',
       description: file.name,
-      summary: 'ไฟล์นี้ยังไม่ได้นำเข้าแถวไหน ลบแล้วกู้คืนไม่ได้ ทะเบียนครุภัณฑ์ไม่ได้รับผลกระทบ',
+      summary: file.importedCount
+        ? `นำเข้าไปแล้ว ${file.importedCount.toLocaleString('th-TH')} แถว ครุภัณฑ์เหล่านั้นยังอยู่ในทะเบียนครบ แต่จะดูแถวต้นฉบับในไฟล์ไม่ได้อีก · ลบแล้วกู้คืนไม่ได้`
+        : 'ไฟล์นี้ยังไม่ได้นำเข้าแถวไหน ลบแล้วกู้คืนไม่ได้ ทะเบียนครุภัณฑ์ไม่ได้รับผลกระทบ',
       confirmLabel: 'ลบไฟล์',
       onConfirm: () => fileAction({ action: 'sourceDelete', sourceId: file.id }, 'ลบไฟล์แล้ว'),
     });

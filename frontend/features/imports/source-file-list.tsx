@@ -12,7 +12,7 @@ const uploadedOn = (iso: string) => {
     : '';
 };
 
-// รายการไฟล์ต้นฉบับ Excel: เลือกไฟล์เพื่อตรวจทาน · ลบ (ยังไม่นำเข้า) · ย้ายไปไฟล์เก่า / นำกลับ (นำเข้าแล้ว)
+// รายการไฟล์ต้นฉบับ Excel: เลือกไฟล์เพื่อตรวจทาน · ลบได้ทุกไฟล์ · ย้ายไปไฟล์เก่า / นำกลับ (นำเข้าแล้ว)
 export default function SourceFileList({
   files,
   selectedId,
@@ -61,30 +61,32 @@ export default function SourceFileList({
         >
           {f.importedCount ? `นำเข้าแล้ว ${f.importedCount.toLocaleString('th-TH')} แถว` : 'ยังไม่นำเข้า'}
         </span>
-        {editable &&
-          (f.archived ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 shrink-0 text-xs"
-              disabled={busy}
-              onClick={() => onArchive(f, false)}
-            >
-              <ArchiveRestore size={13} />
-              นำกลับ
-            </Button>
-          ) : f.importedCount ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 shrink-0 text-xs"
-              disabled={busy}
-              onClick={() => onArchive(f, true)}
-            >
-              <Archive size={13} />
-              ย้ายไปไฟล์เก่า
-            </Button>
-          ) : (
+        {editable && (
+          <>
+            {/* ซ่อนไฟล์ (ไฟล์ยังอยู่) หรือนำกลับ · ลบได้ทุกไฟล์ (ผู้ใช้เลือก 8 พ.ย. 2569) */}
+            {f.archived ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 shrink-0 text-xs"
+                disabled={busy}
+                onClick={() => onArchive(f, false)}
+              >
+                <ArchiveRestore size={13} />
+                นำกลับ
+              </Button>
+            ) : f.importedCount ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 shrink-0 text-xs"
+                disabled={busy}
+                onClick={() => onArchive(f, true)}
+              >
+                <Archive size={13} />
+                ย้ายไปไฟล์เก่า
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant="outline"
@@ -95,7 +97,8 @@ export default function SourceFileList({
               <Trash2 size={13} />
               ลบไฟล์
             </Button>
-          ))}
+          </>
+        )}
       </li>
     );
   };
