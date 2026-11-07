@@ -191,10 +191,12 @@ export default function SourceSheetGrid({
         <span className="xls-count">
           เลือกแล้ว <b>{selected.size.toLocaleString('th-TH')}</b> แถว
         </span>
-        <span className="xls-hint">
+        {/* คำช่วยลากเมาส์/Shift ใช้ได้เฉพาะคอม จึงซ่อนบนจอสัมผัส */}
+        <span className="xls-hint hidden md:inline">
           ลากที่เลขแถวเพื่อครอบ · Shift+คลิกเลือกเป็นช่วง · ติ๊กทีละแถว · แถวสีเหลืองนำเข้าได้ ระบบติดหมายเหตุ
           “ต้องตรวจ” ให้
         </span>
+        <span className="xls-hint md:hidden">ติ๊กเลือกทีละแถว · แถวสีเหลืองนำเข้าได้ ระบบติดหมายเหตุ “ต้องตรวจ” ให้</span>
         <div className="xls-actions">
           <Button
             size="sm"
@@ -210,7 +212,7 @@ export default function SourceSheetGrid({
               ล้าง
             </Button>
           )}
-          {/* เปลี่ยนประเภทแถวที่เลือก เมื่อระบบเดาผิด (เช่น ข้อความตกบรรทัดกลายเป็นหัวกระดาษ) */}
+          {/* เปลี่ยนประเภทแถวที่เลือก เมื่อระบบแนะนำผิด (เช่น ข้อความตกบรรทัดกลายเป็นหัวกระดาษ) */}
           <select
             aria-label="เปลี่ยนแถวที่เลือกเป็น"
             className="xls-change"
@@ -227,7 +229,7 @@ export default function SourceSheetGrid({
                 {rowOverrideLabels[k]}
               </option>
             ))}
-            <option value="auto">กลับเป็นค่าที่ระบบเดา</option>
+            <option value="auto">กลับเป็นค่าที่ระบบแนะนำ</option>
           </select>
           <Button
             size="sm"

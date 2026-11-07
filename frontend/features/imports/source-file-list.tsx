@@ -12,7 +12,7 @@ const uploadedOn = (iso: string) => {
     : '';
 };
 
-// รายการไฟล์ต้นฉบับ Excel: เลือกไฟล์เพื่อตรวจทาน · ลบ (ยังไม่นำเข้า) · เก็บเข้าคลัง / นำกลับ (นำเข้าแล้ว)
+// รายการไฟล์ต้นฉบับ Excel: เลือกไฟล์เพื่อตรวจทาน · ลบ (ยังไม่นำเข้า) · ย้ายไปไฟล์เก่า / นำกลับ (นำเข้าแล้ว)
 export default function SourceFileList({
   files,
   selectedId,
@@ -55,7 +55,7 @@ export default function SourceFileList({
             {f.name}
           </span>
         </button>
-        <span className="hidden sm:inline shrink-0 text-xs text-slate-500">{uploadedOn(f.createdAt)}</span>
+        <span className="hidden sm:inline shrink-0 text-xs text-slate-600">{uploadedOn(f.createdAt)}</span>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${f.importedCount ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'}`}
         >
@@ -82,7 +82,7 @@ export default function SourceFileList({
               onClick={() => onArchive(f, true)}
             >
               <Archive size={13} />
-              เก็บเข้าคลัง
+              ย้ายไปไฟล์เก่า
             </Button>
           ) : (
             <Button
@@ -105,7 +105,7 @@ export default function SourceFileList({
       {active.length ? (
         <ul className="rounded-lg border border-slate-200 bg-white">{active.map(row)}</ul>
       ) : (
-        <p className="text-sm text-slate-500">ไม่มีไฟล์ในรายการหลัก{archived.length ? ' (ดูได้ในคลังไฟล์)' : ''}</p>
+        <p className="text-sm text-slate-600">ไม่มีไฟล์ในรายการหลัก{archived.length ? ' (ดูได้ใน ไฟล์เก่า)' : ''}</p>
       )}
       {archived.length > 0 && (
         <div className="mt-2">
@@ -115,7 +115,7 @@ export default function SourceFileList({
             className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900 cursor-pointer"
           >
             <ChevronRight size={13} className={`transition-transform ${showArchive ? 'rotate-90' : ''}`} />
-            คลังไฟล์ ({archived.length.toLocaleString('th-TH')} ไฟล์)
+            ไฟล์เก่า ({archived.length.toLocaleString('th-TH')} ไฟล์)
           </button>
           {showArchive && (
             <ul className="mt-1.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/60">

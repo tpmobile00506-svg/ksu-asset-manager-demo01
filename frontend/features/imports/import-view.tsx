@@ -347,14 +347,14 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
     }
     setConfirmState({
       isOpen: true,
-      title: 'เก็บไฟล์เข้าคลัง?',
+      title: 'ย้ายไฟล์ไปไฟล์เก่า?',
       description: file.name,
-      summary: `นำเข้าไปแล้ว ${file.importedCount.toLocaleString('th-TH')} แถว จึงลบไม่ได้ เพื่อให้ตรวจย้อนกลับไปแถวต้นฉบับได้ ไฟล์จะหายจากรายการหลัก แต่ดูหรือนำกลับมาได้จาก "คลังไฟล์"`,
-      confirmLabel: 'เก็บเข้าคลัง',
+      summary: `นำเข้าไปแล้ว ${file.importedCount.toLocaleString('th-TH')} แถว จึงลบไม่ได้ (ต้องตรวจย้อนกลับไปแถวต้นฉบับได้) ไฟล์จะหายจากรายการหลัก แต่ดูหรือนำกลับได้จาก "ไฟล์เก่า"`,
+      confirmLabel: 'ย้ายไปไฟล์เก่า',
       onConfirm: async () => {
         const ok = await fileAction(
           { action: 'sourceArchive', sourceId: file.id, archived: true },
-          'เก็บไฟล์เข้าคลังแล้ว',
+          'ย้ายไปไฟล์เก่าแล้ว',
         );
         if (ok && file.id === id) setId('');
         return ok;
@@ -375,7 +375,7 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
       );
       toast.success(
         as === 'auto'
-          ? `คืนค่าที่ระบบเดาให้ ${keys.length} แถว`
+          ? `ใช้ค่าที่ระบบแนะนำ ${keys.length} แถว`
           : `เปลี่ยน ${keys.length} แถวเป็น "${rowOverrideLabels[as]}" แล้ว`,
       );
       await reload();
@@ -485,8 +485,8 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
           <div className="flex items-center gap-3">
             <FileSpreadsheet className="text-blue-600" />
             <div>
-              <h2>ข้อมูลต้นฉบับ</h2>
-              <p className="caption">ไฟล์เดิมเก็บครบ แยกการตรวจทานออกจากทะเบียน</p>
+              <h2>ไฟล์ Excel ที่อัปโหลด</h2>
+              <p className="caption">ตรวจทีละแถวก่อนนำเข้า ไฟล์เดิมเก็บไว้ครบ</p>
             </div>
           </div>
           <div className="actions flex items-center gap-2">
@@ -495,7 +495,7 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm transition-all flex items-center gap-1.5"
                 disabled={!canImport}
                 onClick={handleImportAllReady}
-                title="นำเข้าเฉพาะรายการที่ข้อมูลสมบูรณ์ครบ 100% ทั้งหมดในคลิกเดียว"
+                title="นำเข้าทุกแถวที่ข้อมูลครบในครั้งเดียว"
               >
                 <Sparkles size={16} /> นำเข้าทุกรายการที่พร้อม ({source.stats.ready} รายการ)
               </Button>
@@ -526,33 +526,29 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
             <div className="panel-body">
               <div className="metric-grid mb-0">
                 <Metric
-                  label="แถวต้นทางทั้งหมด"
+                  label="แถวในไฟล์"
                   value={source.stats.rows.toLocaleString('th-TH')}
-                  note={source.sheets.length + ' ชีต'}
+                  note={source.sheets.length + ' แผ่นงาน'}
                   icon={FileSpreadsheet}
                 />
                 <Metric
-                  label="แถวที่อาจเป็นครุภัณฑ์"
+                  label="แถวที่น่าจะเป็นครุภัณฑ์"
                   value={source.stats.assets.toLocaleString('th-TH')}
-                  note="ยังไม่ใช่จำนวนรายการที่รับรอง"
+                  note="ระบบอ่านแล้ว รอเจ้าหน้าที่ยืนยัน"
                   icon={Package}
                 />
                 <Metric
-                  label="ต้องตรวจทานเพิ่มเติม"
+                  label="ต้องตรวจเพิ่ม"
                   value={source.stats.review.toLocaleString('th-TH')}
-                  note="รหัสช่วง ชุด ราคา หรือชีตประวัติ"
+                  note="รหัสช่วง ชุด ราคา หรือแผ่นงานชำรุด"
                   icon={TriangleAlert}
                 />
                 <Metric
                   label="นำเข้าแล้ว"
                   value={source.stats.imported.toLocaleString('th-TH')}
-                  note="เชื่อมโยงกลับแถวต้นฉบับได้"
+                  note="ย้อนดูแถวต้นฉบับได้"
                   icon={Check}
                 />
-              </div>
-              <div className="notice">
-                คอลัมน์ G เดิมเสนอไว้ทั้ง “หมายเหตุ” และ “สถานที่” เพื่อให้ตรวจทาน • ข้อความชุดและโครงการอยู่ใน “หมวด” •
-                หัวกระดาษและยอดยกเก็บในต้นฉบับโดยไม่รวมยอดทะเบียน
               </div>
               <div className="actions">
                 <Button variant="outline" size="sm" asChild>
@@ -561,7 +557,6 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
                     ดาวน์โหลดไฟล์เดิม
                   </a>
                 </Button>
-                <span className="caption overflow-wrap">SHA-256: {source.hash.slice(0, 20)}…</span>
               </div>
             </div>
 
@@ -572,7 +567,7 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
                 แบบ Excel
               </Button>
               <Button size="sm" variant={mode === 'list' ? 'default' : 'outline'} onClick={() => setMode('list')}>
-                แบบรายการ (ตัวกรองปัญหา)
+                แบบรายการ (กรองตามปัญหา)
               </Button>
             </div>
             {mode === 'excel' ? (
@@ -592,7 +587,7 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
                     <Search />
                     <Input
                       aria-label="ค้นหาข้อมูลต้นฉบับ"
-                      placeholder="ค้นหาข้อความ รหัส หรือโครงการ…"
+                      placeholder="ค้นหาข้อความ หมายเลข หรือโครงการ"
                       value={search}
                       onChange={e => setSearch(e.target.value)}
                     />
