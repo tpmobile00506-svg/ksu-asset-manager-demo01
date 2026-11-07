@@ -215,7 +215,7 @@ export default function ExportView({
       </div>
 
       {/* ปุ่มส่งออกติดท้ายหน้าต่างตอนเลื่อน (มือถือหน้าต่างยาวราว 1,000px) */}
-      <div className="sticky bottom-0 -mx-6 -mb-6 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-6 py-3">
+      <div className="sticky bottom-0 -mx-6 -mb-6 flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-6 py-3">
         {empty && <p className="text-xs text-slate-600 mr-auto">ไม่มีรายการตามที่เลือก</p>}
         <Button
           disabled={busy || empty}

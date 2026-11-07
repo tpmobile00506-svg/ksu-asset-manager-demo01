@@ -1147,7 +1147,8 @@ a:focus-visible {
 }
 
 .dialog-header-sticky {
-  padding: 22px 28px 16px 28px;
+  /* ขวาเผื่อปุ่ม X ขนาด 40px หัวข้อยาวจะได้ไม่ทับปุ่ม */
+  padding: 22px 56px 16px 28px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
