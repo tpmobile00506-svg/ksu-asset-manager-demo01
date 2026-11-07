@@ -196,7 +196,9 @@ export default function SourceSheetGrid({
           ลากที่เลขแถวเพื่อครอบ · Shift+คลิกเลือกเป็นช่วง · ติ๊กทีละแถว · แถวสีเหลืองนำเข้าได้ ระบบติดหมายเหตุ
           “ต้องตรวจ” ให้
         </span>
-        <span className="xls-hint md:hidden">ติ๊กเลือกทีละแถว · แถวสีเหลืองนำเข้าได้ ระบบติดหมายเหตุ “ต้องตรวจ” ให้</span>
+        <span className="xls-hint md:hidden">
+          ติ๊กเลือกทีละแถว · แถวสีเหลืองนำเข้าได้ ระบบติดหมายเหตุ “ต้องตรวจ” ให้
+        </span>
         <div className="xls-actions">
           <Button
             size="sm"

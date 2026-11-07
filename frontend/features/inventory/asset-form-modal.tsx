@@ -422,9 +422,9 @@ export default function AssetFormModal({
       ? condition !== 'repair' && condition !== 'missing' // เพิ่มของใหม่: ไม่มี "กำลังซ่อม" (ต้องผ่านคำขอซ่อม) และ "ไม่พบ" (ของที่เพิ่งรับมาต้องมีอยู่)
       : modal.kind !== 'edit'
         ? condition !== 'repair' // นำเข้าจากไฟล์: ไม่พบ ยังเลือกได้ เพราะไฟล์เก่าอาจบันทึกไว้แบบนั้น
-      : modal.asset?.condition === 'repair'
-        ? condition === 'repair'
-        : condition !== 'repair',
+        : modal.asset?.condition === 'repair'
+          ? condition === 'repair'
+          : condition !== 'repair',
   );
 
   return (
@@ -626,7 +626,9 @@ export default function AssetFormModal({
               <details className="form-section form-details" open={modal?.kind !== 'create'}>
                 <summary className="form-section-title cursor-pointer select-none">
                   ข้อมูลเพิ่มเติม (ไม่บังคับ)
-                  <span className="text-xs font-normal text-slate-600 ml-2">ยี่ห้อ Serial วันที่ได้มา อายุใช้งาน หมายเหตุ</span>
+                  <span className="text-xs font-normal text-slate-600 ml-2">
+                    ยี่ห้อ Serial วันที่ได้มา อายุใช้งาน หมายเหตุ
+                  </span>
                 </summary>
                 <div className="form-grid">
                   <Field
@@ -823,9 +825,7 @@ export default function AssetFormModal({
 
               {/* ส่วนที่ 6: บันทึกประวัติและเหตุผล */}
               <div className="form-section">
-                <div className="form-section-title">
-                  {modal?.kind === 'edit' ? 'เหตุผลที่แก้ไข' : 'ที่มาของรายการ'}
-                </div>
+                <div className="form-section-title">{modal?.kind === 'edit' ? 'เหตุผลที่แก้ไข' : 'ที่มาของรายการ'}</div>
                 <label className="span-2">
                   <span>
                     {modal?.kind === 'edit'

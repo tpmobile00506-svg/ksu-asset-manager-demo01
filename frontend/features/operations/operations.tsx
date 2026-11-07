@@ -16,6 +16,7 @@ export default function Operations({
   busy,
   revision,
   select,
+  onExport,
 }: {
   view: string;
   data: WorkspaceData;
@@ -24,6 +25,7 @@ export default function Operations({
   busy: boolean;
   revision: number;
   select: (a: Asset) => void;
+  onExport?: (branch: string, fiscalYear: number) => void;
 }) {
   if (view === 'requests') {
     return <RequestsView data={data} open={open} />;
@@ -34,7 +36,7 @@ export default function Operations({
   }
 
   if (view === 'reports') {
-    return <ReportsView data={data} select={select} />;
+    return <ReportsView data={data} select={select} onExport={onExport} />;
   }
 
   if (view === 'audit') {

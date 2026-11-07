@@ -39,7 +39,14 @@ export function conditionSummary(assets: readonly Pick<Asset, 'condition' | 'lif
 
 // การ์ดภาพรวมนับเป็น "ชิ้น" (ผู้ใช้ตกลง 7 พ.ย. 2569): รายการเดียวอาจมี 200 ชิ้น ถ้านับเป็นรายการจะไม่เห็นของที่เสีย
 // นับเฉพาะรายการที่ยังใช้งาน (active) · จำนวนที่ไม่ใช่จำนวนเต็มบวกนับเป็น 1 ชิ้น เหมือนกราฟเดิม
-export type PieceSummary = { items: number; total: number; normal: number; damaged: number; repair: number; missing: number };
+export type PieceSummary = {
+  items: number;
+  total: number;
+  normal: number;
+  damaged: number;
+  repair: number;
+  missing: number;
+};
 export function pieceSummary(assets: readonly Pick<Asset, 'condition' | 'lifecycle' | 'quantity'>[]): PieceSummary {
   const out: PieceSummary = { items: 0, total: 0, normal: 0, damaged: 0, repair: 0, missing: 0 };
   for (const a of assets) {

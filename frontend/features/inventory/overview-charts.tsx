@@ -132,9 +132,7 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
         <div>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-[17px] font-bold text-slate-800 tracking-tight">
-                จำนวนครุภัณฑ์แยกตามสาขา (ชิ้น)
-              </h2>
+              <h2 className="text-[17px] font-bold text-slate-800 tracking-tight">จำนวนครุภัณฑ์แยกตามสาขา (ชิ้น)</h2>
               <p className="text-[12.5px] text-slate-600 mt-1">กดแท่งของสาขาเพื่อเปิดทะเบียนของสาขานั้น</p>
             </div>
           </div>

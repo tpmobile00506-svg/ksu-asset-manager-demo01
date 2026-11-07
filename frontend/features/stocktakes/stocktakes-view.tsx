@@ -300,8 +300,8 @@ export default function StocktakesView({
       {editable && round && round.status === 'open' && round.checked !== round.total && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
           <span>
-            ยังปิดรอบไม่ได้ ต้องตรวจให้ครบก่อน เหลืออีก{' '}
-            <b>{(round.total - round.checked).toLocaleString('th-TH')}</b> รายการ
+            ยังปิดรอบไม่ได้ ต้องตรวจให้ครบก่อน เหลืออีก <b>{(round.total - round.checked).toLocaleString('th-TH')}</b>{' '}
+            รายการ
           </span>
           <Button
             variant="outline"
@@ -384,7 +384,9 @@ export default function StocktakesView({
               <strong className="text-base sm:text-xl font-bold text-rose-700 block leading-tight">
                 {stats.damagedCount.toLocaleString('th-TH')}
               </strong>
-              <span className="text-[10px] sm:text-[11px] text-rose-800 block mt-0.5 truncate">ชำรุด ไม่พบ หรือไม่ตรง</span>
+              <span className="text-[10px] sm:text-[11px] text-rose-800 block mt-0.5 truncate">
+                ชำรุด ไม่พบ หรือไม่ตรง
+              </span>
             </div>
           </button>
         </div>
@@ -409,7 +411,10 @@ export default function StocktakesView({
               onChange={v => setResultFilter(v as ResultFilter)}
               options={[
                 ['all', `ทุกผล (${current.length.toLocaleString('th-TH')})`],
-                ['pending', `ยังไม่ตรวจ (${current.filter(i => i.result === 'pending').length.toLocaleString('th-TH')})`],
+                [
+                  'pending',
+                  `ยังไม่ตรวจ (${current.filter(i => i.result === 'pending').length.toLocaleString('th-TH')})`,
+                ],
                 ['checked', 'ตรวจแล้ว'],
                 ['problem', 'มีปัญหา (ชำรุด / ไม่พบ / ไม่ตรง)'],
               ]}
@@ -551,7 +556,13 @@ export default function StocktakesView({
             </>
           ) : (
             <div className="py-12 text-center">
-              <Empty title={resultFilter === 'pending' && !search && room === 'all' ? 'ตรวจครบทุกรายการแล้ว' : 'ไม่พบรายการตามตัวกรองนี้'}>
+              <Empty
+                title={
+                  resultFilter === 'pending' && !search && room === 'all'
+                    ? 'ตรวจครบทุกรายการแล้ว'
+                    : 'ไม่พบรายการตามตัวกรองนี้'
+                }
+              >
                 <p className="text-xs text-slate-600 mt-1">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>
               </Empty>
             </div>

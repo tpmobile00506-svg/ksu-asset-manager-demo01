@@ -26,12 +26,14 @@ type Write = (body: Record<string, unknown>) => Promise<any>;
 export default function ExportView({
   data,
   initialBranch = '',
+  initialFiscalYear,
   onDone,
   write,
   busy: writing = false,
 }: {
   data: Pick<WorkspaceData, 'assets' | 'funds' | 'me'>;
   initialBranch?: string;
+  initialFiscalYear?: number;
   onDone?: () => void;
   write?: Write;
   busy?: boolean;
@@ -42,7 +44,11 @@ export default function ExportView({
     (standardBranches as readonly string[]).includes(initialBranch) ? initialBranch : '',
   );
   const [type, setType] = useState('');
-  const [fiscalYear, setFiscalYear] = useState(currentYear);
+  const [fiscalYear, setFiscalYear] = useState(
+    initialFiscalYear && initialFiscalYear <= currentYear && initialFiscalYear > currentYear - 5
+      ? initialFiscalYear
+      : currentYear,
+  );
   const [layout, setLayout] = useState<PageLayout>('portrait');
   const [excludeDamaged, setExcludeDamaged] = useState(true);
   const [busy, setBusy] = useState(false);

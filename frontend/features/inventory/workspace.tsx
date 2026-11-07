@@ -46,6 +46,8 @@ export default function Workspace() {
     [revision, setRevision] = useState(0);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // ค่าเริ่มต้นของหน้าต่างส่งออก: เปิดจากหน้าทะเบียนใช้สาขาที่กรองอยู่ เปิดจากหน้ารายงานใช้สาขาและปีงบที่เลือกไว้
+  const [exportPreset, setExportPreset] = useState<{ branch: string; fiscalYear?: number }>({ branch: '' });
   const [email, setEmail] = useState(''),
     [password, setPassword] = useState(''),
     [loggingIn, setLoggingIn] = useState(false);
@@ -428,7 +430,10 @@ export default function Workspace() {
                   open={open}
                   onSelect={setSelected}
                   onScan={() => setScannerOpen(true)}
-                  onExport={() => setExportOpen(true)}
+                  onExport={() => {
+                    setExportPreset({ branch: registry.branch !== 'all' ? registry.branch : '' });
+                    setExportOpen(true);
+                  }}
                   onOpenImports={() => switchView('imports')}
                 />
               )}
@@ -449,6 +454,10 @@ export default function Workspace() {
                   busy={busy}
                   revision={revision}
                   select={setSelected}
+                  onExport={(branch, fiscalYear) => {
+                    setExportPreset({ branch, fiscalYear });
+                    setExportOpen(true);
+                  }}
                 />
               )}
             </>
@@ -489,14 +498,15 @@ export default function Workspace() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet size={18} className="text-emerald-600" />
-              ส่งออกรายงานครุภัณฑ์ (Excel)
+              ส่งออกรายงานครุภัณฑ์เป็น Excel
             </DialogTitle>
             <DialogDescription>เลือกรายงาน สาขา และประเภท แล้วกดส่งออก</DialogDescription>
           </DialogHeader>
           {exportOpen && (
             <ExportView
               data={data}
-              initialBranch={registry.branch}
+              initialBranch={exportPreset.branch}
+              initialFiscalYear={exportPreset.fiscalYear}
               onDone={() => setExportOpen(false)}
               write={write}
               busy={busy}

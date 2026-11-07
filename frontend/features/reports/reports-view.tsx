@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Printer, TrendingDown, CheckCircle2, AlertCircle, FileSpreadsheet, Filter } from 'lucide-react';
+import { Printer, TrendingDown, CheckCircle2, AlertCircle, FileSpreadsheet, Filter, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import {
@@ -18,14 +18,17 @@ import {
   type LifeBucket,
 } from '@/shared/domain';
 import { printAssets } from '@/frontend/services/excel-export';
-import { Badge, Empty, Pager } from '@/frontend/components/common';
+import { Badge, Empty, Pager, baht } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
 
 export default function ReportsView({
   data,
   select,
+  onExport,
 }: {
   data: Pick<WorkspaceData, 'assets'>;
+  // เปิดหน้าต่างส่งออก Excel พร้อมสาขาและปีงบที่เลือกในหน้านี้ ('' = ทุกสาขา)
+  onExport?: (branch: string, fiscalYear: number) => void;
   select: (a: Asset) => void;
 }) {
   // ปีงบประมาณปัจจุบันคำนวณจากวันนี้ (เริ่ม 1 ต.ค.) แทนการเขียนปีตายตัว
@@ -155,14 +158,14 @@ export default function ReportsView({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: ราคาทุนรวมทั้งสิ้น */}
         <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 font-bold text-lg">
-            ฿
+          <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <FileSpreadsheet size={22} />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-xs text-slate-500 font-medium block">ราคาทุนรวมทั้งสิ้น</span>
-            <strong className="text-xl font-bold text-slate-900 block leading-tight">{money(stats.totalCost)} ฿</strong>
-            <span className="text-[11px] font-bold text-blue-600 block mt-0.5">
-              ครุภัณฑ์ทั้งหมด {stats.count.toLocaleString('th-TH')} รายการ
+            <span className="text-xs text-slate-600 font-medium block">ราคาทุน</span>
+            <strong className="text-xl font-bold text-slate-900 block leading-tight">{baht(stats.totalCost)}</strong>
+            <span className="text-[11px] font-bold text-blue-700 block mt-0.5">
+              {stats.count.toLocaleString('th-TH')} รายการ
             </span>
           </div>
         </div>
@@ -173,11 +176,9 @@ export default function ReportsView({
             <TrendingDown size={22} />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-xs text-slate-500 font-medium block">ค่าเสื่อมราคาสะสม</span>
-            <strong className="text-xl font-bold text-rose-600 block leading-tight">
-              {money(stats.totalAccDep)} ฿
-            </strong>
-            <span className="text-[11px] text-rose-700 block mt-0.5">คิดเป็น {stats.accDepPercent}% ของมูลค่าทุน</span>
+            <span className="text-xs text-slate-600 font-medium block">ค่าเสื่อมราคาสะสม</span>
+            <strong className="text-xl font-bold text-rose-700 block leading-tight">{baht(stats.totalAccDep)}</strong>
+            <span className="text-[11px] text-rose-800 block mt-0.5">{stats.accDepPercent}% ของราคาทุน</span>
           </div>
         </div>
 
@@ -187,11 +188,11 @@ export default function ReportsView({
             <CheckCircle2 size={22} className="stroke-[2.5]" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-xs text-slate-500 font-medium block">มูลค่าสุทธิตามบัญชี</span>
-            <strong className="text-xl font-bold text-emerald-600 block leading-tight">
-              {money(stats.totalNetBook)} ฿
+            <span className="text-xs text-slate-600 font-medium block">มูลค่าสุทธิตามบัญชี</span>
+            <strong className="text-xl font-bold text-emerald-700 block leading-tight">
+              {baht(stats.totalNetBook)}
             </strong>
-            <span className="text-[11px] text-emerald-700 block mt-0.5">มูลค่าสินทรัพย์คงเหลือจริง</span>
+            <span className="text-[11px] text-emerald-800 block mt-0.5">ราคาทุน − ค่าเสื่อมราคาสะสม</span>
           </div>
         </div>
 
@@ -201,11 +202,11 @@ export default function ReportsView({
             <AlertCircle size={22} />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-xs text-slate-500 font-medium block">ครุภัณฑ์ครบอายุการใช้งาน</span>
-            <strong className="text-xl font-bold text-amber-600 block leading-tight">
+            <span className="text-xs text-slate-600 font-medium block">ครบอายุใช้งาน</span>
+            <strong className="text-xl font-bold text-amber-700 block leading-tight">
               {stats.fullyDepreciatedCount.toLocaleString('th-TH')} รายการ
             </strong>
-            <span className="text-[11px] text-amber-700 block mt-0.5">มูลค่าสุทธิเท่ามูลค่าซากแล้ว</span>
+            <span className="text-[11px] text-amber-800 block mt-0.5">มูลค่าสุทธิเหลือเท่ามูลค่าซาก</span>
           </div>
         </div>
       </div>
@@ -230,17 +231,17 @@ export default function ReportsView({
               ))}
             </select>
           </div>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-slate-600">
             ข้อมูล ณ {thaiDateOnly(asOfIso)}
             {receivedLater > 0 && ` · ไม่รวม ${receivedLater.toLocaleString('th-TH')} รายการที่รับเข้าหลังวันที่รายงาน`}
           </span>
 
           {/* Department selector */}
           <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-            <Filter size={13} className="text-slate-400" />
-            <span className="font-bold text-slate-700">สาขาวิชา:</span>
+            <Filter size={13} className="text-slate-500" />
+            <span className="font-bold text-slate-700">สาขา:</span>
             <select
-              aria-label="สาขาวิชา"
+              aria-label="สาขา"
               value={selectedBranch}
               onChange={e => {
                 setSelectedBranch(e.target.value);
@@ -248,7 +249,7 @@ export default function ReportsView({
               }}
               className="bg-transparent font-medium text-slate-900 border-none outline-none cursor-pointer max-w-[200px] truncate"
             >
-              <option value="all">ทุกสาขาวิชา</option>
+              <option value="all">ทุกสาขา</option>
               {branches.map(b => (
                 <option key={b} value={b}>
                   {b}
@@ -259,10 +260,10 @@ export default function ReportsView({
 
           {/* Category selector */}
           <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-            <Filter size={13} className="text-slate-400" />
-            <span className="font-bold text-slate-700">หมวดหมู่:</span>
+            <Filter size={13} className="text-slate-500" />
+            <span className="font-bold text-slate-700">ประเภท:</span>
             <select
-              aria-label="หมวดหมู่"
+              aria-label="ประเภทครุภัณฑ์"
               value={selectedCategory}
               onChange={e => {
                 setSelectedCategory(e.target.value);
@@ -270,7 +271,7 @@ export default function ReportsView({
               }}
               className="bg-transparent font-medium text-slate-900 border-none outline-none cursor-pointer max-w-[200px] truncate"
             >
-              <option value="all">ทุกหมวดหมู่</option>
+              <option value="all">ทุกประเภท</option>
               {categories.map(c => (
                 <option key={c} value={c}>
                   {c}
@@ -280,14 +281,25 @@ export default function ReportsView({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {onExport && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!filtered.length}
+              onClick={() => onExport(selectedBranch === 'all' ? '' : selectedBranch, Number(fiscalYear))}
+              className="h-9 px-3 text-xs font-bold text-emerald-800 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 cursor-pointer"
+            >
+              <Download size={14} className="mr-1" /> ส่งออก Excel
+            </Button>
+          )}
           <Button
             size="sm"
             disabled={!filtered.length}
             onClick={handlePrint}
             className="h-9 px-3 text-xs font-bold bg-[#2563eb] hover:bg-[#1d4ed8] text-white cursor-pointer shadow-sm"
           >
-            <Printer size={14} className="mr-1" /> พิมพ์รายงาน (PDF)
+            <Printer size={14} className="mr-1" /> พิมพ์ / บันทึก PDF
           </Button>
         </div>
       </div>
@@ -297,15 +309,15 @@ export default function ReportsView({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-100">
-              <h2 className="text-sm font-bold text-slate-900">สรุปตามหมวดหมู่</h2>
+              <h2 className="text-sm font-bold text-slate-900">สรุปตามประเภทครุภัณฑ์</h2>
             </div>
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50/70 text-xs">
-                  <TableHead className="font-bold">หมวดหมู่</TableHead>
+                  <TableHead className="font-bold">ประเภท</TableHead>
                   <TableHead className="font-bold text-right">รายการ</TableHead>
-                  <TableHead className="font-bold text-right">ราคาทุน</TableHead>
-                  <TableHead className="font-bold text-right">มูลค่าสุทธิ</TableHead>
+                  <TableHead className="font-bold text-right">ราคาทุน (บาท)</TableHead>
+                  <TableHead className="font-bold text-right">มูลค่าสุทธิ (บาท)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -313,8 +325,8 @@ export default function ReportsView({
                   <TableRow key={name} className="text-xs">
                     <TableCell className="font-medium text-slate-800">{name}</TableCell>
                     <TableCell className="text-right">{r.count.toLocaleString('th-TH')}</TableCell>
-                    <TableCell className="text-right">฿{money(r.cost)}</TableCell>
-                    <TableCell className="text-right font-semibold text-emerald-700">฿{money(r.net)}</TableCell>
+                    <TableCell className="text-right">{money(r.cost)}</TableCell>
+                    <TableCell className="text-right font-semibold text-emerald-700">{money(r.net)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -324,8 +336,8 @@ export default function ReportsView({
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-100">
               <h2 className="text-sm font-bold text-slate-900">สรุปตามอายุการใช้งานคงเหลือ</h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                ณ สิ้นปีงบประมาณที่เลือก · รายการที่ไม่ระบุวันรับหรืออายุใช้งานนับมูลค่าสุทธิเท่าราคาทุน
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                ณ สิ้นปีงบประมาณที่เลือก · รายการที่ไม่มีวันที่ได้มาหรืออายุใช้งาน นับมูลค่าสุทธิเท่าราคาทุน
               </p>
             </div>
             <Table>
@@ -333,8 +345,8 @@ export default function ReportsView({
                 <TableRow className="bg-slate-50/70 text-xs">
                   <TableHead className="font-bold">ช่วงอายุคงเหลือ</TableHead>
                   <TableHead className="font-bold text-right">รายการ</TableHead>
-                  <TableHead className="font-bold text-right">ราคาทุน</TableHead>
-                  <TableHead className="font-bold text-right">มูลค่าสุทธิ</TableHead>
+                  <TableHead className="font-bold text-right">ราคาทุน (บาท)</TableHead>
+                  <TableHead className="font-bold text-right">มูลค่าสุทธิ (บาท)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -352,8 +364,8 @@ export default function ReportsView({
                       {lifeBucketLabels[key]}
                     </TableCell>
                     <TableCell className="text-right">{r.count.toLocaleString('th-TH')}</TableCell>
-                    <TableCell className="text-right">฿{money(r.cost)}</TableCell>
-                    <TableCell className="text-right font-semibold text-emerald-700">฿{money(r.net)}</TableCell>
+                    <TableCell className="text-right">{money(r.cost)}</TableCell>
+                    <TableCell className="text-right font-semibold text-emerald-700">{money(r.net)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -366,12 +378,12 @@ export default function ReportsView({
       <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-900">ตารางคำนวณค่าเสื่อมราคาครุภัณฑ์</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              แสดงรายการครุภัณฑ์พร้อมมูลค่าทุน ค่าเสื่อมราคาสะสม และมูลค่าสุทธิตามบัญชี
+            <h2 className="text-base font-bold text-slate-900">ค่าเสื่อมราคารายครุภัณฑ์</h2>
+            <p className="text-xs text-slate-600 mt-0.5">
+              ราคาทุน ค่าเสื่อมราคาสะสม และมูลค่าสุทธิตามบัญชี ของแต่ละรายการ
             </p>
           </div>
-          <span className="text-xs text-slate-500 font-medium">รวม {filtered.length} รายการ</span>
+          <span className="text-xs text-slate-600 font-medium">รวม {filtered.length} รายการ</span>
         </div>
 
         {filtered.length ? (
@@ -385,9 +397,9 @@ export default function ReportsView({
                     <TableHead className="font-bold">วันที่ได้มา</TableHead>
                     <TableHead className="font-bold text-center">อายุใช้งาน</TableHead>
                     <TableHead className="font-bold text-center">อายุคงเหลือ</TableHead>
-                    <TableHead className="font-bold text-right">ราคาทุน</TableHead>
-                    <TableHead className="font-bold text-right">ค่าเสื่อมสะสม</TableHead>
-                    <TableHead className="font-bold text-right">มูลค่าคงเหลือสุทธิ</TableHead>
+                    <TableHead className="font-bold text-right">ราคาทุน (บาท)</TableHead>
+                    <TableHead className="font-bold text-right">ค่าเสื่อมราคาสะสม (บาท)</TableHead>
+                    <TableHead className="font-bold text-right">มูลค่าสุทธิตามบัญชี (บาท)</TableHead>
                     <TableHead className="font-bold text-center">สภาพ</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -408,7 +420,7 @@ export default function ReportsView({
                         </TableCell>
                         <TableCell>
                           <div className="font-bold text-xs text-slate-900 line-clamp-1">{a.name}</div>
-                          <div className="text-[11px] text-slate-500 line-clamp-1">{a.branch || '—'}</div>
+                          <div className="text-[11px] text-slate-600 line-clamp-1">{a.branch || '—'}</div>
                         </TableCell>
                         <TableCell className="text-xs text-slate-600 whitespace-nowrap">
                           {a.receivedDate ? thaiDateOnly(a.receivedDate) : '—'}
@@ -419,19 +431,19 @@ export default function ReportsView({
                         <TableCell className="text-center text-xs whitespace-nowrap">
                           {(() => {
                             const left = remainingLifeYears(a, asOfDate);
-                            if (left === null) return <span className="text-slate-400">—</span>;
+                            if (left === null) return <span className="text-slate-600">—</span>;
                             if (left === 0) return <span className="font-bold text-rose-600">ครบอายุ</span>;
                             return <span className="text-slate-700">{(Math.round(left * 10) / 10).toFixed(1)} ปี</span>;
                           })()}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-xs text-slate-900 whitespace-nowrap">
-                          ฿{money(a.totalSatang)}
+                          {money(a.totalSatang)}
                         </TableCell>
                         <TableCell className="text-right text-xs font-semibold text-rose-600 whitespace-nowrap">
-                          {accDep > 0 ? `฿${money(accDep)}` : '0.00 ฿'}
+                          {money(accDep)}
                         </TableCell>
                         <TableCell className="text-right font-bold text-xs text-emerald-700 whitespace-nowrap">
-                          ฿{money(netBook)}
+                          {money(netBook)}
                         </TableCell>
                         <TableCell className="text-center whitespace-nowrap">
                           <Badge value={a.condition} />
@@ -442,7 +454,7 @@ export default function ReportsView({
                 </TableBody>
               </Table>
             </div>
-            <div className="p-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <div className="p-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
               <span>
                 แสดงรายการที่ {page * 40 + 1} - {Math.min((page + 1) * 40, filtered.length)} จากทั้งหมด{' '}
                 {filtered.length} รายการ

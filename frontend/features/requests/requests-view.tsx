@@ -1,7 +1,22 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Clock, Plus, Check, X, Eye, Search, ArrowRight, Package, Building, UserCheck, MapPin, Filter, RotateCcw, Printer } from 'lucide-react';
+import {
+  Clock,
+  Plus,
+  Check,
+  X,
+  Eye,
+  Search,
+  ArrowRight,
+  Package,
+  Building,
+  UserCheck,
+  MapPin,
+  Filter,
+  RotateCcw,
+  Printer,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -230,7 +245,8 @@ export default function RequestsView({
     const q = pickerSearch.toLowerCase().trim();
     return activeAssets.filter(a => {
       if (pickerBranch !== 'all' && a.branch?.trim() !== pickerBranch) return false;
-      if (q) return [a.code, a.name, a.branch, a.location, a.category].filter(Boolean).join(' ').toLowerCase().includes(q);
+      if (q)
+        return [a.code, a.name, a.branch, a.location, a.category].filter(Boolean).join(' ').toLowerCase().includes(q);
       return true;
     });
   }, [activeAssets, pickerSearch, pickerBranch]);
@@ -505,20 +521,23 @@ export default function RequestsView({
                 <span className="text-xs text-slate-600 font-medium shrink-0 flex items-center gap-1 mr-1">
                   <Filter size={12} /> สาขา:
                 </span>
-                {[['all', `ทั้งหมด (${activeAssets.length})`] as const, ...pickerBranches.map(b => [b, b] as const)].map(
-                  ([key, label]) => (
-                    <button
-                      type="button"
-                      key={key}
-                      onClick={() => setPickerBranch(key)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 ${
-                        pickerBranch === key ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ),
-                )}
+                {[
+                  ['all', `ทั้งหมด (${activeAssets.length})`] as const,
+                  ...pickerBranches.map(b => [b, b] as const),
+                ].map(([key, label]) => (
+                  <button
+                    type="button"
+                    key={key}
+                    onClick={() => setPickerBranch(key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 ${
+                      pickerBranch === key
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -693,7 +712,12 @@ export default function RequestsView({
                     </div>
                   )}
                   {r.status === 'approved' && (
-                    <Button type="button" variant="outline" className="h-11 flex-1" onClick={() => printApprovalDocument(r)}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 flex-1"
+                      onClick={() => printApprovalDocument(r)}
+                    >
                       <Printer size={15} className="mr-1.5" /> พิมพ์เอกสารอนุมัติ
                     </Button>
                   )}

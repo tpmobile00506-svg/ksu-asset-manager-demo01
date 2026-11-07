@@ -22,7 +22,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge, ConditionBadge, Activity, api, baht } from '@/frontend/components/common';
-import { Asset, conditions, groupFor, setRoles, officeBranches, thaiDateOnly, thaiDateTime, type SetRole } from '@/shared/domain';
+import {
+  Asset,
+  conditions,
+  groupFor,
+  setRoles,
+  officeBranches,
+  thaiDateOnly,
+  thaiDateTime,
+  type SetRole,
+} from '@/shared/domain';
 import type { RepairRecord } from '@/shared/models';
 import { buildQrLabelHtml } from '@/shared/qr-label-document';
 import AssetPhoto from './asset-photo';
@@ -419,7 +428,6 @@ export default function AssetDetailView({
                 className="text-sm bg-white border-slate-200 text-slate-700 resize-none"
               />
             </div>
-
           </div>
 
           {/* Open Stocktake Rounds Notice & Action */}

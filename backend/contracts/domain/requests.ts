@@ -126,15 +126,15 @@ export function awaitsApprovalBy(
 
 // คำขอที่ "รอผู้ใช้คนนี้": ผู้อนุมัติ = คำขอที่รอขั้นของตัวเอง · เจ้าหน้าที่และผู้ดูแลระบบ = คำขอที่รออนุมัติทั้งหมด
 // เมนูข้าง กระดิ่ง และแท็บ "รอฉันอนุมัติ" ใช้ฟังก์ชันนี้ตัวเดียว เลขจึงตรงกันเสมอ (เดิมเมนูนับทุกคำขอ กระดิ่งนับเฉพาะของตัวเอง)
-export function pendingForUser<R extends { status: string; chain: string; stage: number; actor: string; assetId: string }>(
+export function pendingForUser<
+  R extends { status: string; chain: string; stage: number; actor: string; assetId: string },
+>(
   requests: readonly R[],
   me: { id: string; role: string; branch?: string | null },
   assets: readonly { id: string; branch?: string | null }[],
 ): R[] {
   const approver = me.role === 'head' || me.role === 'deputy' || me.role === 'dean';
   return requests.filter(
-    r =>
-      r.status === 'pending' &&
-      (!approver || awaitsApprovalBy(r, me, assets.find(a => a.id === r.assetId)?.branch)),
+    r => r.status === 'pending' && (!approver || awaitsApprovalBy(r, me, assets.find(a => a.id === r.assetId)?.branch)),
   );
 }
