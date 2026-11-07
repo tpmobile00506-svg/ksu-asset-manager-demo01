@@ -5,7 +5,6 @@ export const roles = {
   deputy: 'รองคณบดี (Deputy)',
   dean: 'คณบดี (Dean)',
   admin: 'ผู้ดูแลระบบ (Admin)',
-  tester: 'ผู้ทดสอบระบบ (Tester)',
 } as const;
 export type Role = keyof typeof roles;
 // สวิตช์สาธิต (เปิด 18 ต.ค. 2569 ช่วงสอบ ปิดแล้ว 19 ต.ค. 2569 หลังสอบเสร็จ): true = Admin อนุมัติคำขอได้ กดครั้งเดียวจบทุกขั้น
