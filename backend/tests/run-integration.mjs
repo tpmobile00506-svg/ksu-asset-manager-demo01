@@ -142,7 +142,7 @@ try {
   }
   assert.ok(ready, 'Test server failed readiness; see the server output above');
   await run(['--experimental-strip-types', 'backend/tests/critical-workflows.mjs']);
-  await run(['backend/tests/asset-images.integration.mjs']);
+  await run(['--experimental-strip-types', 'backend/tests/asset-images.integration.mjs']);
 } finally {
   try {
     await stopChild(app);

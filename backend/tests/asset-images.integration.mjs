@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
+import { standardBranches } from '../contracts/domain.ts';
+
+// ระบบรับเฉพาะสาขามาตรฐาน และหัวหน้าสาขาต้องมีสาขา (กฎตั้งแต่ 15 ต.ค. 2569) ใช้สาขาเดียวกับ critical-workflows
+const testBranch = standardBranches[0];
 
 // Run through run-integration.mjs; never load .env or use a real asset database.
 assert.ok(process.env.ASSET_TEST_URL && process.env.DATABASE_URL, 'Use the isolated integration runner');
@@ -173,6 +177,7 @@ for (const role of roles.filter(role => role !== 'admin')) {
       email: identities[role].email,
       name: `Image test ${role}`,
       role,
+      ...(role === 'head' ? { branch: testBranch } : {}),
       active: true,
       password,
     }),
@@ -191,7 +196,7 @@ const assetId = good(
       totalSatang: 25100,
       notes: '',
       location: 'ห้องทดสอบรูปภาพ',
-      branch: 'ทดสอบ',
+      branch: testBranch,
       category: 'ทดสอบ',
       groupName: 'ทดสอบรูปภาพ',
       condition: 'normal',
