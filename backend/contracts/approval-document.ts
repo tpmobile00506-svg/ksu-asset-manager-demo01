@@ -1,7 +1,7 @@
 import { money, roles, requestTypes, type Role } from './domain';
 import { escapeHtml } from './html';
 
-// เอกสารอนุมัติ (โอนย้าย / ซ่อมบำรุง / จำหน่าย) สำหรับพิมพ์ — ฟังก์ชันล้วน ไม่แตะ DOM จึงทดสอบได้ใน Node
+// เอกสารอนุมัติ (โอนย้าย / ส่งซ่อม / จำหน่าย) สำหรับพิมพ์ — ฟังก์ชันล้วน ไม่แตะ DOM จึงทดสอบได้ใน Node
 
 export type ApprovalDocumentInput = {
   requestCode: string;
@@ -72,7 +72,7 @@ export function buildApprovalDocumentHtml(input: ApprovalDocumentInput): string 
   }
   if (Number(input.payload.splitQuantity) > 0) {
     detailRows.push(
-      `<tr><th>จำนวนที่ขอดำเนินการ</th><td>${esc(input.payload.splitQuantity)} ชิ้น (แบ่งล็อตเมื่ออนุมัติขั้นสุดท้าย)</td></tr>`,
+      `<tr><th>จำนวนที่ขอดำเนินการ</th><td>${esc(input.payload.splitQuantity)} ชิ้น (แยกรายการเมื่ออนุมัติขั้นสุดท้าย)</td></tr>`,
     );
   }
   if (input.kind === 'repair' && Number(input.payload.estimateSatang) > 0) {

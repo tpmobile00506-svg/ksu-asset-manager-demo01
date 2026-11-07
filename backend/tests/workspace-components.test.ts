@@ -134,7 +134,7 @@ test('หน้าล็อกอิน: แสดงข้อความ error
 });
 
 test('คำอธิบายใต้หัวข้อหน้า และวันที่แบบไทย', () => {
-  assert.ok(viewDescription('registry', 1234).includes('(1,234 รายการ)'));
+  assert.ok(viewDescription('registry', 1234).includes('1,234 รายการ'));
   assert.equal(viewDescription('ไม่มีหน้านี้', 0), '');
   // 1 ต.ค. 2569 = ค.ศ. 2026 → ปี พ.ศ. 2 หลักท้าย = 69 · วันที่รับแสดงเป็นบรรทัดรอง
   assert.equal(formatImportDate(undefined, '2026-10-01').main, '1 ต.ค. 2569');

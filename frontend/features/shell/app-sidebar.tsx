@@ -11,28 +11,29 @@ import {
 } from '@/components/ui/sidebar';
 import { getInitials } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/frontend/types/models';
-import { nav, type NavEntry } from './navigation';
+import { nav, canSeeView, type NavEntry } from './navigation';
 
-// เมนูข้างซ้าย: โลโก้คณะ รายการหน้า (หน้า "ผู้ใช้งาน" เห็นเฉพาะ Admin) และชื่อผู้ใช้ที่ล็อกอินอยู่
+// เมนูข้างซ้าย: โลโก้คณะ รายการหน้า และชื่อผู้ใช้ที่ล็อกอินอยู่
+// หน้า "ผู้ใช้งาน" เห็นเฉพาะผู้ดูแลระบบ · หน้า "นำเข้า" เห็นเฉพาะเจ้าหน้าที่และผู้ดูแลระบบ (ดู canSeeView)
 // บนมือถือเมนูเป็นลิ้นชัก กดเลือกหน้าแล้วปิดเอง
 function NavList({
   items,
   view,
   onSelect,
   pendingCount,
-  isAdmin,
+  role,
 }: {
   items: readonly NavEntry[];
   view: string;
   onSelect: (k: string) => void;
   pendingCount: number;
-  isAdmin: boolean;
+  role: string;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
   return (
     <SidebarMenu>
       {items
-        .filter(x => x[0] !== 'users' || isAdmin)
+        .filter(x => canSeeView(x[0], role))
         .map(([key, label, Icon]) => (
           <SidebarMenuItem key={key}>
             <SidebarMenuButton
@@ -87,13 +88,12 @@ export function AppSidebar({
         </div>
       </SidebarHeader>
       <SidebarContent className="px-3">
-        <div className="nav-caption">พื้นที่ทำงาน</div>
         <NavList
           items={nav as unknown as readonly NavEntry[]}
           view={view}
           onSelect={onSelect}
           pendingCount={pendingCount}
-          isAdmin={me.role === 'admin'}
+          role={me.role}
         />
       </SidebarContent>
       <SidebarFooter className="p-3 border-t border-slate-800/80">

@@ -6,7 +6,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/s
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Toaster, toast } from 'sonner';
-import { Asset, conditionSummary, awaitingApprovalByAsset } from '@/shared/domain';
+import { Asset, conditionSummary, awaitingApprovalByAsset, pendingForUser } from '@/shared/domain';
 import { Any, api, SESSION_EXPIRED_EVENT, readApiResponse, cancelApiRequests } from '@/frontend/components/common';
 import { useAssetTools } from '@/frontend/hooks/use-asset-tools';
 import Editor from './editor';
@@ -20,7 +20,7 @@ import { WorkspaceData } from '@/frontend/types/models';
 import { LoginScreen } from '@/frontend/features/auth/login-screen';
 import { AppSidebar } from '@/frontend/features/shell/app-sidebar';
 import { NotificationBell } from '@/frontend/features/shell/notification-bell';
-import { nav, viewDescription } from '@/frontend/features/shell/navigation';
+import { nav, viewDescription, canSeeView } from '@/frontend/features/shell/navigation';
 import { OverviewDashboard } from './overview-dashboard';
 import { RegistryView } from './registry-view';
 import { useRegistry } from './use-registry';
@@ -176,7 +176,7 @@ export default function Workspace() {
   // เก็บหน้าที่เปิดอยู่ไว้ใน URL (?view=) เพื่อให้ปุ่ม Back, รีเฟรช และแชร์ลิงก์ใช้ได้
   const viewFromUrl = () => {
     const v = new URL(location.href).searchParams.get('view') || 'overview';
-    return nav.some(n => n[0] === v) && (v !== 'users' || data?.me.role === 'admin') ? v : 'overview';
+    return nav.some(n => n[0] === v) && canSeeView(v, data?.me.role ?? '') ? v : 'overview';
   };
   useEffect(() => {
     if (data && !new URL(location.href).searchParams.get('asset')) setView(viewFromUrl());
@@ -297,7 +297,12 @@ export default function Workspace() {
   const heading = nav.find(x => x[0] === view)?.[1];
   return (
     <SidebarProvider style={{ '--sidebar-width': '250px' } as React.CSSProperties}>
-      <AppSidebar view={view} onSelect={switchView} pendingCount={pending.length} me={data.me} />
+      <AppSidebar
+        view={view}
+        onSelect={switchView}
+        pendingCount={pendingForUser(data.requests, data.me, assets).length}
+        me={data.me}
+      />
 
       <SidebarInset className="app-main">
         <header className="topbar">

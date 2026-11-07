@@ -1,166 +1,117 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import {
-  ListFilter,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Plus,
-  Check,
-  X,
-  Eye,
-  Search,
-  ArrowRight,
-  Package,
-  Calendar,
-  Building,
-  UserCheck,
-  MapPin,
-  Filter,
-  RotateCcw,
-  Printer,
-} from 'lucide-react';
+import { Clock, Plus, Check, X, Eye, Search, ArrowRight, Package, Building, UserCheck, MapPin, Filter, RotateCcw, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Role, roles, money, awaitsApprovalBy } from '@/shared/domain';
+import { Role, roles, requestTypes, awaitsApprovalBy, pendingForUser, thaiDateTime } from '@/shared/domain';
 import { buildApprovalDocumentHtml } from '@/shared/approval-document';
 import { toast } from 'sonner';
-import { Empty, Badge } from '@/frontend/components/common';
+import { Empty, Badge, Pick, baht } from '@/frontend/components/common';
 import type { WorkspaceData, RequestRecord } from '@/shared/models';
 
-type TabKey = 'all' | 'pending' | 'transfer' | 'repair' | 'dispose';
+// หน้าคำขอ (โอนย้าย / ส่งซ่อม / จำหน่าย)
+// - ตัวกรองแยก 2 แบบ: สถานะ (ปุ่มด้านบน) และประเภท (ช่องเลือก) · ผู้อนุมัติเริ่มที่แท็บ "รอฉันอนุมัติ"
+// - จอกว้างเป็นตาราง จอมือถือ (ต่ำกว่า 768) เป็นการ์ดที่มีปุ่มอนุมัติอยู่ท้ายการ์ด ไม่ต้องเลื่อนตารางไปทางขวา
+// - ผู้ยื่นยกเลิกคำขอของตัวเองได้ระหว่างรออนุมัติทุกขั้น (คำสั่ง cancelRequest)
 
-function formatThaiDateTime(isoStr: string): string {
+type StatusTab = 'mine' | 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled';
+type KindFilter = 'all' | 'transfer' | 'repair' | 'disposal';
+type Payload = Record<string, any>;
+
+// คำขอเก่าบางรายการเก็บประเภทจำหน่ายเป็น 'dispose'
+const kindOf = (r: { kind: string }) => (r.kind === 'dispose' ? 'disposal' : r.kind);
+const readPayload = (r: RequestRecord): Payload => {
   try {
-    const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return isoStr;
-    const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-    const day = d.getDate();
-    const month = months[d.getMonth()];
-    const year = (d.getFullYear() + 543) % 100;
-    const hours = String(d.getHours()).padStart(2, '0');
-    const mins = String(d.getMinutes()).padStart(2, '0');
-    return `${day} ${month} ${year} ${hours}:${mins}`;
+    return JSON.parse(r.payload || '{}');
   } catch {
-    return isoStr;
+    return {};
   }
-}
-
-function RequestKindBadge({ kind }: { kind: string }) {
-  switch (kind) {
-    case 'transfer':
-      return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-          โอนย้ายสถานที่
-        </span>
-      );
-    case 'repair':
-      return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-          แจ้งส่งซ่อม
-        </span>
-      );
-    case 'dispose':
-    case 'disposal':
-      return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-          ขอจำหน่ายครุภัณฑ์
-        </span>
-      );
-    case 'borrow':
-      return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-          ยืมใช้งานครุภัณฑ์
-        </span>
-      );
-    default:
-      return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-50 text-slate-700 border border-slate-200">
-          {kind}
-        </span>
-      );
-  }
-}
-
-function AssetConditionBadge({ condition }: { condition: string }) {
-  switch (condition) {
-    case 'damaged':
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-          ชำรุด
-        </span>
-      );
-    case 'repair':
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-          รอส่งซ่อม
-        </span>
-      );
-    case 'lost':
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
-          สูญหาย
-        </span>
-      );
-    default:
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-          ปกติ
-        </span>
-      );
-  }
-}
-
-function ApprovalPipeline({ request }: { request: RequestRecord }) {
-  let chain: Role[] = ['head', 'deputy', 'dean'];
+};
+const readChain = (r: RequestRecord): Role[] => {
   try {
-    chain = JSON.parse(request.chain);
+    return JSON.parse(r.chain);
   } catch {
-    chain = ['head', 'deputy', 'dean'];
+    return ['head', 'deputy', 'dean'];
   }
+};
 
-  const roleLabels: Record<string, string> = {
-    head: 'Head',
-    deputy: 'Deputy',
-    dean: 'Dean',
-    staff: 'Staff',
-    admin: 'Admin',
-  };
-
+const kindStyles: Record<string, string> = {
+  transfer: 'bg-blue-50 text-blue-700 border-blue-200',
+  repair: 'bg-amber-50 text-amber-800 border-amber-200',
+  disposal: 'bg-rose-50 text-rose-700 border-rose-200',
+};
+function KindBadge({ kind }: { kind: string }) {
+  const k = kindOf({ kind });
   return (
-    <div className="flex items-center gap-1.5 flex-nowrap whitespace-nowrap">
-      {chain.map((role, i) => {
-        const isApproved = request.status === 'approved' || i < request.stage;
-        const isCurrentPending = request.status === 'pending' && i === request.stage;
-        const isRejectedAtThisStage = request.status === 'rejected' && i === request.stage;
+    <span
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${kindStyles[k] ?? 'bg-slate-50 text-slate-700 border-slate-200'}`}
+    >
+      {requestTypes[k as keyof typeof requestTypes] ?? kind}
+    </span>
+  );
+}
 
+// แถบสายอนุมัติ: ชื่อบทบาทภาษาไทย ขั้นที่ผ่านแล้วสีเขียว ขั้นที่รอสีเหลือง ขั้นที่ไม่อนุมัติสีแดง
+function ApprovalPipeline({ request, oneLine }: { request: RequestRecord; oneLine?: boolean }) {
+  const chain = readChain(request);
+  return (
+    <div className={`flex items-center gap-1.5 ${oneLine ? 'flex-nowrap' : 'flex-wrap'}`}>
+      {chain.map((role, i) => {
+        const done = request.status === 'approved' || i < request.stage;
+        const waiting = request.status === 'pending' && i === request.stage;
+        const rejected = request.status === 'rejected' && i === request.stage;
         return (
           <div key={role + i} className="flex items-center gap-1.5">
             <span
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11.5px] font-medium border transition-colors ${
-                isApproved
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : isCurrentPending
-                    ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm'
-                    : isRejectedAtThisStage
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${
+                done
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : waiting
+                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                    : rejected
                       ? 'bg-rose-50 text-rose-700 border-rose-200'
-                      : 'bg-slate-50 text-slate-400 border-slate-200'
+                      : 'bg-slate-50 text-slate-600 border-slate-200'
               }`}
             >
-              <span>
-                {i + 1}. {roleLabels[role] || role}
-              </span>
-              {isApproved && <Check size={12} className="text-emerald-600 stroke-[3]" />}
-              {isCurrentPending && <Clock size={11} className="text-amber-600" />}
-              {isRejectedAtThisStage && <X size={12} className="text-rose-600 stroke-[3]" />}
+              {roles[role] ?? role}
+              {done && <Check size={12} className="text-emerald-600 stroke-[3]" />}
+              {waiting && <Clock size={11} className="text-amber-700" />}
+              {rejected && <X size={12} className="text-rose-600 stroke-[3]" />}
             </span>
-            {i < chain.length - 1 && <span className="text-slate-300 text-xs font-bold">→</span>}
+            {i < chain.length - 1 && <span className="text-slate-400 text-xs font-bold">→</span>}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// สิ่งที่คำขอจะทำ: ย้ายจากไหนไปไหน, ค่าซ่อมประมาณ, จำนวนที่ขอ
+function RequestSummary({ r, payload }: { r: RequestRecord; payload: Payload }) {
+  const k = kindOf(r);
+  return (
+    <div className="text-xs text-slate-600 mt-1 space-y-0.5">
+      {payload.splitQuantity ? (
+        <span className="block text-indigo-700">เฉพาะ {payload.splitQuantity} ชิ้น (แยกรายการเมื่ออนุมัติ)</span>
+      ) : null}
+      {k === 'transfer' && payload.location && (
+        <span className="block text-blue-700">
+          {payload.from?.location ? (
+            <span className="block text-slate-600">
+              จาก: {payload.from.location} {payload.from.branch ? `(${payload.from.branch})` : ''}
+            </span>
+          ) : null}
+          ไป: {payload.location} {payload.branch ? `(${payload.branch})` : ''}
+          {payload.custodian ? ` · ผู้รับผิดชอบใหม่: ${payload.custodian}` : ''}
+        </span>
+      )}
+      {k === 'repair' && Number(payload.estimateSatang) > 0 && (
+        <span className="block text-amber-800">ค่าซ่อมประมาณ {baht(Number(payload.estimateSatang))}</span>
+      )}
+      {r.reason && <span className="block text-slate-600 line-clamp-2">เหตุผล: {r.reason}</span>}
     </div>
   );
 }
@@ -172,20 +123,28 @@ export default function RequestsView({
   data: WorkspaceData;
   open: (k: string, a?: Record<string, unknown>) => void;
 }) {
-  const [tab, setTab] = useState<TabKey>('all');
+  const requests = data.requests || [];
+  const assets = data.assets || [];
+  const approver = ['head', 'deputy', 'dean'].includes(data.me.role);
+  const canCreate = ['staff', 'admin'].includes(data.me.role);
+  const branchOf = (r: RequestRecord) => assets.find(a => a.id === r.assetId || a.code === r.code)?.branch;
+  const waitingMe = useMemo(
+    () => (approver ? pendingForUser(requests, data.me, assets) : []),
+    [approver, requests, data.me, assets],
+  );
+
+  const [tab, setTab] = useState<StatusTab>(() => (waitingMe.length ? 'mine' : 'all'));
+  const [kind, setKind] = useState<KindFilter>('all');
   const [search, setSearch] = useState('');
   const [viewingRequest, setViewingRequest] = useState<RequestRecord | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [pickerBranch, setPickerBranch] = useState<string>('all');
 
   // พิมพ์เอกสารอนุมัติของคำขอที่อนุมัติครบทุกขั้นแล้ว (เปิดหน้าต่างใหม่แล้วสั่งพิมพ์/บันทึกเป็น PDF)
   function printApprovalDocument(r: RequestRecord) {
     const asset = data.assets.find(a => a.id === r.assetId) ?? null;
-    let payload: Record<string, unknown> = {};
     let chain: string[] = [];
-    try {
-      payload = JSON.parse(r.payload || '{}');
-    } catch {
-      /* ใช้ค่าว่าง */
-    }
     try {
       chain = JSON.parse(r.chain || '[]');
     } catch {
@@ -198,7 +157,7 @@ export default function RequestsView({
       reason: r.reason,
       createdAt: r.createdAt,
       requesterName: r.requesterName || undefined,
-      payload,
+      payload: readPayload(r),
       chain,
       asset: asset
         ? {
@@ -232,500 +191,386 @@ export default function RequestsView({
     w.focus();
     setTimeout(() => w.print(), 300);
   }
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerSearch, setPickerSearch] = useState('');
-  const [pickerBranch, setPickerBranch] = useState<string>('all');
 
-  const requests = data.requests || [];
-  const assets = data.assets || [];
+  const count = (status: string) => requests.filter(r => r.status === status).length;
+  const statusTabs: { key: StatusTab; label: string; n: number }[] = [
+    ...(approver ? [{ key: 'mine' as StatusTab, label: 'รอฉันอนุมัติ', n: waitingMe.length }] : []),
+    { key: 'all', label: 'ทั้งหมด', n: requests.length },
+    { key: 'pending', label: 'รออนุมัติ', n: count('pending') },
+    { key: 'approved', label: 'อนุมัติแล้ว', n: count('approved') },
+    { key: 'rejected', label: 'ไม่อนุมัติ', n: count('rejected') },
+    ...(count('cancelled') ? [{ key: 'cancelled' as StatusTab, label: 'ยกเลิกแล้ว', n: count('cancelled') }] : []),
+  ];
 
-  // สถิติยอดรวมสำหรับ KPI Cards
-  const total = requests.length;
-  const pendingCount = requests.filter(r => r.status === 'pending').length;
-  const approvedCount = requests.filter(r => r.status === 'approved').length;
-  const rejectedCount = requests.filter(r => r.status === 'rejected').length;
-
-  const transferCount = requests.filter(r => r.kind === 'transfer').length;
-  const repairCount = requests.filter(r => r.kind === 'repair').length;
-  const disposeCount = requests.filter(r => r.kind === 'dispose' || r.kind === 'disposal').length;
-
-  // สาขาวิชาที่มีครุภัณฑ์พร้อมยื่นคำขอ
-  const pickerBranches = useMemo(() => {
-    const set = new Set<string>();
-    assets.forEach(a => {
-      if (a.lifecycle === 'active' && a.branch) {
-        set.add(a.branch.trim());
-      }
-    });
-    return Array.from(set).sort();
-  }, [assets]);
-
-  // กรองรายการตามแท็บ
   const filtered = useMemo(() => {
+    const mine = new Set(waitingMe.map(r => r.id));
+    const q = search.trim().toLowerCase();
     return requests.filter(r => {
-      if (tab === 'pending' && r.status !== 'pending') return false;
-      if (tab === 'transfer' && r.kind !== 'transfer') return false;
-      if (tab === 'repair' && r.kind !== 'repair') return false;
-      if (tab === 'dispose' && r.kind !== 'dispose' && r.kind !== 'disposal') return false;
-
-      if (search.trim()) {
-        const q = search.trim().toLowerCase();
+      if (tab === 'mine' && !mine.has(r.id)) return false;
+      if (tab !== 'mine' && tab !== 'all' && r.status !== tab) return false;
+      if (kind !== 'all' && kindOf(r) !== kind) return false;
+      if (q) {
         const asset = assets.find(a => a.id === r.assetId || a.code === r.code);
-        const text = [r.id, r.requestNo, r.code, r.name, r.reason, asset?.name, asset?.branch].join(' ').toLowerCase();
+        const text = [r.requestNo, r.code, r.name, r.reason, r.requesterName, asset?.name, asset?.branch]
+          .join(' ')
+          .toLowerCase();
         if (!text.includes(q)) return false;
       }
       return true;
     });
-  }, [requests, tab, search, assets]);
+  }, [requests, tab, kind, search, assets, waitingMe]);
 
-  // ครุภัณฑ์ที่สามารถยื่นคำขอได้
+  // สาขาที่มีครุภัณฑ์พร้อมยื่นคำขอ
+  const activeAssets = useMemo(() => assets.filter(a => a.lifecycle === 'active'), [assets]);
+  const pickerBranches = useMemo(
+    () => Array.from(new Set(activeAssets.map(a => a.branch?.trim()).filter(Boolean) as string[])).sort(),
+    [activeAssets],
+  );
   const pickableAssets = useMemo(() => {
-    return assets.filter(a => {
-      if (a.lifecycle !== 'active') return false;
+    const q = pickerSearch.toLowerCase().trim();
+    return activeAssets.filter(a => {
       if (pickerBranch !== 'all' && a.branch?.trim() !== pickerBranch) return false;
-      if (pickerSearch) {
-        const q = pickerSearch.toLowerCase().trim();
-        const searchPool = [a.code, a.name, a.branch, a.location, a.category].filter(Boolean).join(' ').toLowerCase();
-        return searchPool.includes(q);
-      }
+      if (q) return [a.code, a.name, a.branch, a.location, a.category].filter(Boolean).join(' ').toLowerCase().includes(q);
       return true;
     });
-  }, [assets, pickerSearch, pickerBranch]);
+  }, [activeAssets, pickerSearch, pickerBranch]);
+
+  // ปุ่มของแต่ละคำขอ: ผู้อนุมัติขั้นนี้ = อนุมัติ/ไม่อนุมัติ · ผู้ยื่นที่ยังรอ = ยกเลิกคำขอ
+  const actionsFor = (r: RequestRecord) => ({
+    decide: awaitsApprovalBy(r, data.me, branchOf(r)),
+    cancel: r.status === 'pending' && r.actor === data.me.id,
+  });
+  const decideButtons = (r: RequestRecord, big?: boolean) => (
+    <>
+      <Button
+        size="sm"
+        className={`${big ? 'h-11 flex-1 text-sm' : 'h-8 px-3 text-xs'} font-semibold bg-blue-600 hover:bg-blue-700 text-white`}
+        onClick={() => open('approve', { request: r })}
+      >
+        <Check size={14} className="mr-1" />
+        อนุมัติ
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className={`${big ? 'h-11 flex-1 text-sm' : 'h-8 px-3 text-xs'} font-semibold text-rose-700 hover:bg-rose-50 border-rose-300`}
+        onClick={() => open('reject', { request: r })}
+      >
+        ไม่อนุมัติ
+      </Button>
+    </>
+  );
+  const cancelButton = (r: RequestRecord, big?: boolean) => (
+    <Button
+      variant="outline"
+      size="sm"
+      className={`${big ? 'h-11 flex-1 text-sm' : 'h-8 px-3 text-xs'} text-slate-700 border-slate-300`}
+      onClick={() => open('cancelRequest', { request: r })}
+    >
+      ยกเลิกคำขอ
+    </Button>
+  );
 
   return (
     <>
-      {/* 📊 การ์ดสรุปสถิติ 4 ใบ (KPI Summary Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {/* 1. ทั้งหมด */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-            <ListFilter size={22} />
-          </div>
-          <div>
-            <span className="text-xs text-slate-500 block font-medium">คำขอทั้งหมดในระบบ</span>
-            <b className="text-xl font-bold text-slate-900">{total} รายการ</b>
-          </div>
-        </div>
-
-        {/* 2. รออนุมัติ */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
-            <Clock size={22} />
-          </div>
-          <div>
-            <span className="text-xs text-slate-500 block font-medium">อยู่ระหว่างการรออนุมัติ</span>
-            <b className="text-xl font-bold text-amber-600">{pendingCount} รายการ</b>
-          </div>
-        </div>
-
-        {/* 3. อนุมัติแล้ว */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <CheckCircle2 size={22} />
-          </div>
-          <div>
-            <span className="text-xs text-slate-500 block font-medium">อนุมัติเสร็จสิ้นแล้ว</span>
-            <b className="text-xl font-bold text-emerald-600">{approvedCount} รายการ</b>
-          </div>
-        </div>
-
-        {/* 4. ส่งกลับ */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-            <XCircle size={22} />
-          </div>
-          <div>
-            <span className="text-xs text-slate-500 block font-medium">ส่งกลับ (ไม่อนุมัติ)</span>
-            <b className="text-xl font-bold text-rose-600">{rejectedCount} รายการ</b>
-          </div>
-        </div>
-      </div>
-
-      {/* 🔘 แถบตัวกรองแท็บ (Filter Pills) + ปุ่มยื่นคำขอใหม่ */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {[
-            { key: 'all' as TabKey, label: `ทั้งหมด (${total})` },
-            { key: 'pending' as TabKey, label: `รออนุมัติ (${pendingCount})` },
-            { key: 'transfer' as TabKey, label: `โอนย้าย (${transferCount})` },
-            { key: 'repair' as TabKey, label: `ส่งซ่อม (${repairCount})` },
-            { key: 'dispose' as TabKey, label: `จำหน่าย (${disposeCount})` },
-          ].map(t => (
+      {/* ตัวกรอง: สถานะ (ปุ่ม) + ประเภท (ช่องเลือก) + ค้นหา · ปุ่มยื่นคำขอใหม่อยู่ขวาสุด */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="สถานะคำขอ">
+          {statusTabs.map(t => (
             <button
               key={t.key}
               type="button"
+              role="tab"
+              aria-selected={tab === t.key}
               onClick={() => setTab(t.key)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`min-h-9 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 tab === t.key
-                  ? 'bg-blue-600 text-white font-semibold shadow-sm border border-blue-600'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  ? 'bg-blue-600 text-white font-semibold border border-blue-600'
+                  : t.key === 'mine' && t.n > 0
+                    ? 'bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              {t.label}
+              {t.label} ({t.n})
             </button>
           ))}
         </div>
-
-        {/* ยื่นคำขอได้เฉพาะเจ้าหน้าที่/แอดมิน (ผู้อนุมัติกดแล้วจะถูกปฏิเสธว่าไม่มีสิทธิ์) */}
-        {['staff', 'admin'].includes(data.me.role) && (
+        {canCreate && (
           <Button
             type="button"
             onClick={() => setPickerOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg gap-2 shadow-sm text-xs"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 rounded-lg gap-2"
           >
             <Plus size={16} />
             ยื่นคำขอใหม่
           </Button>
         )}
       </div>
-
-      {/* 📋 ตารางรายการคำขอสไตล์พรีเมียม (Requests Table) */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        {filtered.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-slate-50 border-b border-slate-200">
-                <TableRow>
-                  <TableHead className="w-[140px] text-xs font-semibold text-slate-700">รหัสคำขอ / วันที่</TableHead>
-                  <TableHead className="w-[150px] text-xs font-semibold text-slate-700">ประเภทคำขอ</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-700 min-w-[240px]">
-                    รายการครุภัณฑ์ที่เกี่ยวข้อง
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-700 min-w-[180px]">
-                    ผู้ยื่นคำขอ / สังกัด
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-700 min-w-[260px]">
-                    ความคืบหน้าสายอนุมัติ
-                  </TableHead>
-                  <TableHead className="w-[140px] text-right text-xs font-semibold text-slate-700">จัดการ</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map(r => {
-                  const asset = assets.find(a => a.id === r.assetId || a.code === r.code);
-                  let payload: Record<string, any> = {};
-                  try {
-                    payload = JSON.parse(r.payload || '{}');
-                  } catch {
-                    payload = {};
-                  }
-
-                  const isApproverForThisStage = awaitsApprovalBy(r, data.me, asset?.branch);
-
-                  return (
-                    <TableRow key={r.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* รหัสคำขอ / วันที่ */}
-                      <TableCell className="align-top py-3.5">
-                        <div
-                          className="font-mono text-xs font-bold text-blue-600 tracking-tight select-all cursor-pointer"
-                          title={r.id}
-                        >
-                          {r.requestNo}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-                          <Calendar size={11} className="text-slate-400" />
-                          <span>{formatThaiDateTime(r.createdAt)}</span>
-                        </div>
-                      </TableCell>
-
-                      {/* ประเภทคำขอ */}
-                      <TableCell className="align-top py-3.5">
-                        <RequestKindBadge kind={r.kind} />
-                      </TableCell>
-
-                      {/* รายการครุภัณฑ์ที่เกี่ยวข้อง */}
-                      <TableCell className="align-top py-3.5">
-                        <div className="font-semibold text-slate-900 text-xs leading-snug line-clamp-2">
-                          {r.name || asset?.name || 'ครุภัณฑ์ตามทะเบียน'}
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-1">
-                          {payload.splitQuantity ? (
-                            <span className="block text-indigo-600">
-                              เฉพาะ {payload.splitQuantity} ชิ้น (แบ่งล็อตเมื่ออนุมัติ)
-                            </span>
-                          ) : null}
-                          {r.kind === 'transfer' && payload.location && (
-                            <span className="text-blue-600">
-                              {payload.from?.location ? (
-                                <span className="block text-slate-500">
-                                  จาก: {payload.from.location} {payload.from.branch ? `(${payload.from.branch})` : ''}
-                                </span>
-                              ) : null}
-                              ย้ายไป: {payload.location} {payload.branch ? `(${payload.branch})` : ''}
-                              {payload.custodian ? ` · ผู้รับผิดชอบใหม่: ${payload.custodian}` : ''}
-                            </span>
-                          )}
-                          {r.kind === 'repair' && (
-                            <span className="text-amber-600">
-                              {payload.estimateSatang
-                                ? `ประมาณการ: ฿${money(payload.estimateSatang)} บาท`
-                                : r.reason || 'ส่งซ่อมบำรุง'}
-                            </span>
-                          )}
-                          {(r.kind === 'dispose' || r.kind === 'disposal') && (
-                            <span className="text-rose-600">{r.reason || 'ขออนุมัติตัดจำหน่าย'}</span>
-                          )}
-                          {r.kind === 'borrow' && (
-                            <span className="text-emerald-600">{r.reason || 'ยืมใช้งานชั่วคราว'}</span>
-                          )}
-                        </div>
-                      </TableCell>
-
-                      {/* ผู้ยื่นคำขอ / สังกัด */}
-                      <TableCell className="align-top py-3.5">
-                        <div className="text-xs font-medium text-slate-800">
-                          {r.requesterName || (r.actor === data.me.id ? data.me.name : 'ไม่พบชื่อผู้ยื่น')}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
-                          <Building size={11} className="text-slate-400 shrink-0" />
-                          <span className="truncate max-w-[150px]">{asset?.branch || 'คณะวิศวกรรมศาสตร์'}</span>
-                        </div>
-                      </TableCell>
-
-                      {/* ความคืบหน้าสายอนุมัติ 3 ระดับ */}
-                      <TableCell className="align-top py-3.5">
-                        <ApprovalPipeline request={r} />
-                      </TableCell>
-
-                      {/* จัดการ (Actions) */}
-                      <TableCell className="align-top text-right py-3.5 whitespace-nowrap">
-                        {isApproverForThisStage ? (
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Button
-                              size="sm"
-                              className="h-7 px-2.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                              onClick={() => open('approve', { request: r })}
-                            >
-                              <Check size={12} className="mr-1" />
-                              พิจารณา
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs text-rose-600 hover:bg-rose-50 border-rose-200"
-                              onClick={() => open('reject', { request: r })}
-                              title="ส่งกลับคำขอ"
-                            >
-                              ส่งกลับ
-                            </Button>
-                          </div>
-                        ) : r.status === 'approved' ? (
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="badge approved">อนุมัติแล้ว ✓</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
-                              onClick={() => setViewingRequest(r)}
-                              title="ดูรายละเอียด"
-                            >
-                              <Eye size={13} />
-                            </Button>
-                          </div>
-                        ) : r.status === 'rejected' ? (
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="badge rejected">ไม่อนุมัติ ✗</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
-                              onClick={() => setViewingRequest(r)}
-                              title="ดูรายละเอียด"
-                            >
-                              <Eye size={13} />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50"
-                            onClick={() => setViewingRequest(r)}
-                          >
-                            <Eye size={13} className="mr-1" />
-                            ดูรายละเอียด
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <div className="py-12">
-            <Empty title={tab === 'all' ? 'ยังไม่มีคำขอในระบบ' : 'ไม่พบคำขอในหมวดนี้'}>
-              <p>สามารถกดยื่นคำขอโอนย้าย ส่งซ่อม หรือขอจำหน่ายได้ที่ปุ่ม “ยื่นคำขอใหม่”</p>
-            </Empty>
-          </div>
-        )}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="relative flex-[1_1_16rem] min-w-0">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="ค้นหาเลขที่คำขอ ชื่อ หรือหมายเลขครุภัณฑ์"
+            className="pl-9 h-10 bg-white"
+          />
+        </div>
+        <div className="w-full sm:w-48">
+          <Pick
+            label="ประเภทคำขอ"
+            value={kind}
+            onChange={v => setKind(v as KindFilter)}
+            options={[
+              ['all', 'ทุกประเภท'],
+              ['transfer', requestTypes.transfer],
+              ['repair', requestTypes.repair],
+              ['disposal', requestTypes.disposal],
+            ]}
+          />
+        </div>
       </div>
 
-      {/* 🔍 หน้าต่างเลือกครุภัณฑ์เพื่อยื่นคำขอใหม่ (Asset Picker Modal) */}
+      {filtered.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 py-12">
+          <Empty title={requests.length ? 'ไม่มีคำขอตามตัวกรองนี้' : 'ยังไม่มีคำขอ'}>
+            {tab === 'mine' ? (
+              <p>ตอนนี้ไม่มีคำขอที่รอคุณอนุมัติ</p>
+            ) : canCreate ? (
+              <p>ยื่นโอนย้าย ส่งซ่อม หรือจำหน่ายได้ที่ปุ่ม “ยื่นคำขอใหม่”</p>
+            ) : null}
+          </Empty>
+        </div>
+      ) : (
+        <>
+          {/* จอมือถือ: การ์ด ปุ่มอยู่ท้ายการ์ด กดได้ด้วยนิ้วโป้ง */}
+          <div className="md:hidden space-y-3">
+            {filtered.map(r => {
+              const payload = readPayload(r);
+              const can = actionsFor(r);
+              return (
+                <article key={r.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <KindBadge kind={r.kind} />
+                    <Badge value={r.status} />
+                  </div>
+                  <h3 className="mt-2 font-semibold text-slate-900 text-[15px] leading-snug">
+                    {r.name || 'ครุภัณฑ์ตามทะเบียน'}
+                  </h3>
+                  <p className="text-xs text-slate-600 font-mono mt-0.5 break-all">
+                    {r.requestNo} · {r.code}
+                  </p>
+                  <RequestSummary r={r} payload={payload} />
+                  <p className="text-xs text-slate-600 mt-2">
+                    {r.requesterName || 'ไม่พบชื่อผู้ยื่น'} · {thaiDateTime(r.createdAt)}
+                  </p>
+                  <div className="mt-2">
+                    <ApprovalPipeline request={r} />
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    {can.decide && decideButtons(r, true)}
+                    {can.cancel && cancelButton(r, true)}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-11 text-sm text-slate-700 ${can.decide || can.cancel ? 'px-3' : 'flex-1 border border-slate-200'}`}
+                      onClick={() => setViewingRequest(r)}
+                      aria-label="ดูรายละเอียด"
+                    >
+                      <Eye size={16} className={can.decide || can.cancel ? '' : 'mr-1.5'} />
+                      {can.decide || can.cancel ? null : 'ดูรายละเอียด'}
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          {/* จอกว้าง: ตาราง */}
+          <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-slate-50 border-b border-slate-200">
+                  <TableRow>
+                    <TableHead className="w-[150px] text-xs font-semibold text-slate-700">เลขที่ / วันที่</TableHead>
+                    <TableHead className="w-[96px] text-xs font-semibold text-slate-700">ประเภท</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-700 min-w-[220px]">ครุภัณฑ์</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-700 min-w-[160px]">ผู้ยื่น / สาขา</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-700 min-w-[320px]">สายอนุมัติ</TableHead>
+                    <TableHead className="w-[190px] text-right text-xs font-semibold text-slate-700">จัดการ</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map(r => {
+                    const payload = readPayload(r);
+                    const can = actionsFor(r);
+                    return (
+                      <TableRow key={r.id} className="hover:bg-slate-50/70">
+                        <TableCell className="align-top py-3.5">
+                          <div className="font-mono text-xs font-bold text-blue-700" title={r.id}>
+                            {r.requestNo}
+                          </div>
+                          <div className="text-xs text-slate-600 mt-1">{thaiDateTime(r.createdAt)}</div>
+                        </TableCell>
+                        <TableCell className="align-top py-3.5">
+                          <KindBadge kind={r.kind} />
+                        </TableCell>
+                        <TableCell className="align-top py-3.5">
+                          <div className="font-semibold text-slate-900 text-sm leading-snug line-clamp-2">
+                            {r.name || 'ครุภัณฑ์ตามทะเบียน'}
+                          </div>
+                          <div className="font-mono text-xs text-slate-600">{r.code}</div>
+                          <RequestSummary r={r} payload={payload} />
+                        </TableCell>
+                        <TableCell className="align-top py-3.5">
+                          <div className="text-sm text-slate-800">{r.requesterName || 'ไม่พบชื่อผู้ยื่น'}</div>
+                          <div className="text-xs text-slate-600 mt-0.5 flex items-center gap-1">
+                            <Building size={12} className="shrink-0" />
+                            <span className="truncate max-w-[170px]">{branchOf(r) || '—'}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="align-top py-3.5">
+                          <ApprovalPipeline request={r} oneLine />
+                          {r.status !== 'pending' && (
+                            <div className="mt-1.5">
+                              <Badge value={r.status} />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="align-top text-right py-3.5">
+                          <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                            {can.decide && decideButtons(r)}
+                            {can.cancel && cancelButton(r)}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs text-slate-700 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => setViewingRequest(r)}
+                              title="ดูรายละเอียด"
+                            >
+                              <Eye size={14} className={can.decide || can.cancel ? '' : 'mr-1'} />
+                              {can.decide || can.cancel ? null : 'ดูรายละเอียด'}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* หน้าต่างเลือกครุภัณฑ์เพื่อยื่นคำขอใหม่ */}
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogContent className="sm:max-w-3xl p-0 gap-0 overflow-hidden rounded-2xl border border-slate-200 shadow-2xl bg-white flex flex-col max-h-[88vh]">
-          {/* Header */}
-          <div className="p-6 pb-4 border-b border-slate-100 bg-gradient-to-b from-slate-50/80 to-white">
-            <div className="flex items-center gap-3.5 pr-8">
-              <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 border border-blue-200/60 shadow-xs">
-                <Package size={22} className="stroke-[1.8]" />
+        <DialogContent className="sm:max-w-3xl p-0 gap-0 overflow-hidden rounded-2xl border border-slate-200 shadow-2xl bg-white flex flex-col max-h-[90dvh]">
+          <div className="p-5 pb-4 border-b border-slate-100 bg-slate-50/60">
+            <div className="flex items-center gap-3 pr-8">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                <Package size={20} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <DialogTitle className="text-lg font-bold text-slate-900 tracking-tight">
-                    เลือกครุภัณฑ์ที่ต้องการยื่นคำขอ
-                  </DialogTitle>
-                  <span className="text-[11.5px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200">
-                    พร้อมใช้งาน {pickableAssets.length} รายการ
-                  </span>
-                </div>
-                <DialogDescription className="text-xs text-slate-500 mt-1">
-                  เลือกรายการครุภัณฑ์จากทะเบียนเพื่อดำเนินการโอนย้ายสถานที่, ส่งซ่อม หรือขอตัดจำหน่าย
+                <DialogTitle className="text-lg font-bold text-slate-900">เลือกครุภัณฑ์ที่จะยื่นคำขอ</DialogTitle>
+                <DialogDescription className="text-sm text-slate-600 mt-0.5">
+                  โอนย้าย ส่งซ่อม หรือจำหน่าย · {pickableAssets.length.toLocaleString('th-TH')} รายการ
                 </DialogDescription>
               </div>
             </div>
           </div>
 
-          {/* Search Bar & Branch Filters */}
-          <div className="px-6 py-3.5 bg-white border-b border-slate-100 space-y-3">
+          <div className="px-5 py-3 border-b border-slate-100 space-y-3">
             <div className="relative">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <Input
                 value={pickerSearch}
                 onChange={e => setPickerSearch(e.target.value)}
-                placeholder="ค้นหาชื่อครุภัณฑ์, หมายเลขครุภัณฑ์ หรือสถานที่จัดเก็บ..."
-                className="pl-10 pr-9 text-xs h-10 rounded-xl bg-slate-50/70 border-slate-200 focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-400"
+                placeholder="ค้นหาชื่อ หมายเลขครุภัณฑ์ หรือสถานที่"
+                className="pl-9 pr-9 h-10 rounded-xl bg-slate-50/70"
               />
               {pickerSearch && (
                 <button
                   type="button"
                   onClick={() => setPickerSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200/60 transition-colors"
+                  aria-label="ล้างคำค้นหา"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-200/60"
                 >
                   <X size={14} />
                 </button>
               )}
             </div>
-
-            {/* Quick Branch Filter Pills */}
             {pickerBranches.length > 1 && (
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-                <span className="text-[11px] text-slate-400 font-medium shrink-0 flex items-center gap-1 mr-1">
-                  <Filter size={12} /> สาขาวิชา:
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                <span className="text-xs text-slate-600 font-medium shrink-0 flex items-center gap-1 mr-1">
+                  <Filter size={12} /> สาขา:
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setPickerBranch('all')}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all shrink-0 ${
-                    pickerBranch === 'all'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
-                  }`}
-                >
-                  ทั้งหมด ({assets.filter(a => a.lifecycle === 'active').length})
-                </button>
-                {pickerBranches.map(branch => {
-                  const count = assets.filter(a => a.lifecycle === 'active' && a.branch?.trim() === branch).length;
-                  return (
+                {[['all', `ทั้งหมด (${activeAssets.length})`] as const, ...pickerBranches.map(b => [b, b] as const)].map(
+                  ([key, label]) => (
                     <button
                       type="button"
-                      key={branch}
-                      onClick={() => setPickerBranch(branch)}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all shrink-0 ${
-                        pickerBranch === branch
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
+                      key={key}
+                      onClick={() => setPickerBranch(key)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 ${
+                        pickerBranch === key ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80'
                       }`}
                     >
-                      {branch} ({count})
+                      {label}
                     </button>
-                  );
-                })}
+                  ),
+                )}
               </div>
             )}
           </div>
 
-          {/* List of Assets */}
-          <div className="overflow-y-auto max-h-[380px] p-5 space-y-2.5 bg-slate-50/40">
+          <div className="overflow-y-auto flex-1 min-h-0 p-4 space-y-2 bg-slate-50/40">
             {pickableAssets.map(a => (
-              <div
+              <button
+                type="button"
                 key={a.id}
                 onClick={() => {
                   setPickerOpen(false);
                   open('request', { asset: a });
                 }}
-                className="group relative p-3.5 bg-white hover:bg-blue-50/30 rounded-xl border border-slate-200/90 hover:border-blue-400 hover:shadow-sm cursor-pointer transition-all flex items-center justify-between gap-4"
+                className="group w-full text-left p-3 bg-white hover:bg-blue-50/40 rounded-xl border border-slate-200 hover:border-blue-400 transition-colors flex items-center justify-between gap-3"
               >
-                <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                  {/* Thumbnail / Category Icon */}
-                  <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center shrink-0 overflow-hidden text-slate-500 group-hover:bg-blue-100/60 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden text-slate-500">
                     {a.imageUrl ? (
-                      <img src={a.imageUrl} alt={a.name} className="w-full h-full object-cover" />
+                      <img src={a.imageUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <Package size={22} className="stroke-[1.75]" />
+                      <Package size={20} />
                     )}
                   </div>
-
-                  {/* Asset Details */}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="font-semibold text-sm text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
-                        {a.name}
-                      </span>
-                      <AssetConditionBadge condition={a.condition} />
-                      {a.category && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-medium bg-slate-100 text-slate-600 border border-slate-200/50">
-                          {a.category}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-slate-900 line-clamp-1">{a.name}</span>
+                      <Badge value={a.condition} />
                     </div>
-
-                    <div className="flex items-center gap-2.5 text-xs text-slate-500 flex-wrap">
-                      <span className="font-mono text-[11.5px] font-semibold text-slate-700 bg-slate-100/90 px-1.5 py-0.5 rounded border border-slate-200">
-                        {a.code}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-slate-600">
-                        <Building size={12} className="text-slate-400 shrink-0" />
-                        <span>{a.branch}</span>
+                    <div className="flex items-center gap-x-2.5 gap-y-0.5 text-xs text-slate-600 flex-wrap mt-0.5">
+                      <span className="font-mono font-semibold text-slate-700 break-all">{a.code}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Building size={12} className="shrink-0" />
+                        {a.branch}
                       </span>
                       {a.location && (
-                        <span className="inline-flex items-center gap-1 text-slate-500">
-                          <MapPin size={12} className="text-slate-400 shrink-0" />
-                          <span>{a.location}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin size={12} className="shrink-0" />
+                          {a.location}
                         </span>
                       )}
-                      {a.unitSatang ? (
-                        <span className="text-[11px] text-slate-400 font-mono">มูลค่า {money(a.unitSatang)}</span>
-                      ) : null}
                     </div>
                   </div>
                 </div>
-
-                {/* Select Action Button */}
-                <div className="shrink-0 flex items-center">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 px-3 text-xs font-semibold text-blue-600 border-blue-200 bg-blue-50/40 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all rounded-lg flex items-center gap-1.5 shadow-none"
-                  >
-                    เลือก
-                    <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
-                  </Button>
-                </div>
-              </div>
+                <span className="shrink-0 inline-flex items-center gap-1 text-sm font-semibold text-blue-700">
+                  เลือก
+                  <ArrowRight size={14} />
+                </span>
+              </button>
             ))}
-
-            {/* Empty State */}
             {pickableAssets.length === 0 && (
-              <div className="py-12 px-4 text-center bg-white rounded-xl border border-dashed border-slate-200">
-                <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
-                  <Search size={20} />
-                </div>
-                <p className="text-sm font-semibold text-slate-700">ไม่พบครุภัณฑ์ที่ตรงกับเงื่อนไข</p>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                  ลองเปลี่ยนคำค้นหา หรือกดล้างตัวกรองเพื่อค้นหาจากรายการทั้งหมด
-                </p>
+              <div className="py-10 px-4 text-center bg-white rounded-xl border border-dashed border-slate-200">
+                <p className="text-sm font-semibold text-slate-700">ไม่พบครุภัณฑ์ที่ตรงกับที่ค้นหา</p>
                 {(pickerSearch || pickerBranch !== 'all') && (
                   <Button
                     variant="outline"
@@ -734,146 +579,127 @@ export default function RequestsView({
                       setPickerSearch('');
                       setPickerBranch('all');
                     }}
-                    className="mt-3.5 h-8 text-xs text-blue-600 border-blue-200 rounded-lg hover:bg-blue-50"
+                    className="mt-3 h-9 text-sm text-blue-700 border-blue-200"
                   >
-                    <RotateCcw size={12} className="mr-1.5" />
-                    ล้างการค้นหาและตัวกรอง
+                    <RotateCcw size={13} className="mr-1.5" />
+                    ล้างการค้นหา
                   </Button>
                 )}
               </div>
             )}
           </div>
 
-          {/* Footer */}
-          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span className="flex items-center gap-1.5 font-medium">
-              <CheckCircle2 size={14} className="text-emerald-500" />
-              แสดง <b className="text-slate-800">{pickableAssets.length}</b> จากทั้งหมด{' '}
-              {assets.filter(a => a.lifecycle === 'active').length} รายการที่พร้อมยื่นคำขอ
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setPickerOpen(false)}
-              className="h-8 text-xs text-slate-600 hover:text-slate-900 rounded-lg"
-            >
-              ปิดหน้าต่าง
+          <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end">
+            <Button variant="outline" onClick={() => setPickerOpen(false)}>
+              ปิด
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* 📄 หน้าต่างดูรายละเอียดและบันทึกการอนุมัติ (Request Details Modal) */}
-      <Dialog open={!!viewingRequest} onOpenChange={open => !open && setViewingRequest(null)}>
+      {/* หน้าต่างรายละเอียดคำขอ: ผลการพิจารณาแต่ละขั้น และปุ่มที่ผู้ใช้คนนี้กดได้ */}
+      <Dialog open={!!viewingRequest} onOpenChange={o => !o && setViewingRequest(null)}>
         {viewingRequest && (
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
-              <div className="flex items-center gap-2 mb-1">
-                <RequestKindBadge kind={viewingRequest.kind} />
-                <span className="font-mono text-xs font-bold text-slate-500">{viewingRequest.requestNo}</span>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <KindBadge kind={viewingRequest.kind} />
+                <Badge value={viewingRequest.status} />
+                <span className="font-mono text-xs font-bold text-slate-600">{viewingRequest.requestNo}</span>
               </div>
               <DialogTitle className="text-base font-bold text-slate-900">{viewingRequest.name}</DialogTitle>
-              <DialogDescription className="text-xs text-slate-500 font-mono">
+              <DialogDescription className="text-xs text-slate-600 font-mono break-all">
                 หมายเลขครุภัณฑ์: {viewingRequest.code}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 my-2 text-xs">
+            <div className="space-y-4 my-2 text-sm">
               {(() => {
-                let p: Record<string, any> = {};
-                try {
-                  p = JSON.parse(viewingRequest.payload || '{}');
-                } catch {}
-
+                const p = readPayload(viewingRequest);
+                const row = (label: string, value: React.ReactNode, cls = 'text-slate-800') => (
+                  <div className="flex justify-between items-start gap-3 pt-1.5 border-t border-slate-200/70 first:border-0 first:pt-0">
+                    <span className="text-slate-600 shrink-0">{label}</span>
+                    <span className={`font-medium text-right ${cls}`}>{value}</span>
+                  </div>
+                );
                 return (
                   <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 space-y-2">
-                    <div className="flex justify-between items-start gap-2">
-                      <span className="text-slate-500 shrink-0">เหตุผลที่ระบุ:</span>
-                      <span className="font-medium text-slate-800 text-right">{viewingRequest.reason || '—'}</span>
-                    </div>
-
-                    {viewingRequest.kind === 'transfer' && p.from?.location && (
-                      <div className="flex justify-between items-start gap-2 pt-1.5 border-t border-slate-200/70">
-                        <span className="text-slate-500 shrink-0">สถานที่ต้นทาง:</span>
-                        <span className="font-semibold text-slate-700 text-right">
-                          {p.from.location} {p.from.branch ? `(${p.from.branch})` : ''}
-                        </span>
-                      </div>
-                    )}
-
-                    {viewingRequest.kind === 'transfer' && (p.location || p.branch) && (
-                      <div className="flex justify-between items-start gap-2 pt-1.5 border-t border-slate-200/70">
-                        <span className="text-slate-500 shrink-0">สถานที่ปลายทาง:</span>
-                        <span className="font-semibold text-blue-700 text-right">
-                          {p.location || '—'} {p.branch ? `(${p.branch})` : ''}
-                        </span>
-                      </div>
-                    )}
-
-                    {viewingRequest.kind === 'repair' && p.estimateSatang !== undefined && (
-                      <div className="flex justify-between items-center gap-2 pt-1.5 border-t border-slate-200/70">
-                        <span className="text-slate-500 shrink-0">ประมาณการค่าซ่อม:</span>
-                        <span className="font-bold text-amber-700 text-right">฿{money(p.estimateSatang)} บาท</span>
-                      </div>
-                    )}
-
-                    <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/70">
-                      <span className="text-slate-500">วันที่ยื่นคำขอ:</span>
-                      <span className="font-medium text-slate-800">{formatThaiDateTime(viewingRequest.createdAt)}</span>
-                    </div>
+                    {row('เหตุผล', viewingRequest.reason || '—')}
+                    {kindOf(viewingRequest) === 'transfer' &&
+                      p.from?.location &&
+                      row('จาก', `${p.from.location} ${p.from.branch ? `(${p.from.branch})` : ''}`)}
+                    {kindOf(viewingRequest) === 'transfer' &&
+                      (p.location || p.branch) &&
+                      row('ไป', `${p.location || '—'} ${p.branch ? `(${p.branch})` : ''}`, 'text-blue-800')}
+                    {kindOf(viewingRequest) === 'repair' &&
+                      p.estimateSatang !== undefined &&
+                      row('ค่าซ่อมประมาณ', baht(Number(p.estimateSatang) || 0), 'text-amber-800')}
+                    {row('ผู้ยื่น', viewingRequest.requesterName || '—')}
+                    {row('วันที่ยื่น', thaiDateTime(viewingRequest.createdAt))}
                   </div>
                 );
               })()}
 
               <div>
-                <h4 className="font-semibold text-slate-800 mb-2">สายการอนุมัติ:</h4>
-                <div className="bg-white p-3 rounded-lg border border-slate-200">
-                  <ApprovalPipeline request={viewingRequest} />
-                </div>
+                <h4 className="font-semibold text-slate-800 mb-2">สายอนุมัติ</h4>
+                <ApprovalPipeline request={viewingRequest} />
               </div>
 
               <div>
-                <h4 className="font-semibold text-slate-800 mb-2">บันทึกการลงนามและหมายเหตุ:</h4>
+                <h4 className="font-semibold text-slate-800 mb-2">ผลการพิจารณาแต่ละขั้น</h4>
                 {data.approvals.filter(a => a.requestId === viewingRequest.id).length > 0 ? (
                   <div className="space-y-2">
                     {data.approvals
                       .filter(a => a.requestId === viewingRequest.id)
                       .map(a => (
                         <div key={a.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2">
                             <span className="font-semibold text-slate-800 flex items-center gap-1">
-                              <UserCheck size={12} className="text-blue-600" />
+                              <UserCheck size={13} className="text-blue-600" />
                               {a.actorName || a.actor}
                             </span>
                             <span
-                              className={`text-[11px] font-bold ${
-                                a.decision === 'approve' ? 'text-emerald-600' : 'text-rose-600'
-                              }`}
+                              className={`text-xs font-bold ${a.decision === 'approve' ? 'text-emerald-700' : 'text-rose-700'}`}
                             >
-                              {a.decision === 'approve' ? 'อนุมัติเรียบร้อย' : 'ไม่อนุมัติ (คำขอสิ้นสุด)'}
+                              {a.decision === 'approve' ? 'อนุมัติ' : 'ไม่อนุมัติ'}
                             </span>
                           </div>
-                          {a.note && <p className="text-slate-600 mt-1">{a.note}</p>}
-                          <div className="text-[10px] text-slate-400 mt-1">{formatThaiDateTime(a.createdAt)}</div>
+                          {a.note && <p className="text-slate-700 mt-1">{a.note}</p>}
+                          <div className="text-xs text-slate-600 mt-1">{thaiDateTime(a.createdAt)}</div>
                         </div>
                       ))}
                   </div>
                 ) : (
-                  <p className="text-slate-400 italic">ยังไม่มีบันทึกการลงนาม อยู่ระหว่างรอการตรวจสอบ</p>
+                  <p className="text-slate-600">ยังไม่มีผู้พิจารณา</p>
+                )}
+                {viewingRequest.status === 'cancelled' && (
+                  <p className="mt-2 text-slate-600">ผู้ยื่นยกเลิกคำขอนี้แล้ว ทะเบียนไม่เปลี่ยน</p>
                 )}
               </div>
             </div>
-            {viewingRequest.status === 'approved' && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full h-9 text-xs font-bold cursor-pointer"
-                onClick={() => printApprovalDocument(viewingRequest)}
-              >
-                <Printer size={14} className="mr-1.5" /> พิมพ์เอกสารอนุมัติ
-              </Button>
-            )}
+            {(() => {
+              const can = actionsFor(viewingRequest);
+              const r = viewingRequest;
+              return (
+                <div className="flex flex-col sm:flex-row gap-2">
+                  {can.decide && (
+                    <div className="flex gap-2 flex-1" onClick={() => setViewingRequest(null)}>
+                      {decideButtons(r, true)}
+                    </div>
+                  )}
+                  {can.cancel && (
+                    <div className="flex flex-1" onClick={() => setViewingRequest(null)}>
+                      {cancelButton(r, true)}
+                    </div>
+                  )}
+                  {r.status === 'approved' && (
+                    <Button type="button" variant="outline" className="h-11 flex-1" onClick={() => printApprovalDocument(r)}>
+                      <Printer size={15} className="mr-1.5" /> พิมพ์เอกสารอนุมัติ
+                    </Button>
+                  )}
+                </div>
+              );
+            })()}
           </DialogContent>
         )}
       </Dialog>

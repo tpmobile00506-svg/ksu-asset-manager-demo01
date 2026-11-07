@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { thaiDateOnly } from '../contracts/domain';
+import { thaiDateOnly, thaiDateTime } from '../contracts/domain';
 
 // ค่าคาดหวังกำหนดมือ: ปี พ.ศ. = ปี ค.ศ. + 543, เดือนตามตัวย่อราชการ
 
@@ -17,4 +17,13 @@ test('ค่าที่ไม่ใช่วันที่จริงคื�
   assert.equal(thaiDateOnly(''), '');
   assert.equal(thaiDateOnly('2024-02-31'), '2024-02-31');
   assert.equal(thaiDateOnly('1/10/2026'), '1/10/2026');
+});
+
+// สร้างวันที่ด้วยเวลาเครื่อง จึงได้ผลเดียวกันทุกเขตเวลา: 31 ก.ค. 2026 07:05 → ปี 2026 + 543 = 2569
+test('เวลาที่บันทึก: 31 ก.ค. 2569 07:05 น. · ไม่เอาเวลา: 31 ก.ค. 2569 · ค่าเสียคืนข้อความเดิม', () => {
+  const t = new Date(2026, 6, 31, 7, 5);
+  assert.equal(thaiDateTime(t), '31 ก.ค. 2569 07:05 น.');
+  assert.equal(thaiDateTime(t, false), '31 ก.ค. 2569');
+  assert.equal(thaiDateTime(new Date(2024, 1, 29, 23, 59)), '29 ก.พ. 2567 23:59 น.');
+  assert.equal(thaiDateTime('ไม่ใช่วันที่'), 'ไม่ใช่วันที่');
 });

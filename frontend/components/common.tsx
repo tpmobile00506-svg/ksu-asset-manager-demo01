@@ -4,20 +4,23 @@ import { ClipboardList, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/pagination';
-import { conditions } from '@/shared/domain';
+import { conditions, money, thaiDateTime } from '@/shared/domain';
 export type Any = Record<string, any>;
-export const date = (s: string) => new Date(s).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+export const date = (s: string) => thaiDateTime(s);
+// เงินแบบเดียวทั้งระบบ: 1,250.00 บาท (เลิกใช้ ฿ นำหน้า) · ในตารางที่หัวคอลัมน์บอก (บาท) แล้วใช้ money() ตรง ๆ
+export const baht = (satang: number) => `${money(satang)} บาท`;
 export const statusLabel = (s: string) =>
   (
     ({
       ...conditions,
       active: 'ใช้งาน',
-      split: 'แบ่งรายการแล้ว',
+      split: 'แยกรายการแล้ว',
       disposed: 'จำหน่ายแล้ว',
       voided: 'ข้อมูลผิดพลาด',
       pending: 'รออนุมัติ',
       approved: 'อนุมัติแล้ว',
-      rejected: 'ส่งกลับ',
+      rejected: 'ไม่อนุมัติ',
+      cancelled: 'ยกเลิกแล้ว',
       mismatch: 'ข้อมูลไม่ตรง',
       open: 'เปิดตรวจนับ',
       closed: 'ปิดรอบแล้ว',

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, Bell, CheckCircle2, ClipboardCheck, Clock, TriangleAlert, Wrench, X } from 'lucide-react';
-import { awaitsApprovalBy, type Asset } from '@/shared/domain';
+import { pendingForUser, requestTypes } from '@/shared/domain';
 import type { Any } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/frontend/types/models';
 import { formatImportDate } from '@/frontend/utils/relative-date';
@@ -31,9 +31,7 @@ export function NotificationBell({ data, onGo }: { data: WorkspaceData; onGo: (v
     };
   }, [notifOpen]);
   const approver = ['head', 'deputy', 'dean'].includes(data.me.role);
-  const awaitsMe = (r: WorkspaceData['requests'][number]) =>
-    awaitsApprovalBy(r, data.me, data.assets.find((a: Asset) => a.id === r.assetId)?.branch);
-  const pendingRequests = data.requests?.filter(r => r.status === 'pending' && (!approver || awaitsMe(r))) || [];
+  const pendingRequests = pendingForUser(data.requests || [], data.me, data.assets || []);
   const openRounds = approver ? [] : data.rounds?.filter((r: Any) => r.status === 'open') || [];
   const totalNotifications = pendingRequests.length + openRounds.length;
   const go = (view: string) => {
@@ -113,18 +111,15 @@ export function NotificationBell({ data, onGo }: { data: WorkspaceData; onGo: (v
                 {pendingRequests.length > 0 && (
                   <div className="p-2">
                     <div className="px-2 py-1 text-[11px] font-bold text-slate-600 flex items-center justify-between">
-                      <span>คำขอที่รอการดำเนินการ ({pendingRequests.length})</span>
+                      <span>
+                        {approver ? 'รอคุณอนุมัติ' : 'คำขอที่รออนุมัติ'} ({pendingRequests.length})
+                      </span>
                     </div>
                     <div className="space-y-1 mt-1">
                       {pendingRequests.slice(0, 5).map((r: Any) => {
                         const kindLabel =
-                          r.kind === 'transfer'
-                            ? 'คำขอโอนย้าย'
-                            : r.kind === 'repair'
-                              ? 'แจ้งส่งซ่อม'
-                              : r.kind === 'dispose' || r.kind === 'disposal'
-                                ? 'ขอจำหน่าย'
-                                : 'คำขอ';
+                          requestTypes[(r.kind === 'dispose' ? 'disposal' : r.kind) as keyof typeof requestTypes] ??
+                          'คำขอ';
                         const IconComp =
                           r.kind === 'transfer' ? ArrowLeftRight : r.kind === 'repair' ? Wrench : TriangleAlert;
                         const badgeColor =
@@ -163,7 +158,7 @@ export function NotificationBell({ data, onGo }: { data: WorkspaceData; onGo: (v
                                 </p>
                                 <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
                                   <span className="truncate max-w-[180px]">
-                                    {r.reason ? `เหตุผล: ${r.reason}` : 'รอการพิจารณา'}
+                                    {r.reason ? `เหตุผล: ${r.reason}` : 'รออนุมัติ'}
                                   </span>
                                   <span className="shrink-0 flex items-center gap-1">
                                     <Clock size={10} />

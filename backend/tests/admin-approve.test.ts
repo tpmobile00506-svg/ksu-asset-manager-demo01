@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mutate } from '../services/asset-mutations';
-import { ADMIN_APPROVES_ALL, awaitsApprovalBy } from '../contracts/domain';
+import { ADMIN_APPROVES_ALL, awaitsApprovalBy, pendingForUser } from '../contracts/domain';
 import type { Member } from '../auth/sessions';
 import { installMemoryDatabase } from './helpers/memory-db';
 
@@ -198,3 +198,24 @@ test(
     );
   },
 );
+
+// ค่าคาดหวังเขียนมือ: คำขอรอ 3 รายการ (r1 ขั้นหัวหน้า สาขา วค, r2 ขั้นหัวหน้า สาขา วฟ, r3 ขั้นคณบดี) + อนุมัติแล้ว 1 รายการ (r4)
+test('pendingForUser: เมนู กระดิ่ง และแท็บนับตรงกัน · หัวหน้า วค = 1, คณบดี = 1, เจ้าหน้าที่ = 3 (ทุกคำขอที่รอ)', () => {
+  const chain = JSON.stringify(['head', 'deputy', 'dean']);
+  const rows = [
+    { id: 'r1', status: 'pending', chain, stage: 0, actor: 'staff-1', assetId: 'a-com' },
+    { id: 'r2', status: 'pending', chain, stage: 0, actor: 'staff-1', assetId: 'a-elec' },
+    { id: 'r3', status: 'pending', chain, stage: 2, actor: 'staff-1', assetId: 'a-com' },
+    { id: 'r4', status: 'approved', chain, stage: 3, actor: 'staff-1', assetId: 'a-com' },
+  ];
+  const assetsOf = [
+    { id: 'a-com', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)' },
+    { id: 'a-elec', branch: 'วิศวกรรมไฟฟ้า (วฟ)' },
+  ];
+  const ids = (me: { id: string; role: string; branch?: string | null }) =>
+    pendingForUser(rows, me, assetsOf).map(r => r.id);
+  assert.deepEqual(ids({ id: 'h', role: 'head', branch: 'วิศวกรรมคอมพิวเตอร์ (วค)' }), ['r1']);
+  assert.deepEqual(ids({ id: 'd', role: 'dean' }), ['r3']);
+  assert.deepEqual(ids({ id: 'dp', role: 'deputy' }), []);
+  assert.deepEqual(ids({ id: 's', role: 'staff' }), ['r1', 'r2', 'r3']);
+});

@@ -42,3 +42,12 @@ export function thaiDateOnly(iso: string): string {
   if (!start) return iso;
   return `${start.getUTCDate()} ${thaiMonthsShort[start.getUTCMonth()]} ${start.getUTCFullYear() + 543}`;
 }
+// เวลาที่บันทึก (timestamp) -> "31 ก.ค. 2569 07:05 น." ตามเวลาเครื่องผู้ใช้ · withTime=false ได้แค่วันที่
+// ใช้แทนรูปแบบเดิม 4 แบบที่ปนกัน (ปี 2 หลัก, ชื่อเดือนเต็ม, รูปแบบของเบราว์เซอร์)
+export function thaiDateTime(value: string | Date, withTime = true): string {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return typeof value === 'string' ? value : '';
+  const day = `${d.getDate()} ${thaiMonthsShort[d.getMonth()]} ${d.getFullYear() + 543}`;
+  if (!withTime) return day;
+  return `${day} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} น.`;
+}

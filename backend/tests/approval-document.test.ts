@@ -31,7 +31,7 @@ const count = (text: string, part: string) => text.split(part).length - 1;
 
 test('เอกสารจำหน่าย: แสดงประเภท เลขที่คำขอ มูลค่า และเหตุผล', () => {
   const html = buildApprovalDocumentHtml(base);
-  assert.ok(html.includes('เอกสารอนุมัติจำหน่าย / ตัดบัญชีครุภัณฑ์'));
+  assert.ok(html.includes('เอกสารอนุมัติจำหน่ายครุภัณฑ์'));
   assert.ok(html.includes('REQ-2569-0001'));
   assert.ok(html.includes('50 ชิ้น · 62,500.00 บาท')); // 6,250,000 สตางค์ ÷ 100 = 62,500.00 บาท
   assert.ok(html.includes('ชำรุดเกินซ่อม ไม่คุ้มค่า'));
@@ -40,8 +40,9 @@ test('เอกสารจำหน่าย: แสดงประเภท �
 test('ช่องลงนามเท่ากับจำนวนขั้นในสายอนุมัติ (3 ขั้น = 3 ช่อง)', () => {
   const html = buildApprovalDocumentHtml(base);
   assert.equal(count(html, 'ลงชื่อ ....'), 3);
-  assert.ok(html.includes('1. หัวหน้าสาขา (Head)'));
-  assert.ok(html.includes('3. คณบดี (Dean)'));
+  assert.ok(html.includes('1. หัวหน้าสาขา'));
+  assert.ok(!html.includes('(Head)'));
+  assert.ok(html.includes('3. คณบดี'));
 });
 
 test('ขั้นที่ยังไม่อนุมัติแสดง "รอดำเนินการ" ส่วนขั้นที่อนุมัติแล้วแสดงชื่อผู้ลงนามและหมายเหตุ', () => {
