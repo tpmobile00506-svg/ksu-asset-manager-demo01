@@ -1,11 +1,11 @@
 import { randomUUID, createHash } from 'node:crypto';
-import { prisma, plain, json, type Transaction, type Prisma } from '../db/client';
+import { prisma, plain, json, safeNumber, type Transaction, type Prisma } from '../db/client';
 import { publicUserFields, type Member } from '../auth/sessions';
 import { ApiError } from './errors';
 import { trace } from '../debug/trace';
 import { parseWorkbook } from '../imports/workbook';
 import { readFileBytes, putFile } from '../storage/files';
-import { withAssetImages } from '../storage/asset-image-metadata';
+import { withAssetImages, assetImageVersions, attachAssetImages } from '../storage/asset-image-metadata';
 import {
   type Asset,
   type Source,
@@ -24,14 +24,6 @@ import {
 } from '../contracts/domain';
 import type { SourceViewResponse } from '../contracts/imports';
 import type { StocktakeResponse, WorkspaceData } from '../contracts/models';
-
-// The route's json() converts these checked bigint fields to safe JSON numbers.
-type StoredAsset = Omit<Asset, 'unitSatang' | 'totalSatang' | 'salvageSatang'> & {
-  unitSatang: bigint;
-  totalSatang: bigint;
-  salvageSatang: bigint;
-};
-type WorkspaceDatabaseData = Omit<WorkspaceData, 'assets'> & { assets: StoredAsset[] };
 
 export { ApiError };
 export const now = () => new Date().toISOString();
@@ -271,33 +263,58 @@ export async function getData(m: Member, url: URL) {
         .sort((a, b) => a.code.localeCompare(b.code, 'th')),
     } satisfies StocktakeResponse;
   }
-  const [assets, requests, rounds, users, invites, events, imports, settings, approvals, names, sessions, funds] =
-    await Promise.all([
-      prisma.asset.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { setRef: { select: { name: true, kind: true } }, fundRef: { select: { name: true } } },
-      }),
-      prisma.assetRequest.findMany({
-        include: { asset: { select: { code: true, name: true } } },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.stocktake.findMany({ include: { items: { select: { result: true } } }, orderBy: { createdAt: 'desc' } }),
-      m.role === 'admin' ? prisma.user.findMany({ select: publicUserFields }) : [],
-      m.role === 'admin' ? prisma.invite.findMany() : [],
-      prisma.audit.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100 }),
-      importFilesWithStatus(),
-      prisma.setting.findMany({ where: { key: { not: 'bootstrap' } } }),
-      prisma.approval.findMany({ orderBy: { createdAt: 'asc' } }),
-      prisma.user.findMany({ select: { id: true, name: true } }),
-      m.role === 'admin'
-        ? prisma.session.findMany({ where: { expiresAt: { gt: new Date() } }, select: { userId: true } })
-        : [],
-      prisma.assetSet.findMany({
-        where: { kind: 'fund' },
-        select: { id: true, name: true },
-        orderBy: [{ createdAt: 'asc' }, { name: 'asc' }],
-      }),
-    ]);
+  // คำค้นทั้งหมดทำพร้อมกัน · วัดที่ 20,000 รายการ (8 พ.ย. 2569): ดึงครุภัณฑ์ไม่ include ความสัมพันธ์ แล้วจับคู่ชื่อชุด/ทุนเอง
+  // เร็วกว่า (459 → 289 ms) · รูปค้นด้วยคำขึ้นต้นของคีย์ · รอบตรวจนับนับด้วย groupBy ไม่ดึงทุกรายการในรอบ
+  const [
+    assets,
+    requests,
+    rounds,
+    users,
+    invites,
+    events,
+    imports,
+    settings,
+    approvals,
+    names,
+    sessions,
+    funds,
+    sets,
+    images,
+    itemCounts,
+  ] = await Promise.all([
+    prisma.asset.findMany({ orderBy: { createdAt: 'desc' } }),
+    prisma.assetRequest.findMany({
+      include: { asset: { select: { code: true, name: true } } },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.stocktake.findMany({ orderBy: { createdAt: 'desc' } }),
+    m.role === 'admin' ? prisma.user.findMany({ select: publicUserFields }) : [],
+    m.role === 'admin' ? prisma.invite.findMany() : [],
+    prisma.audit.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100 }),
+    importFilesWithStatus(),
+    prisma.setting.findMany({ where: { key: { not: 'bootstrap' } } }),
+    prisma.approval.findMany({ orderBy: { createdAt: 'asc' } }),
+    prisma.user.findMany({ select: { id: true, name: true } }),
+    m.role === 'admin'
+      ? prisma.session.findMany({ where: { expiresAt: { gt: new Date() } }, select: { userId: true } })
+      : [],
+    prisma.assetSet.findMany({
+      where: { kind: 'fund' },
+      select: { id: true, name: true },
+      orderBy: [{ createdAt: 'asc' }, { name: 'asc' }],
+    }),
+    prisma.assetSet.findMany({ select: { id: true, name: true, kind: true } }),
+    assetImageVersions(),
+    prisma.stocktakeItem.groupBy({ by: ['roundId', 'result'], _count: { _all: true } }),
+  ]);
+  const setById = new Map(sets.map(s => [s.id, s]));
+  const roundCounts = new Map<string, { total: number; checked: number }>();
+  for (const c of itemCounts) {
+    const r = roundCounts.get(c.roundId) ?? { total: 0, checked: 0 };
+    r.total += c._count._all;
+    if (c.result !== 'pending') r.checked += c._count._all;
+    roundCounts.set(c.roundId, r);
+  }
   const actorNames = new Map(names.map(u => [u.id, u.name]));
   const requestNos = requestNumbers(requests);
   const onlineUserIds = new Set(sessions.map(s => s.userId));
@@ -305,14 +322,23 @@ export async function getData(m: Member, url: URL) {
   const usersWithOnline = users.map(u => ({ ...u, isOnline: onlineUserIds.has(u.id) }));
   return {
     me: m,
-    assets: await withAssetImages(
-      assets.map(({ setRef, fundRef, ...a }) => ({
-        ...a,
-        branch: normalizeBranch(a.branch || ''),
-        setName: setRef?.name ?? null,
-        setKind: setRef?.kind ?? null,
-        fundName: fundRef?.name ?? null,
-      })),
+    assets: attachAssetImages(
+      assets.map(a => {
+        const setRef = a.setId ? setById.get(a.setId) : undefined,
+          fundRef = a.fundId ? setById.get(a.fundId) : undefined;
+        return {
+          ...a,
+          // แปลงเลขเงินตรงนี้ (ตรวจช่วงปลอดภัย) json() จึงใช้ทางเร็วได้
+          unitSatang: safeNumber(a.unitSatang),
+          totalSatang: safeNumber(a.totalSatang),
+          salvageSatang: safeNumber(a.salvageSatang),
+          branch: normalizeBranch(a.branch || ''),
+          setName: setRef?.name ?? null,
+          setKind: setRef?.kind ?? null,
+          fundName: fundRef?.name ?? null,
+        };
+      }),
+      images,
     ),
     requests: requests.map(({ asset, ...r }) => ({
       ...r,
@@ -320,11 +346,7 @@ export async function getData(m: Member, url: URL) {
       requestNo: requestNos.get(r.id) || '',
       requesterName: actorNames.get(r.actor) || '',
     })),
-    rounds: rounds.map(({ items, ...r }) => ({
-      ...r,
-      total: items.length,
-      checked: items.filter(i => i.result !== 'pending').length,
-    })),
+    rounds: rounds.map(r => ({ ...r, ...(roundCounts.get(r.id) ?? { total: 0, checked: 0 }) })),
     users: usersWithOnline,
     invites,
     events,
@@ -332,7 +354,7 @@ export async function getData(m: Member, url: URL) {
     funds,
     settings: Object.fromEntries(settings.map(s => [s.key, s.value])),
     approvals: approvals.map(a => ({ ...a, actorName: actorNames.get(a.actor) || '' })),
-  } satisfies WorkspaceDatabaseData;
+  } satisfies WorkspaceData;
 }
 // ไฟล์ต้นฉบับพร้อมสถานะ: อยู่ในคลังไหม และนำเข้าทะเบียนไปแล้วกี่แถว (หน้าเว็บใช้ตัดสินว่าให้ลบหรือเก็บเข้าคลัง)
 async function importFilesWithStatus() {

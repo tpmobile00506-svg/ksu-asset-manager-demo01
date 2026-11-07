@@ -35,6 +35,8 @@ test('คำขอแต่ละรายการมีชื่อผู้�
     asset: { findMany: async () => [] },
     assetRequest: { findMany: async () => [request('r1', 'staff-1'), request('r2', 'removed-user')] },
     stocktake: { findMany: async () => [] },
+    // getData นับรายการในรอบตรวจนับด้วย groupBy (8 พ.ย. 2569) ฐานจำลองจึงต้องมีเมธอดนี้
+    stocktakeItem: { groupBy: async () => [] },
     user: {
       findMany: async () => [
         { id: 'staff-1', name: 'งานพัสดุ คณะวิศวฯ' },
