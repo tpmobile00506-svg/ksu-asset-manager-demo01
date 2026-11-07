@@ -127,7 +127,7 @@ export async function decideRequest({ tx, m, action, b }: MutationContext) {
     const userBranch = m.branch ? normalizeBranch(m.branch) : null;
     const assetBranch = a.branch ? normalizeBranch(a.branch) : null;
     if (!userBranch || !assetBranch || userBranch !== assetBranch) {
-      throw new ApiError('คุณไม่มีสิทธิ์ดำเนินการคำขอของสาขาอื่น หรือยังไม่ได้กำหนดสาขาสังกัด', 403);
+      throw new ApiError('คุณอนุมัติคำขอของสาขาอื่นไม่ได้ หรือบัญชียังไม่ได้กำหนดสาขา', 403);
     }
     trace.ok('สาขาของหัวหน้าตรงกับสาขาของครุภัณฑ์');
   }

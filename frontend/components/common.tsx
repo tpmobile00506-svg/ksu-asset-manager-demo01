@@ -182,8 +182,8 @@ export async function readApiResponse(response: Response): Promise<Any> {
     let msg = 'ไม่สามารถเชื่อมต่อได้ กรุณาลองใหม่';
     if (response.status === 413) msg = 'ขนาดไฟล์เกินกำหนด (สูงสุด 4 MB)';
     else if (response.status === 504 || response.status === 502) msg = 'การเชื่อมต่อหมดเวลา กรุณาลองใหม่';
-    else if (response.status >= 500) msg = 'เซิร์ฟเวอร์ขัดข้อง กรุณาลองใหม่อีกครั้ง';
-    const error = new Error(response.ok ? 'เซิร์ฟเวอร์ส่งข้อมูลไม่ถูกต้อง กรุณาลองใหม่' : msg) as Error & {
+    else if (response.status >= 500) msg = 'ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง';
+    const error = new Error(response.ok ? 'ระบบตอบกลับผิดรูปแบบ กรุณาลองใหม่' : msg) as Error & {
       status: number;
     };
     error.status = response.ok ? 502 : response.status;
@@ -233,7 +233,7 @@ export async function api<T = Any>(
             : view === 'source'
               ? Array.isArray(data.rows) && Array.isArray(data.sheets) && !!data.stats
               : false;
-  if (!valid) throw new Error('เซิร์ฟเวอร์ส่งข้อมูลไม่ครบ กรุณาลองใหม่');
+  if (!valid) throw new Error('ได้ข้อมูลไม่ครบ กรุณาลองใหม่');
   return data as unknown as T;
 }
 export function Activity({ event: e }: { event: Any }) {

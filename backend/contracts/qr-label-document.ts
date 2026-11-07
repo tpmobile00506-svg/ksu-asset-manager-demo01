@@ -15,7 +15,7 @@ export function buildQrLabelHtml(asset: QrLabelInput, qrDataUrl: string): string
       <!DOCTYPE html>
       <html>
         <head>
-          <title>พิมพ์ฉลากครุภัณฑ์ - ${esc(asset.code)}</title>
+          <title>พิมพ์ป้าย QR - ${esc(asset.code)}</title>
           <style>
             @page { size: auto; margin: 10mm; }
             .touch-actions { display: none; position: fixed; left: 16px; right: 16px; bottom: 16px; gap: 12px; }
@@ -93,7 +93,7 @@ export function buildQrLabelHtml(asset: QrLabelInput, qrDataUrl: string): string
                 <img src="${esc(qrDataUrl)}" alt="QR Code" />
               </div>
               <div class="details">
-                <div style="font-size:8px; color:#64748b;">รหัสครุภัณฑ์</div>
+                <div style="font-size:8px; color:#475569;">หมายเลขครุภัณฑ์</div>
                 <div class="code">${esc(asset.code)}</div>
                 <div style="font-size:8px; color:#64748b; margin-top:2px;">ชื่อรายการ</div>
                 <div class="name">${esc(asset.name)}</div>
@@ -103,7 +103,7 @@ export function buildQrLabelHtml(asset: QrLabelInput, qrDataUrl: string): string
             </div>
           </div>
           <div class="touch-actions">
-            <button type="button" onclick="window.print()">พิมพ์ฉลาก</button>
+            <button type="button" onclick="window.print()">พิมพ์ป้าย</button>
             <button type="button" onclick="window.close()">ปิดหน้านี้</button>
           </div>
           <script>

@@ -67,7 +67,7 @@ export function voidBlockReason(
   a: Pick<Asset, 'lifecycle' | 'parentId' | 'setId'>,
   history: { requests: number; counted: number },
 ): string {
-  if (a.lifecycle !== 'active') return 'รายการนี้ไม่อยู่ในทะเบียนที่ถือครองแล้ว จึงยกเลิกไม่ได้';
+  if (a.lifecycle !== 'active') return 'รายการนี้ไม่อยู่ในทะเบียนที่ใช้อยู่แล้ว จึงยกเลิกไม่ได้';
   if (a.parentId) return 'รายการนี้มาจากการแยกรายการ จึงยกเลิกไม่ได้';
   if (a.setId) return 'ครุภัณฑ์ในชุดห้ามแยก จึงยกเลิกทีละรายการไม่ได้';
   if (history.requests) return 'รายการนี้เคยมีคำขอโอนย้าย/ซ่อม/จำหน่ายแล้ว จึงยกเลิกไม่ได้';

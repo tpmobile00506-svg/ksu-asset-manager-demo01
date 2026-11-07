@@ -128,7 +128,7 @@ export default function ReportsView({
     const byLife = new Map<LifeBucket, Row>();
     for (const a of filtered) {
       const net = bookValue(a, asOfDate) ?? a.totalSatang;
-      const catName = a.category || 'ไม่ระบุหมวดหมู่';
+      const catName = a.category || 'ไม่ระบุประเภท';
       const cat = byCategory.get(catName) ?? empty();
       cat.count++;
       cat.cost += a.totalSatang;
@@ -392,7 +392,7 @@ export default function ReportsView({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-slate-50/70 text-slate-600 text-xs">
-                    <TableHead className="font-bold">รหัสครุภัณฑ์</TableHead>
+                    <TableHead className="font-bold">หมายเลขครุภัณฑ์</TableHead>
                     <TableHead className="font-bold">รายการครุภัณฑ์</TableHead>
                     <TableHead className="font-bold">วันที่ได้มา</TableHead>
                     <TableHead className="font-bold text-center">อายุใช้งาน</TableHead>

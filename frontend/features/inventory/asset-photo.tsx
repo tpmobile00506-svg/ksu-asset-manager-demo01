@@ -71,7 +71,7 @@ function PhotoContent({ assetId, name, imageVersion, editable, onChanged }: Prop
           const blob = await response.blob();
           signal.throwIfAborted();
           if (cancelled) return;
-          if (!blob.type.startsWith('image/')) throw new Error('เซิร์ฟเวอร์ส่งรูปไม่ถูกต้อง');
+          if (!blob.type.startsWith('image/')) throw new Error('ไฟล์ที่ได้ไม่ใช่รูปภาพ');
           objectUrl = URL.createObjectURL(blob);
           setPhoto({ version, url: objectUrl });
         } catch (cause) {
@@ -136,7 +136,7 @@ function PhotoContent({ assetId, name, imageVersion, editable, onChanged }: Prop
       signal.throwIfAborted();
       if (!mounted.current) return;
       if (result.ok !== true || (!remove && typeof result.imageVersion !== 'string')) {
-        throw new Error('เซิร์ฟเวอร์ส่งผลบันทึกรูปไม่ครบ กรุณาเปิดรายละเอียดใหม่เพื่อตรวจสอบ');
+        throw new Error('ได้ผลบันทึกรูปไม่ครบ กรุณาเปิดรายละเอียดใหม่เพื่อตรวจสอบ');
       }
       setVersion(remove ? null : result.imageVersion);
       setDraft(null);
@@ -146,7 +146,8 @@ function PhotoContent({ assetId, name, imageVersion, editable, onChanged }: Prop
       try {
         await onChanged();
       } catch {
-        if (mounted.current && !signal.aborted) setError('บันทึกรูปแล้ว แต่รีเฟรชทะเบียนไม่สำเร็จ กรุณาโหลดข้อมูลใหม่');
+        if (mounted.current && !signal.aborted)
+          setError('บันทึกรูปแล้ว แต่โหลดทะเบียนใหม่ไม่สำเร็จ กรุณาโหลดข้อมูลใหม่');
       }
     } catch (cause) {
       if (mounted.current && !signal.aborted && (cause as Error).name !== 'AbortError') {

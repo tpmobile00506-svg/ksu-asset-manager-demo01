@@ -105,8 +105,8 @@ test('voidBlockReason: ยกเลิกได้เฉพาะรายกา
   const fresh = { lifecycle: 'active', parentId: null, setId: null };
   const none = { requests: 0, counted: 0 };
   assert.equal(voidBlockReason(fresh, none), '');
-  assert.match(voidBlockReason({ ...fresh, lifecycle: 'disposed' }, none), /ไม่อยู่ในทะเบียนที่ถือครอง/);
-  assert.match(voidBlockReason({ ...fresh, lifecycle: 'voided' }, none), /ไม่อยู่ในทะเบียนที่ถือครอง/);
+  assert.match(voidBlockReason({ ...fresh, lifecycle: 'disposed' }, none), /ไม่อยู่ในทะเบียนที่ใช้อยู่/);
+  assert.match(voidBlockReason({ ...fresh, lifecycle: 'voided' }, none), /ไม่อยู่ในทะเบียนที่ใช้อยู่/);
   assert.match(voidBlockReason({ ...fresh, parentId: 'p-1' }, none), /แยกรายการ/);
   assert.match(voidBlockReason({ ...fresh, setId: 'set-1' }, none), /ในชุด/);
   assert.match(voidBlockReason(fresh, { requests: 1, counted: 0 }), /เคยมีคำขอ/);

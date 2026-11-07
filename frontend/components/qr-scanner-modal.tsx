@@ -33,7 +33,7 @@ export default function QrScannerModal({
   onClose,
   onScan,
   title = 'สแกน QR Code / Barcode ครุภัณฑ์',
-  description = 'หันกล้องไปที่ฉลาก QR Code หรือ Barcode บนตัวครุภัณฑ์',
+  description = 'หันกล้องไปที่ป้าย QR บนตัวครุภัณฑ์',
 }: QrScannerModalProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -459,7 +459,7 @@ export default function QrScannerModal({
               <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center text-center p-4 z-10">
                 <div className="w-12 h-12 rounded-full border-3 border-blue-500/20 border-t-blue-500 animate-spin mb-3" />
                 <span className="text-xs font-semibold text-slate-300">กำลังเชื่อมต่อกล้อง…</span>
-                <span className="text-[11px] text-slate-500 mt-1">กรุณากด “อนุญาต” หากมีป็อปอัปขอสิทธิ์</span>
+                <span className="text-[11px] text-slate-500 mt-1">กด “อนุญาต” ถ้ามีหน้าต่างขอใช้กล้อง</span>
               </div>
             )}
 
@@ -581,7 +581,7 @@ export default function QrScannerModal({
 
           {/* Manual Input Fallback */}
           <form onSubmit={handleManualSubmit} className="w-full mt-4 pt-3 border-t border-slate-800/80">
-            <span className="text-[11px] text-slate-400 block mb-1.5 font-medium">หรือกรอกรหัสครุภัณฑ์ด้วยตนเอง:</span>
+            <span className="text-[11px] text-slate-400 block mb-1.5 font-medium">หรือพิมพ์หมายเลขครุภัณฑ์:</span>
             <div className="flex gap-2">
               <Input
                 placeholder="เช่น 254-034-01-01.93-1-4"

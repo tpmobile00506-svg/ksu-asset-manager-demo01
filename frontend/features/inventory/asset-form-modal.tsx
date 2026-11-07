@@ -168,7 +168,7 @@ export async function uploadCreatedAssetPhoto(assetId: string, file: File, signa
   const result = await readApiResponse(await sessionFetch('/api/asset-image', { method: 'POST', body, signal }));
   signal.throwIfAborted();
   if (result.ok !== true || typeof result.imageVersion !== 'string') {
-    throw new Error('เซิร์ฟเวอร์ส่งผลบันทึกรูปไม่ครบ กรุณาเปิดรายละเอียดเพื่อตรวจสอบ');
+    throw new Error('ได้ผลบันทึกรูปไม่ครบ กรุณาเปิดรายละเอียดเพื่อตรวจสอบ');
   }
   return result;
 }
@@ -355,10 +355,10 @@ export default function AssetFormModal({
           } catch (photoErr) {
             if (signal.aborted) return;
             toast.warning(
-              imageSaved ? 'บันทึกรูปแล้ว แต่รีเฟรชทะเบียนไม่สำเร็จ' : 'บันทึกข้อมูลครุภัณฑ์แล้ว แต่แนบรูปไม่สำเร็จ',
+              imageSaved ? 'บันทึกรูปแล้ว แต่โหลดทะเบียนใหม่ไม่สำเร็จ' : 'บันทึกข้อมูลครุภัณฑ์แล้ว แต่แนบรูปไม่สำเร็จ',
               {
                 description: `${
-                  photoErr instanceof Error ? photoErr.message : 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ'
+                  photoErr instanceof Error ? photoErr.message : 'เชื่อมต่อระบบไม่สำเร็จ'
                 } เปิดรายละเอียดเพื่อตรวจสอบหรือเพิ่มรูปอีกครั้ง ไม่ต้องสร้างรายการใหม่`,
                 duration: Infinity,
                 action: {
@@ -369,7 +369,7 @@ export default function AssetFormModal({
                       const current = await api();
                       signal.throwIfAborted();
                       const saved = current.assets.find((asset: Asset) => asset.id === targetAssetId);
-                      if (!saved) throw new Error('ไม่พบรายการที่บันทึก กรุณารีเฟรชทะเบียน');
+                      if (!saved) throw new Error('ไม่พบรายการที่บันทึก กรุณาโหลดทะเบียนใหม่');
                       setSelected(saved);
                     } catch (cause) {
                       if (!signal.aborted)
@@ -391,7 +391,7 @@ export default function AssetFormModal({
           } catch (photoErr) {
             if (signal.aborted) return;
             toast.warning('บันทึกข้อมูลครุภัณฑ์แล้ว แต่ลบรูปภาพไม่สำเร็จ', {
-              description: photoErr instanceof Error ? photoErr.message : 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ',
+              description: photoErr instanceof Error ? photoErr.message : 'เชื่อมต่อระบบไม่สำเร็จ',
             });
           }
         }

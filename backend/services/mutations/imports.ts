@@ -56,7 +56,7 @@ export async function batchImport({ tx, m, b, sourceRows }: MutationContext) {
   const setsToInsert = new Map<string, CandidateSet>();
   let fundIds: Map<string, string> | undefined;
   const addAsset = (a: Asset) => {
-    if (codes.has(a.code)) throw new ApiError('รหัสครุภัณฑ์ซ้ำในรายการที่เลือก กรุณาตรวจทานทีละรายการ', 409);
+    if (codes.has(a.code)) throw new ApiError('หมายเลขครุภัณฑ์ซ้ำในรายการที่เลือก กรุณาตรวจทีละรายการ', 409);
     codes.add(a.code);
     assetsToInsert.push(financialData(a) as Prisma.AssetCreateManyInput);
   };

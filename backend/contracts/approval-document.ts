@@ -137,7 +137,7 @@ export function buildApprovalDocumentHtml(input: ApprovalDocumentInput): string 
     ${
       isTransfer
         ? ''
-        : `<tr><th>สังกัด / สถานที่ตั้ง</th><td>${esc(a?.branch)} · ${esc(a?.location)}</td></tr>
+        : `<tr><th>สาขา / สถานที่</th><td>${esc(a?.branch)} · ${esc(a?.location)}</td></tr>
     <tr><th>ผู้รับผิดชอบ</th><td>${esc(a?.custodian) || '—'}</td></tr>`
     }
     <tr><th>ประเภทคำขอ</th><td>${esc(kind)}</td></tr>

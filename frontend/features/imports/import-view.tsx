@@ -275,9 +275,9 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
       sourceId = id;
     setConfirmState({
       isOpen: true,
-      title: 'ยืนยันการนำเข้าข้อมูลครุภัณฑ์',
-      description: `ระบบกำลังจะนำเข้ารายการที่คุณเลือกจำนวน ${count} รายการ เข้าสู่ทะเบียนกลางของคณะ`,
-      summary: `รายการที่เลือกจำนวน ${count} รายการจะถูกเพิ่มลงทะเบียนกลางและสร้างประวัติการนำเข้าทันที`,
+      title: 'นำเข้าครุภัณฑ์?',
+      description: `นำเข้า ${count} รายการที่เลือกเข้าทะเบียนครุภัณฑ์`,
+      summary: `เพิ่ม ${count} รายการลงทะเบียน และบันทึกประวัติการนำเข้า`,
       confirmLabel: `ยืนยันนำเข้า ${count} รายการ`,
       onConfirm: () => runImport({ sourceId, keys }, count => `นำเข้ารายการที่เลือกสำเร็จแล้ว ${count} รายการ`),
     });
@@ -291,10 +291,10 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
     importBranchRef.current = '';
     setConfirmState({
       isOpen: true,
-      title: 'ยืนยันการนำเข้าข้อมูลครุภัณฑ์',
-      description: `ระบบกำลังจะนำเข้ารายการที่คุณเลือกจำนวน ${count} รายการ เข้าสู่ทะเบียนกลางของคณะ`,
+      title: 'นำเข้าครุภัณฑ์?',
+      description: `นำเข้า ${count} รายการที่เลือกเข้าทะเบียนครุภัณฑ์`,
       summary:
-        `รายการที่เลือกจำนวน ${count} รายการจะถูกเพิ่มลงทะเบียนกลางและสร้างประวัติการนำเข้าทันที` +
+        `เพิ่ม ${count} รายการลงทะเบียน และบันทึกประวัติการนำเข้า` +
         (linking ? ` · ${linking} รายการจะผูกเข้ากับหัวทุนที่ติ๊กไว้` : ''),
       pickBranch: true,
       confirmLabel: `ยืนยันนำเข้า ${count} รายการ`,
@@ -399,9 +399,9 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
       sourceId = id;
     setConfirmState({
       isOpen: true,
-      title: 'ยืนยันการนำเข้าข้อมูลทุกรายการที่สมบูรณ์',
-      description: `ระบบจะนำเข้ารายการที่ผ่านการตรวจสอบและข้อมูลครบถ้วนจำนวน ${readyCount} รายการ เข้าสู่ทะเบียนกลางโดยอัตโนมัติ`,
-      summary: `ข้อมูลที่สมบูรณ์ทั้งหมด ${readyCount} รายการ จะถูกบันทึกเป็นครุภัณฑ์ที่ถือครองในระบบทะเบียนกลาง`,
+      title: 'นำเข้าทุกรายการที่ข้อมูลครบ?',
+      description: `นำเข้า ${readyCount} รายการที่ข้อมูลครบเข้าทะเบียนครุภัณฑ์`,
+      summary: `ทั้ง ${readyCount} รายการจะเป็นครุภัณฑ์ในทะเบียนทันที และบันทึกประวัติการนำเข้า`,
       confirmLabel: `ยืนยันนำเข้าทั้งหมด ${readyCount} รายการ`,
       onConfirm: () =>
         runImport({ sourceId, allReady: true }, count => `นำเข้ารายการที่พร้อมสำเร็จแล้วทั้งหมด ${count} รายการ`),
@@ -423,7 +423,7 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
       const form = new FormData();
       form.set('file', file);
       const response = await api('', form, { signal });
-      if (typeof response.id !== 'string') throw Error('ข้อมูลไฟล์จากเซิร์ฟเวอร์ไม่ครบ กรุณาลองใหม่');
+      if (typeof response.id !== 'string') throw Error('ได้ข้อมูลไฟล์ไม่ครบ กรุณาลองใหม่');
       await reload();
       if (signal?.aborted) return;
       setId(response.id);

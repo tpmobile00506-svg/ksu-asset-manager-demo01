@@ -660,10 +660,13 @@ function VisualDiffViewer({
   // 11. กรณีจัดการสิทธิ์ผู้ใช้
   if (act.includes('สิทธิ์') || act.includes('user') || act.includes('ผู้ใช้')) {
     const roleMap: Record<string, string> = {
-      admin: 'ผู้ดูแลระบบ (Admin)',
-      staff: 'เจ้าหน้าที่พัสดุ (Staff)',
-      approver: 'ผู้อนุมัติ (Approver)',
-      viewer: 'ผู้เรียกดูข้อมูล (Viewer)',
+      admin: 'ผู้ดูแลระบบ',
+      staff: 'เจ้าหน้าที่พัสดุ',
+      head: 'หัวหน้าสาขา',
+      deputy: 'รองคณบดี',
+      dean: 'คณบดี',
+      approver: 'ผู้อนุมัติ',
+      viewer: 'ผู้เรียกดูข้อมูล',
       central: 'เจ้าหน้าที่ส่วนกลาง',
     };
     return (
@@ -1080,7 +1083,7 @@ export default function AuditView({
           <div className="relative min-w-[260px] sm:min-w-[320px]">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <Input
-              placeholder="ค้นหาผู้ดำเนินการ, รหัสครุภัณฑ์, รายการ หรือเหตุผล…"
+              placeholder="ค้นหาผู้ทำรายการ หมายเลขครุภัณฑ์ รายการ หรือเหตุผล"
               value={search}
               onChange={e => {
                 setSearch(e.target.value);

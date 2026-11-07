@@ -46,7 +46,7 @@ export function sourceResponse(value: unknown): SourceViewResponse {
         sourceAsset(row.asset),
     )
   ) {
-    throw new Error('ข้อมูลต้นฉบับจากเซิร์ฟเวอร์ไม่ครบ กรุณาโหลดใหม่');
+    throw new Error('ได้ข้อมูลต้นฉบับไม่ครบ กรุณาโหลดใหม่');
   }
   return value as SourceViewResponse;
 }

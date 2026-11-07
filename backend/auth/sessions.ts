@@ -79,7 +79,7 @@ export async function member(request: Request): Promise<Member> {
     include: { user: { select: publicUserFields } },
   });
   if (!session || session.expiresAt <= new Date()) throw new ApiError('กรุณาเข้าสู่ระบบอีกครั้ง', 401);
-  if (!session.user.active) throw new ApiError('บัญชีนี้ถูกระงับสิทธิ์ กรุณาติดต่อ Admin', 401);
+  if (!session.user.active) throw new ApiError('บัญชีนี้ถูกระงับ กรุณาติดต่อผู้ดูแลระบบ', 401);
   trace.ok(
     `ตรวจบัตรผ่าน (cookie เซสชัน) — ผู้ใช้: ${session.user.name} · บทบาท: ${roles[session.user.role as Role] ?? session.user.role}`,
   );

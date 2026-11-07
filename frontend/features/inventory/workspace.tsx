@@ -272,7 +272,7 @@ export default function Workspace() {
     if (found) {
       setScannerOpen(false);
       setSelected(found);
-      toast.success(`พบครุภัณฑ์: ${found.name}`, { description: `รหัส: ${found.code}` });
+      toast.success(`พบครุภัณฑ์: ${found.name}`, { description: `หมายเลข: ${found.code}` });
       return true;
     } else {
       toast.error(`ไม่พบครุภัณฑ์ '${scannedText}' ในทะเบียน`);
@@ -286,7 +286,7 @@ export default function Workspace() {
         <h1 className="my-6">ทะเบียนครุภัณฑ์</h1>
         <Skeleton className="h-14 w-full mb-4" />
         <Skeleton className="h-40 w-full" />
-        <p className="mt-5">กำลังเชื่อมต่อทะเบียนกลาง…</p>
+        <p className="mt-5">กำลังโหลดทะเบียน…</p>
       </div>
     );
   if (!data)
@@ -491,7 +491,7 @@ export default function Workspace() {
         onClose={() => setScannerOpen(false)}
         onScan={handleScanRegistry}
         title="สแกนค้นหาครุภัณฑ์"
-        description="ส่องกล้องไปที่ QR Code หรือ Barcode เพื่อเปิดดูข้อมูลครุภัณฑ์"
+        description="ส่องกล้องไปที่ป้าย QR เพื่อเปิดดูข้อมูลครุภัณฑ์"
       />
       <Dialog open={exportOpen} onOpenChange={setExportOpen}>
         <DialogContent className="sm:max-w-4xl max-h-[90dvh] overflow-y-auto">

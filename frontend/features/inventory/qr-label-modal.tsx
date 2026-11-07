@@ -124,7 +124,7 @@ export default function QrLabelModal({
             </DialogTitle>
             <DialogDescription>
               {assets.length > 0
-                ? `พิมพ์สติกเกอร์ QR Code สำหรับ ${assets.length.toLocaleString('th-TH')} รายการที่เลือก พร้อมรหัสทางการและสถานที่ตั้ง${assets.length > BATCH ? ` · พิมพ์ได้ครั้งละ ${BATCH} ป้าย กรุณาพิมพ์ทีละชุด (${batches} ชุด)` : ''}`
+                ? `พิมพ์ป้าย QR ${assets.length.toLocaleString('th-TH')} รายการที่เลือก พร้อมหมายเลขครุภัณฑ์และสถานที่${assets.length > BATCH ? ` · พิมพ์ได้ครั้งละ ${BATCH} ป้าย กรุณาพิมพ์ทีละชุด (${batches} ชุด)` : ''}`
                 : 'พิมพ์ครั้งละไม่เกิน 100 ป้าย · QR ใช้รหัสประจำรายการที่ไม่เปลี่ยนตามสถานที่'}
             </DialogDescription>
           </DialogHeader>
