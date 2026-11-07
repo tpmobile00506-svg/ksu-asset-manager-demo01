@@ -96,11 +96,11 @@ asset-manager/
 
 | ไฟล์ | action |
 | --- | --- |
-| `users.ts` | `user`, `workflow` |
+| `users.ts` | `user`, `workflow`, `password` (ทุกบทบาทเปลี่ยนรหัสผ่านของตัวเอง ต้องใส่รหัสเดิม แล้วออกจากระบบทุกเครื่อง) |
 | `assets.ts` | `create`, `import`, `bulkEdit`, `edit`, `split`, `repairComplete`, `void`, `restore` |
 | `imports.ts`, `import-files.ts` | `batchImport`, `rowOverride`, `sourceDelete`, `sourceArchive` |
 | `funds.ts` | `fundSave`, `fundDelete`, `fundAssign`, `fundUnassign` |
-| `requests.ts` | `request`, `approve`, `reject` |
+| `requests.ts` | `request`, `approve`, `reject` (ไม่อนุมัติ = คำขอสิ้นสุด), `cancelRequest` (ผู้ยื่นยกเลิกเองระหว่างรออนุมัติทุกขั้น) |
 | `stocktakes.ts` | `round`, `check`, `closeRound` |
 | `helpers.ts` | ตัวช่วยร่วม เช่น `assertCodesFree` (รหัสห้ามซ้ำ), `loadEditableAsset` (ขั้นตรวจก่อนแก้ครุภัณฑ์) |
 
@@ -118,11 +118,13 @@ asset-manager/
 
 | บทบาท | ทำได้ |
 | --- | --- |
-| `staff` เจ้าหน้าที่พัสดุ | เพิ่ม/แก้/นำเข้าครุภัณฑ์ ยื่นคำขอ ตรวจนับ ยกเลิก/กู้คืนรายการที่บันทึกผิด |
+| `staff` เจ้าหน้าที่พัสดุ | เพิ่ม/แก้/นำเข้าครุภัณฑ์ ยื่นคำขอ ยกเลิกคำขอของตัวเอง ตรวจนับ ยกเลิก/กู้คืนรายการที่บันทึกผิด |
 | `head` หัวหน้าสาขาวิชา | อนุมัติขั้นที่ 1 เฉพาะครุภัณฑ์สาขาตัวเอง |
 | `deputy` รองคณบดี | อนุมัติขั้นที่ 2 ทุกสาขา |
 | `dean` คณบดี | อนุมัติขั้นสุดท้าย ทุกสาขา |
 | `admin` ผู้ดูแลระบบ | จัดการบัญชี สายอนุมัติ และงานของเจ้าหน้าที่ · **อนุมัติคำขอไม่ได้** (แยกหน้าที่) |
+
+ผู้อนุมัติ (`head` `deputy` `dean`) ไม่เห็นเมนูนำเข้า และดูหน้าตรวจนับได้อย่างเดียว (`canSeeView()` ใน `frontend/features/shell/navigation.ts` · เซิร์ฟเวอร์ตรวจซ้ำทุกคำสั่ง) · เลขบนเมนู กระดิ่ง และแท็บ "รอฉันอนุมัติ" นับจาก `pendingForUser()` ตัวเดียว
 
 ทุกบทบาทห้ามอนุมัติคำขอที่ตัวเองยื่น สวิตช์ `ADMIN_APPROVES_ALL` ใน `contracts/domain/constants.ts` ต้องเป็น `false` (เปิดชั่วคราวเฉพาะวันสอบ)
 
