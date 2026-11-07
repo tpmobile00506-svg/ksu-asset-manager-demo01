@@ -201,7 +201,7 @@ export default function OverviewCharts({ assets, onSelectBranch }: OverviewChart
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-400 text-sm">
+              <div className="h-full flex items-center justify-center text-slate-500 text-sm">
                 ยังไม่มีข้อมูลครุภัณฑ์ในระบบ
               </div>
             )}

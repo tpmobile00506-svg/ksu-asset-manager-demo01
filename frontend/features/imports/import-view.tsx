@@ -708,7 +708,7 @@ export default function ImportView({ data, open, revision, reload }: ImportViewP
                                 className="text-[11px] text-slate-500 truncate max-w-[130px] flex items-center gap-1"
                                 title={r.asset.location}
                               >
-                                <MapPin size={11} className="shrink-0 text-slate-400" />
+                                <MapPin size={11} className="shrink-0 text-slate-500" />
                                 <span className="truncate">{r.asset.location}</span>
                               </p>
                             )}

@@ -96,7 +96,7 @@ function ApprovalPipeline({ request, oneLine }: { request: RequestRecord; oneLin
               {waiting && <Clock size={11} className="text-amber-700" />}
               {rejected && <X size={12} className="text-rose-600 stroke-[3]" />}
             </span>
-            {i < chain.length - 1 && <span className="text-slate-400 text-xs font-bold">→</span>}
+            {i < chain.length - 1 && <span className="text-slate-500 text-xs font-bold">→</span>}
           </div>
         );
       })}

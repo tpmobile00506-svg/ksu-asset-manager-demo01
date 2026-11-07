@@ -742,7 +742,7 @@ function VisualDiffViewer({
   }
 
   if (Object.keys(beforeObj).length === 0 && Object.keys(afterObj).length === 0) {
-    return <div className="text-[11.5px] text-slate-400 italic">ไม่มีรายละเอียดการเปลี่ยนแปลงที่บันทึกไว้</div>;
+    return <div className="text-[11.5px] text-slate-500 italic">ไม่มีรายละเอียดการเปลี่ยนแปลงที่บันทึกไว้</div>;
   }
 
   // 14. กรณีเพิ่มครุภัณฑ์ใหม่ (Create New Asset)
@@ -834,7 +834,7 @@ function VisualDiffViewer({
   }
 
   if (diffs.length === 0) {
-    return <div className="text-[11.5px] text-slate-400 italic">ไม่มีข้อมูลฟิลด์สำคัญที่มีการเปลี่ยนแปลง</div>;
+    return <div className="text-[11.5px] text-slate-500 italic">ไม่มีข้อมูลฟิลด์สำคัญที่มีการเปลี่ยนแปลง</div>;
   }
 
   return (
@@ -846,7 +846,7 @@ function VisualDiffViewer({
             <span className="bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded text-[11px] line-through border border-rose-100">
               {d.oldVal}
             </span>
-            <span className="text-slate-400 text-xs font-bold">→</span>
+            <span className="text-slate-500 text-xs font-bold">→</span>
             <span className="bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded text-[11px] border border-emerald-200">
               {d.newVal}
             </span>
@@ -1081,7 +1081,7 @@ export default function AuditView({
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Search Box */}
           <div className="relative min-w-[260px] sm:min-w-[320px]">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
             <Input
               placeholder="ค้นหาผู้ทำรายการ หมายเลขครุภัณฑ์ รายการ หรือเหตุผล"
               value={search}
@@ -1095,7 +1095,7 @@ export default function AuditView({
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-600 p-0.5 cursor-pointer"
                 title="ล้างคำค้นหา"
               >
                 <X size={14} />
@@ -1241,7 +1241,7 @@ export default function AuditView({
                       <div className="text-xs font-semibold text-slate-800 whitespace-nowrap">
                         {formatThaiDateTime(e.createdAt)}
                       </div>
-                      <div className="text-[11px] text-slate-400">{formatRelativeTime(e.createdAt)}</div>
+                      <div className="text-[11px] text-slate-500">{formatRelativeTime(e.createdAt)}</div>
                     </div>
 
                     {/* View Asset Button */}
@@ -1267,7 +1267,7 @@ export default function AuditView({
           {!filtered.length && (
             <div className="py-12">
               <Empty title={events.length ? 'ไม่พบเหตุการณ์ที่ตรงกับตัวกรอง' : 'ยังไม่มีบันทึกประวัติเหตุการณ์'}>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   {events.length
                     ? 'ลองเปลี่ยนคำค้นหา หรือเลือกตัวกรองช่วงเวลาอื่น'
                     : 'เมื่อมีการเพิ่ม แก้ไข หรือส่งคำขอในระบบ ประวัติจะถูกบันทึกที่นี่โดยอัตโนมัติ'}

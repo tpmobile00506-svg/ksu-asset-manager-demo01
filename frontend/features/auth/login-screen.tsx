@@ -79,7 +79,7 @@ export function LoginScreen({
               อีเมล
             </label>
             <div className="relative flex items-center">
-              <span className="absolute left-3.5 text-slate-400 pointer-events-none">
+              <span className="absolute left-3.5 text-slate-500 pointer-events-none">
                 <Users size={17} />
               </span>
               <Input
@@ -101,7 +101,7 @@ export function LoginScreen({
               รหัสผ่าน
             </label>
             <div className="relative flex items-center">
-              <span className="absolute left-3.5 text-slate-400 pointer-events-none">
+              <span className="absolute left-3.5 text-slate-500 pointer-events-none">
                 <Lock size={17} />
               </span>
               <Input

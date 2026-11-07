@@ -214,7 +214,9 @@ export default function ExportView({
         <div className="text-xs text-slate-500">ชื่อไฟล์: {reportFileName(request)}</div>
       </div>
 
-      <div className="flex justify-end">
+      {/* ปุ่มส่งออกติดท้ายหน้าต่างตอนเลื่อน (มือถือหน้าต่างยาวราว 1,000px) */}
+      <div className="sticky bottom-0 -mx-6 -mb-6 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-6 py-3">
+        {empty && <p className="text-xs text-slate-600 mr-auto">ไม่มีรายการตามที่เลือก</p>}
         <Button
           disabled={busy || empty}
           onClick={run}
@@ -223,7 +225,6 @@ export default function ExportView({
           <Download size={16} className="mr-1" /> {busy ? 'กำลังสร้างไฟล์…' : 'ส่งออก Excel'}
         </Button>
       </div>
-      {empty && <p className="text-right text-xs text-slate-500">ไม่มีรายการตามที่เลือก</p>}
     </div>
   );
 }

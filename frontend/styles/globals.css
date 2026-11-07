@@ -1592,8 +1592,29 @@ a:focus-visible {
   .role-grid {
     grid-template-columns: 1fr;
   }
+  /* หน้าต่างฟอร์มบนมือถือเต็มจอ (เดิมขอบซ้อนกัน 3 ชั้น ช่องกรอกเหลือ 211px ที่จอ 375) */
   .dialog-wide {
-    padding: 18px !important;
+    padding: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    top: 0 !important;
+    left: 0 !important;
+    translate: none !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+  }
+  .dialog-header-sticky {
+    padding: 16px 52px 12px 16px;
+  }
+  .dialog-scroll-body {
+    padding: 14px 12px;
+  }
+  .dialog-footer-sticky {
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+  }
+  .form-section {
+    padding: 12px;
   }
   .qr-grid {
     grid-template-columns: 1fr 1fr;

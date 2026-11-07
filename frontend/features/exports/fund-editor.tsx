@@ -397,7 +397,7 @@ function FundPicker({
         aria-checked={picked.has(a.id)}
         aria-disabled={disabled}
         tabIndex={disabled ? -1 : 0}
-        className={`grid cursor-pointer select-none grid-cols-[1.5rem_minmax(0,14rem)_minmax(0,1fr)_3rem_7rem_minmax(0,10rem)] items-center gap-2 border-t border-slate-100 px-3 py-1.5 text-sm ${picked.has(a.id) ? 'bg-blue-50' : ''} ${disabled ? 'cursor-not-allowed text-slate-400' : ''}`}
+        className={`grid cursor-pointer select-none grid-cols-[1.5rem_minmax(0,14rem)_minmax(0,1fr)_3rem_7rem_minmax(0,10rem)] items-center gap-2 border-t border-slate-100 px-3 py-1.5 text-sm ${picked.has(a.id) ? 'bg-blue-50' : ''} ${disabled ? 'cursor-not-allowed text-slate-500' : ''}`}
         onClick={e => toggle(index, e.shiftKey)}
         onKeyDown={e => {
           if (e.key === ' ' || e.key === 'Enter') {
@@ -447,7 +447,7 @@ function FundPicker({
         </DialogHeader>
         <div className="flex flex-wrap gap-2">
           <div className="relative min-w-[14rem] flex-1">
-            <Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" />
+            <Search size={15} className="absolute left-2.5 top-2.5 text-slate-500" />
             <input
               aria-label="ค้นหาครุภัณฑ์"
               autoFocus

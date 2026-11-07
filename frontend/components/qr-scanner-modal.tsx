@@ -435,13 +435,13 @@ export default function QrScannerModal({
               <DialogTitle className="text-sm font-bold tracking-wide" style={{ color: '#fff' }}>
                 {title}
               </DialogTitle>
-              <DialogDescription className="text-[11px] text-slate-400">{description}</DialogDescription>
+              <DialogDescription className="text-[11px] text-slate-500">{description}</DialogDescription>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
             aria-label="ปิดหน้าต่าง"
           >
             <X size={16} />
@@ -470,7 +470,7 @@ export default function QrScannerModal({
                   <CameraOff size={24} />
                 </div>
                 <h4 className="text-xs font-bold text-white mb-1.5">ไม่สามารถเปิดกล้องได้</h4>
-                <p className="text-[11.5px] text-slate-400 leading-relaxed max-w-xs mb-4">{error}</p>
+                <p className="text-[11.5px] text-slate-500 leading-relaxed max-w-xs mb-4">{error}</p>
                 <div className="flex flex-col gap-2 w-full max-w-[240px]">
                   <Button
                     size="sm"
@@ -581,7 +581,7 @@ export default function QrScannerModal({
 
           {/* Manual Input Fallback */}
           <form onSubmit={handleManualSubmit} className="w-full mt-4 pt-3 border-t border-slate-800/80">
-            <span className="text-[11px] text-slate-400 block mb-1.5 font-medium">หรือพิมพ์หมายเลขครุภัณฑ์:</span>
+            <span className="text-[11px] text-slate-500 block mb-1.5 font-medium">หรือพิมพ์หมายเลขครุภัณฑ์:</span>
             <div className="flex gap-2">
               <Input
                 placeholder="เช่น 254-034-01-01.93-1-4"

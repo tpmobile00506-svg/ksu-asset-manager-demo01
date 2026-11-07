@@ -86,7 +86,7 @@ export function NotificationBell({ data, onGo }: { data: WorkspaceData; onGo: (v
             <button
               type="button"
               onClick={() => setNotifOpen(false)}
-              className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
+              className="text-slate-500 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
               title="ปิด"
             >
               <X size={14} />
@@ -156,7 +156,7 @@ export function NotificationBell({ data, onGo }: { data: WorkspaceData; onGo: (v
                                 <p className="text-[11px] text-slate-600 truncate font-medium">
                                   {r.name || 'ไม่มีชื่อรายการ'}
                                 </p>
-                                <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
+                                <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
                                   <span className="truncate max-w-[180px]">
                                     {r.reason ? `เหตุผล: ${r.reason}` : 'รออนุมัติ'}
                                   </span>
