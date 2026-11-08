@@ -88,6 +88,8 @@ function database(assets: Row[], requests: Row[] = []) {
       update: async ({ where, data }: Row) => bump(state.requests.find(r => r.id === where.id)!, data),
     },
     approval: { create: async ({ data }: Row) => (state.approvals.push(data), data) },
+    // ยังไม่มีรอบตรวจนับเปิดอยู่ (คำสั่งแยก/อนุมัติจะปรับรอบที่เปิดอยู่ตามทะเบียน 8 พ.ย. 2569)
+    stocktakeItem: { findMany: async () => [], deleteMany: async () => ({ count: 0 }) },
     audit: { create: async ({ data }: Row) => (state.audits.push(data), data) },
     location: { createMany: async () => ({}) },
     branch: { createMany: async () => ({}) },

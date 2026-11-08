@@ -93,6 +93,8 @@ function environment({
         return { count: args.data.length };
       },
     },
+    // ยังไม่มีรอบตรวจนับเปิดอยู่ (คำสั่งแยก/อนุมัติจะปรับรอบที่เปิดอยู่ตามทะเบียน 8 พ.ย. 2569)
+    stocktakeItem: { findMany: async () => [], deleteMany: async () => ({ count: 0 }) },
     audit: {
       create: async ({ data }: { data: Record<string, any> }) => {
         audits.push(data);

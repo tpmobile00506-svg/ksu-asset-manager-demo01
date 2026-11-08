@@ -81,6 +81,8 @@ function createEnvironment(payload: Record<string, unknown>) {
     },
     approval: { create: async ({ data }: { data: unknown }) => data },
     operation: { findUnique: async () => null, create: async () => ({}) },
+    // ยังไม่มีรอบตรวจนับเปิดอยู่ (คำสั่งแยก/อนุมัติจะปรับรอบที่เปิดอยู่ตามทะเบียน 8 พ.ย. 2569)
+    stocktakeItem: { findMany: async () => [], deleteMany: async () => ({ count: 0 }) },
     audit: { create: async () => ({}) },
     location: { createMany: async () => ({}) },
     branch: { createMany: async () => ({}) },
@@ -208,6 +210,8 @@ test('สร้างคำขอโอนย้าย: payload ที่เก�
     },
     setting: { findUnique: async () => null },
     operation: { findUnique: async () => null, create: async () => ({}) },
+    // ยังไม่มีรอบตรวจนับเปิดอยู่ (คำสั่งแยก/อนุมัติจะปรับรอบที่เปิดอยู่ตามทะเบียน 8 พ.ย. 2569)
+    stocktakeItem: { findMany: async () => [], deleteMany: async () => ({ count: 0 }) },
     audit: { create: async () => ({}) },
   };
   const restore = installMemoryDatabase(
@@ -261,6 +265,8 @@ test('สร้างคำขอโอนย้าย: payload เก็บต�
     },
     setting: { findUnique: async () => null },
     operation: { findUnique: async () => null, create: async () => ({}) },
+    // ยังไม่มีรอบตรวจนับเปิดอยู่ (คำสั่งแยก/อนุมัติจะปรับรอบที่เปิดอยู่ตามทะเบียน 8 พ.ย. 2569)
+    stocktakeItem: { findMany: async () => [], deleteMany: async () => ({ count: 0 }) },
     audit: { create: async () => ({}) },
   };
   const restore = installMemoryDatabase(
@@ -346,6 +352,8 @@ test('สร้างคำขอ: มีคำขอในปีงบนี้
     },
     setting: { findUnique: async () => null },
     operation: { findUnique: async () => null, create: async () => ({}) },
+    // ยังไม่มีรอบตรวจนับเปิดอยู่ (คำสั่งแยก/อนุมัติจะปรับรอบที่เปิดอยู่ตามทะเบียน 8 พ.ย. 2569)
+    stocktakeItem: { findMany: async () => [], deleteMany: async () => ({ count: 0 }) },
     audit: { create: async () => ({}) },
   };
   const restore = installMemoryDatabase(

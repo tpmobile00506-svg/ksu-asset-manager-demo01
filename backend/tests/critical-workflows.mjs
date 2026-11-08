@@ -840,6 +840,82 @@ console.log(
   'PASS stocktake integrity: stale and competing checks rejected, surplus recorded, historical names/codes preserved',
 );
 
+// รอบตรวจนับที่เปิดอยู่ตามทะเบียน (ผู้ใช้เลือกแบบ ก. 8 พ.ย. 2569): แยกรายชิ้น / โอนย้ายบางส่วน / จำหน่าย / โอนย้าย ระหว่างเปิดรอบ
+// ของทุกชิ้นต้องเพิ่มก่อนเปิดรอบ (ของที่เพิ่มหลังเปิดรอบไม่เข้ารอบตามกฎเดิม)
+const syncCreate = async (tag, quantity) =>
+  good(
+    await call('staff', {
+      action: 'create',
+      asset: { ...proto, code: `SYNC-${tag}-${suffix}`, quantity, unitSatang: 100000, totalSatang: 100000 * quantity },
+    }),
+  ).id;
+const syncLot = await syncCreate('LOT', 3),
+  syncPart = await syncCreate('PART', 3),
+  syncMove = await syncCreate('MOVE', 1),
+  syncGone = await syncCreate('GONE', 1);
+const syncRound = good(await call('staff', { action: 'round', name: 'รอบตามทะเบียน ' + suffix, year: 2570 })).id;
+const roundItems = async () => good(await call('staff', null, '?view=stocktake&round=' + syncRound)).items;
+const syncAsset = async id => good(await call('staff')).assets.find(x => x.id === id);
+const syncRequest = async (id, kind, extra = {}) => {
+  const a = await syncAsset(id);
+  const r = good(
+    await call('staff', { action: 'request', id, version: a.version, kind, reason: 'ระหว่างตรวจนับ', ...extra }),
+  );
+  await approveRequest(r.id);
+};
+let lotNow = await syncAsset(syncLot);
+good(
+  await call('staff', {
+    action: 'splitEach',
+    id: syncLot,
+    version: lotNow.version,
+    reason: 'ติด QR แยกระหว่างตรวจนับ',
+    pieces: [1, 2, 3].map(n => ({ code: `SYNC-LOT-${suffix}-${n}`, serial: '' })),
+  }),
+);
+await syncRequest(syncPart, 'transfer', {
+  splitQuantity: 1,
+  payload: { location: 'ห้องปลายทางตรวจนับ', branch: testBranch },
+});
+await syncRequest(syncMove, 'transfer', { payload: { location: 'ห้องปลายทางตรวจนับ', branch: testBranch } });
+await syncRequest(syncGone, 'disposal');
+const synced = await roundItems();
+const snapOf = id => {
+  const it = synced.find(i => i.assetId === id);
+  return it && JSON.parse(it.snapshot);
+};
+const registryNow = good(await call('staff')).assets;
+const kidsOf = id => registryNow.filter(x => x.parentId === id);
+assert.equal(snapOf(syncLot), undefined, 'A split lot leaves the open round');
+assert.deepEqual(
+  kidsOf(syncLot).map(k => snapOf(k.id)?.quantity),
+  [1, 1, 1],
+  'Every new piece enters the open round',
+);
+assert.equal(snapOf(syncPart), undefined);
+assert.deepEqual(
+  kidsOf(syncPart)
+    .map(k => `${snapOf(k.id)?.quantity}:${snapOf(k.id)?.location}`)
+    .sort(),
+  ['1:ห้องปลายทางตรวจนับ', '2:' + proto.location],
+  'The moved part shows its new room, the rest stays',
+);
+assert.equal(snapOf(syncMove).location, 'ห้องปลายทางตรวจนับ', 'A transfer approved mid-round shows the new room');
+assert.equal(snapOf(syncGone), undefined, 'A disposal approved mid-round leaves the round');
+for (const item of synced)
+  good(
+    await call('staff', {
+      action: 'check',
+      id: item.id,
+      expectedCheckedAt: item.checkedAt,
+      result: 'normal',
+      quantity: JSON.parse(item.snapshot).quantity,
+      reason: 'ตรวจจริง',
+    }),
+  );
+good(await call('staff', { action: 'closeRound', id: syncRound }));
+console.log('PASS stocktake follows the register: split pieces enter, moved items show the new room, disposals leave');
+
 const workbook = new ExcelJS.Workbook();
 const sheet = workbook.addWorksheet('สำนักงาน');
 sheet.addRow(['ลำดับ', 'หมายเลขครุภัณฑ์', 'รายการ', 'จำนวน', 'ราคาต่อหน่วย', 'จำนวนเงิน', 'หมายเหตุ']);

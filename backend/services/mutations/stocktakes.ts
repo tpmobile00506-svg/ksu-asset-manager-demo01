@@ -1,7 +1,7 @@
-import { json } from '../../db/client';
 import { ApiError, clean, allow, now, id, audit } from '../asset-service';
 import { trace } from '../../debug/trace';
 import { type MutationContext } from './types';
+import { stocktakeSnapshot } from './stocktake-sync';
 
 // คำสั่งของการตรวจนับประจำปี
 
@@ -21,14 +21,7 @@ export async function openRound({ tx, m, b }: MutationContext) {
       id: rid + a.id,
       roundId: rid,
       assetId: a.id,
-      snapshot: json({
-        code: a.code,
-        name: a.name,
-        quantity: a.quantity,
-        location: a.location,
-        branch: a.branch,
-        totalSatang: a.totalSatang,
-      }),
+      snapshot: stocktakeSnapshot(a),
     })),
   });
   await audit(tx, m, 'เปิดรอบตรวจนับ', null, null, { id: rid, name, year });

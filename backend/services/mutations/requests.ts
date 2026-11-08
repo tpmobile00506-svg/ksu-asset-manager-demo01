@@ -23,6 +23,7 @@ import {
 } from '../../validation';
 import { type Input, type MutationContext } from './types';
 import { setMembers, splitLotForRequest, loadEditableAsset } from './helpers';
+import { moveInOpenRounds, dropFromOpenRounds } from './stocktake-sync';
 
 // คำสั่งของคำขอ: ยื่นคำขอ อนุมัติ/ไม่อนุมัติ ผู้ยื่นยกเลิกคำขอของตัวเอง และทำหลายรายการในครั้งเดียว
 
@@ -213,12 +214,23 @@ export async function decideRequest({ tx, m, action, b }: MutationContext) {
           where: { id: x.id },
           data: { location, branch, ...(custodian ? { custodian } : {}), version: { increment: 1 } },
         });
+      await moveInOpenRounds(
+        tx,
+        affected.map(x => x.id),
+        location,
+        branch,
+      );
     }
     if (r.kind === 'repair')
       await tx.asset.update({ where: { id: target.id }, data: { condition: 'repair', version: { increment: 1 } } });
-    if (r.kind === 'disposal')
+    if (r.kind === 'disposal') {
       for (const x of affected)
         await tx.asset.update({ where: { id: x.id }, data: { lifecycle: 'disposed', version: { increment: 1 } } });
+      await dropFromOpenRounds(
+        tx,
+        affected.map(x => x.id),
+      );
+    }
     for (const x of wholeSet)
       await audit(
         tx,

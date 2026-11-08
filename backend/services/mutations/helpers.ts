@@ -16,6 +16,7 @@ import { ApiError, clean, allow, now, id, asset, audit, insertAsset, financialDa
 import { assetImageKey } from '../../storage/asset-image-metadata';
 import { trace } from '../../debug/trace';
 import { type MutationContext } from './types';
+import { replaceInOpenRounds } from './stocktake-sync';
 
 // ตัวช่วยที่หลายคำสั่งใช้ร่วมกัน: ผูกชุด/ทุน ตรวจรหัสซ้ำ แบ่งยอดเงิน และขั้นตรวจก่อนแก้ครุภัณฑ์
 
@@ -135,6 +136,7 @@ export async function splitLotForRequest(
   await tx.asset.update({ where: { id: a.id }, data: { lifecycle: 'split', version: { increment: 1 } } });
   await insertAsset(tx, target);
   await insertAsset(tx, remainder);
+  await replaceInOpenRounds(tx, a.id, [target, remainder]);
   await copyPhoto(tx, a.id, [target.id, remainder.id]);
   await audit(tx, m, 'แยกรายการเมื่ออนุมัติคำขอ', a.id, a, [target, remainder], reason);
   return target;

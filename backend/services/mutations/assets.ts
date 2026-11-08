@@ -29,6 +29,7 @@ import {
 } from '../asset-service';
 import { trace } from '../../debug/trace';
 import { type MutationContext } from './types';
+import { replaceInOpenRounds } from './stocktake-sync';
 import {
   linkToSet,
   hintFund,
@@ -261,6 +262,7 @@ export async function splitAsset(ctx: MutationContext) {
   ];
   await tx.asset.update({ where: { id: a.id }, data: { lifecycle: 'split', version: { increment: 1 } } });
   for (const child of children) await insertAsset(tx, child);
+  await replaceInOpenRounds(tx, a.id, children);
   await copyPhoto(
     tx,
     a.id,
@@ -283,6 +285,7 @@ export async function splitEachAsset(ctx: MutationContext) {
   await assertCodesFree(tx, [a.code, ...pieces.map(p => p.code)], a.id);
   await tx.asset.update({ where: { id: a.id }, data: { lifecycle: 'split', version: { increment: 1 } } });
   const children = await insertPieces(tx, a, pieces, now());
+  await replaceInOpenRounds(tx, a.id, children);
   await copyPhoto(
     tx,
     a.id,

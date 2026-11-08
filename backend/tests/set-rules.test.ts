@@ -109,6 +109,8 @@ function environment(
       },
     },
     approval: { create: async () => ({}) },
+    // ยังไม่มีรอบตรวจนับเปิดอยู่ (คำสั่งแยก/อนุมัติจะปรับรอบที่เปิดอยู่ตามทะเบียน 8 พ.ย. 2569)
+    stocktakeItem: { findMany: async () => [], deleteMany: async () => ({ count: 0 }) },
     audit: { create: async () => ({}) },
     location: { createMany: async () => ({}) },
     branch: { createMany: async () => ({}) },
