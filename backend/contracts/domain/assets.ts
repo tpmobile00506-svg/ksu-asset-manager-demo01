@@ -17,6 +17,16 @@ export function expandRange(code: string, quantity: number): string[] | null {
 // ติด QR แยกรายชิ้น (ผู้ใช้ขอ 8 พ.ย. 2569): ของหลายชิ้นเลือกได้ว่าจะเป็นรายการเดียว (QR เดียว) หรือแยกรายการละชิ้น
 // หมายเลขของแต่ละชิ้น = หมายเลขหลัก + เลขลำดับ 3 รูปแบบที่พบในไฟล์ของคณะ (งานพัสดุยังไม่ได้กำหนดแบบเดียว จึงให้เลือก)
 // ระบบไล่เลขให้เป็นค่าเริ่มต้นเท่านั้น เจ้าหน้าที่แก้รายชิ้นได้ก่อนบันทึก
+// ลำดับมาตรฐานของรายการครุภัณฑ์: เพิ่มล่าสุดก่อน · เพิ่มพร้อมกัน (แยกรายชิ้น นำเข้าไฟล์เดียวกัน) เรียงหมายเลขแบบตัวเลข -1, -2, … -10
+// เดิมเรียงแค่วันที่เพิ่ม ของที่เพิ่มพร้อมกันจึงออกมาสลับกันตามที่ฐานข้อมูลส่งมา (แก้รายการไหนแล้วรายการนั้นย้ายที่)
+const codeOrder = new Intl.Collator('th', { numeric: true });
+export function newestFirst(
+  a: { createdAt: string | Date; code: string },
+  b: { createdAt: string | Date; code: string },
+): number {
+  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() || codeOrder.compare(a.code, b.code);
+}
+
 export const MAX_PIECES = 1000;
 export const pieceFormats = {
   padded: '-001(020), -002(020) …',

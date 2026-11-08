@@ -21,6 +21,7 @@ import {
   markExistingCodes,
   branchAbbr,
   requestNumbers,
+  newestFirst,
 } from '../contracts/domain';
 import type { SourceViewResponse } from '../contracts/imports';
 import type { StocktakeResponse, WorkspaceData } from '../contracts/models';
@@ -307,6 +308,8 @@ export async function getData(m: Member, url: URL) {
     assetImageVersions(),
     prisma.stocktakeItem.groupBy({ by: ['roundId', 'result'], _count: { _all: true } }),
   ]);
+  // ทุกหน้า (รายงาน ส่งออก Excel ตรวจนับ) ได้ลำดับเดียวกัน: ล่าสุดก่อน เพิ่มพร้อมกันเรียงตามหมายเลข
+  assets.sort(newestFirst);
   const setById = new Map(sets.map(s => [s.id, s]));
   const roundCounts = new Map<string, { total: number; checked: number }>();
   for (const c of itemCounts) {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { Asset } from '../contracts/domain';
+import { newestFirst, type Asset } from '../contracts/domain';
 import {
   codeRange,
   commonValue,
@@ -68,4 +68,20 @@ test('ค่าที่เหมือนกันทุกชิ้นแส�
     ['normal', 2],
     ['damaged', 1],
   ]);
+});
+
+test('ลำดับมาตรฐาน: เพิ่มล่าสุดก่อน · เพิ่มพร้อมกันเรียงหมายเลขแบบตัวเลข (ไม่สลับตามลำดับในฐานข้อมูล)', () => {
+  const at = '2026-11-08T03:00:00.000Z',
+    later = '2026-11-08T04:00:00.000Z';
+  const list = [
+    { code: 'CH-002', createdAt: at },
+    { code: 'K-10', createdAt: at },
+    { code: 'CH-001', createdAt: at },
+    { code: 'NEW', createdAt: later },
+    { code: 'K-2', createdAt: at },
+  ];
+  assert.deepEqual(
+    list.sort(newestFirst).map(a => a.code),
+    ['NEW', 'CH-001', 'CH-002', 'K-2', 'K-10'],
+  );
 });
