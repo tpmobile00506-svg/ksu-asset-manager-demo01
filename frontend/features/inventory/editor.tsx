@@ -22,7 +22,7 @@ import {
 } from '@/shared/domain';
 import { Any, Pick, statusLabel, baht } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
-import QrLabelModal from './qr-label-modal';
+import QrStickerModal from './qr-sticker-modal';
 import PiecesEditor from './pieces-editor';
 import { type PiecesState, initialPieces, resolvePieces, piecesProblem } from './pieces';
 import AssetFormModal, {
@@ -55,7 +55,7 @@ const titleMap: Record<string, string> = {
   check: 'บันทึกผลตรวจนับ',
   user: 'กำหนดสิทธิ์ผู้ใช้',
   source: 'ข้อมูลต้นฉบับ',
-  qr: 'ป้าย QR ประจำครุภัณฑ์',
+  qr: 'พิมพ์สติกเกอร์ QR',
   repairComplete: 'บันทึกผลการซ่อม',
   void: 'ยกเลิกรายการที่บันทึกผิด',
   restore: 'กู้คืนรายการที่ยกเลิก',
@@ -247,8 +247,14 @@ export default function Editor({
 
   return (
     <>
-      {/* 1. หน้าต่างพิมพ์ป้าย QR Code */}
-      <QrLabelModal open={currentModal?.kind === 'qr'} onClose={() => setModal(null)} assets={modal?.assets || []} />
+      {/* 1. หน้าต่างพิมพ์สติกเกอร์ QR: เลือกได้จากครุภัณฑ์ที่ใช้อยู่ทั้งหมด รายการที่ติ๊กมาจากทะเบียนเลือกไว้ให้ */}
+      <QrStickerModal
+        open={currentModal?.kind === 'qr'}
+        onClose={() => setModal(null)}
+        assets={data.assets}
+        initial={modal?.kind === 'qr' ? modal.assets || [] : []}
+        token={modal?.token}
+      />
 
       {/* 3. หน้าต่างเพิ่ม/แก้ไข/นำเข้าข้อมูลครุภัณฑ์ */}
       <AssetFormModal

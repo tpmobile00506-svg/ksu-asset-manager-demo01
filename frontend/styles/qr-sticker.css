@@ -1,0 +1,133 @@
+/* หน้าต่างพิมพ์สติกเกอร์ QR และกรอบตัวอย่างดวงสติกเกอร์ (หน้าทะเบียน + หน้าข้อมูลครุภัณฑ์) */
+.sticker-dialog.dialog-wide {
+  width: min(900px, calc(100vw - 32px)) !important;
+}
+.sticker-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+.sticker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+}
+.sticker-list:empty {
+  display: none;
+}
+.sticker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-bottom: 1px solid #edf0f5;
+}
+.sticker-row:last-child {
+  border-bottom: 0;
+}
+.sticker-row.is-on {
+  background: #f3f7ff;
+}
+.sticker-row.is-focus {
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+.sticker-row-main {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+  line-height: 1.35;
+}
+.sticker-copies {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.sticker-copies button {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+}
+.sticker-copies button:hover {
+  background: #f1f5f9;
+}
+.sticker-copies input {
+  width: 48px;
+  height: 26px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.sticker-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+}
+.sticker-stage {
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #f1f5f9;
+  padding: 12px;
+}
+.sticker-preview {
+  background: #fff;
+  border-radius: 6px;
+  outline: 1px dashed #94a3b8;
+  outline-offset: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.sticker-note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+@media (max-width: 767px) {
+  .sticker-picker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sticker-side {
+    position: static;
+  }
+  .sticker-list {
+    max-height: 46vh;
+  }
+  .sticker-row {
+    flex-wrap: wrap;
+  }
+  .sticker-copies {
+    margin-left: 30px;
+  }
+  .sticker-copies button {
+    width: 36px;
+    height: 36px;
+  }
+  .sticker-copies input {
+    height: 36px;
+    font-size: 16px;
+  }
+}

@@ -6,8 +6,9 @@ import {
   Pencil,
   ArrowLeftRight,
   Printer,
+  Minus,
+  Plus,
   Camera,
-  Barcode,
   Scissors,
   Wrench,
   History,
@@ -21,7 +22,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge, ConditionBadge, Activity, api, baht } from '@/frontend/components/common';
+import { Badge, ConditionBadge, Activity, Pick, api, baht } from '@/frontend/components/common';
 import {
   Asset,
   conditions,
@@ -33,10 +34,16 @@ import {
   type SetRole,
 } from '@/shared/domain';
 import type { RepairRecord } from '@/shared/models';
-import { buildQrLabelHtml } from '@/shared/qr-label-document';
+import {
+  MAX_STICKERS,
+  isStickerSize,
+  stickerCopies,
+  stickerSizes,
+  type StickerSize,
+} from '@/shared/qr-sticker-document';
 import AssetPhoto from './asset-photo';
-import QRCode from 'qrcode';
-import { toast } from 'sonner';
+import StickerPreview from './sticker-preview';
+import { printStickers, savedStickerSize, saveStickerSize } from './qr-sticker';
 
 interface AssetDetailViewProps {
   asset: Asset;
@@ -84,35 +91,15 @@ export default function AssetDetailView({
   const fundLabel = asset.fundName || hintName;
   // ช่องเดียวในฐานข้อมูล แสดงแยก: ของสาขาวิชา → หน่วยงาน = คณะ, ของหน่วยงาน → สาขาวิชา = —
   const isOffice = (officeBranches as readonly string[]).includes(asset.branch);
-  const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [history, setHistory] = useState<any | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
-  // สร้าง QR Code Data URL
+  // สติกเกอร์ QR: ขนาดม้วนใช้ค่าที่เลือกล่าสุด (จำไว้ในเบราว์เซอร์) · จำนวนดวงเริ่มที่ 1 ทุกครั้งที่เปิดรายการใหม่
+  const [stickerSize, setStickerSize] = useState<StickerSize>(savedStickerSize);
+  const [stickerCount, setStickerCount] = useState<number | string>(1);
   useEffect(() => {
-    let active = true;
-    const qrContent =
-      typeof window !== 'undefined' ? `${window.location.origin}/?asset=${encodeURIComponent(asset.id)}` : asset.code;
-
-    QRCode.toDataURL(qrContent, {
-      width: 240,
-      margin: 1,
-      color: {
-        dark: '#0f172a',
-        light: '#ffffff',
-      },
-    })
-      .then(url => {
-        if (active) setQrDataUrl(url);
-      })
-      .catch(() => {
-        // Fallback or ignore
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [asset.id, asset.code]);
+    setStickerCount(1);
+  }, [asset.id]);
 
   // ดึงประวัติไทม์ไลน์และรายการที่แยกย่อย (History & Children)
   useEffect(() => {
@@ -137,17 +124,16 @@ export default function AssetDetailView({
     };
   }, [asset.id, asset.version]);
 
-  const handlePrintQr = () => {
-    if (!qrDataUrl) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('ไม่สามารถเปิดหน้าต่างพิมพ์ได้ กรุณาอนุญาตป๊อปอัป');
-      return;
-    }
-
-    printWindow.document.write(buildQrLabelHtml(asset, qrDataUrl));
-    printWindow.document.close();
+  const changeStickerSize = (value: string) => {
+    if (!isStickerSize(value)) return;
+    setStickerSize(value);
+    saveStickerSize(value);
   };
+  const handlePrintSticker = () => {
+    void printStickers([{ asset, copies: stickerCopies(stickerCount) }], stickerSize);
+  };
+  // รายการที่แยกแล้ว/จำหน่ายแล้ว/ยกเลิกแล้วเป็นประวัติ ไม่ต้องติดสติกเกอร์ (ติดของชิ้นที่ใช้อยู่แทน)
+  const printable = asset.lifecycle === 'active';
 
   const openRounds = rounds.filter(r => r.status === 'open');
 
@@ -573,70 +559,73 @@ export default function AssetDetailView({
             </div>
           </div>
 
-          {/* Card 2: Physical QR Code Sticker Preview */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-            <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between">
-              <h2 className="text-sm font-bold text-[#0f172a] flex items-center gap-1.5">
-                <Barcode size={15} className="text-blue-600" /> ป้าย QR
+          {/* Card 2: สติกเกอร์ QR ตามสัดส่วนจริงของม้วนที่เลือก (หน้าตาเดียวกับที่พิมพ์ออกมา) */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
+            <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-bold text-[#0f172a] flex items-center gap-1.5 shrink-0">
+                <QrCode size={15} className="text-blue-600" /> สติกเกอร์ QR
               </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handlePrintQr}
-                className="h-7 px-2 text-xs font-bold text-blue-600 hover:bg-blue-50 cursor-pointer"
-                title="พิมพ์ป้าย QR"
-              >
-                <Printer size={13} className="mr-1" /> พิมพ์ป้าย
-              </Button>
+              <Pick
+                label="ขนาดสติกเกอร์"
+                value={stickerSize}
+                onChange={changeStickerSize}
+                options={Object.entries(stickerSizes).map(
+                  ([key, s]) => [key, `${s.w} × ${s.h} มม.`] as [string, string],
+                )}
+              />
             </div>
 
-            {/* Simulated Physical Sticker (Matching desktop_8_asset_detail.svg) */}
-            <div className="border-2 border-[#0f172a] rounded-lg overflow-hidden bg-white shadow-sm">
-              {/* Header Ribbon */}
-              <div className="bg-[#101f3c] text-white text-[10px] font-bold text-center py-1.5 px-2 leading-tight">
-                คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม มหาวิทยาลัยกาฬสินธุ์
-              </div>
-
-              {/* Tag Body */}
-              <div className="p-3 flex items-center gap-3">
-                {/* QR Code image */}
-                <div className="w-24 h-24 bg-white border border-slate-200 rounded p-1 shrink-0 flex items-center justify-center">
-                  {qrDataUrl ? (
-                    <img src={qrDataUrl} alt="QR Code" className="w-full h-full object-contain" />
-                  ) : (
-                    <div className="w-full h-full bg-slate-100 animate-pulse rounded" />
-                  )}
-                </div>
-
-                {/* Tag Text Info */}
-                <div className="min-w-0 flex-1 space-y-1 text-left">
-                  <div>
-                    <span className="text-[10px] text-slate-600 block leading-none">หมายเลขครุภัณฑ์:</span>
-                    <strong className="font-mono text-xs text-[#0f172a] block truncate select-all">{asset.code}</strong>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-600 block leading-none">ชื่อรายการ:</span>
-                    <span className="text-[11px] font-bold text-slate-800 block truncate">{asset.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9.5px] text-slate-600 block truncate">
-                      {asset.branch || 'คณะวิศวกรรมศาสตร์ฯ'}
-                    </span>
-                    <span className="text-[9px] text-slate-600 block truncate">
-                      วันที่ได้มา: {asset.receivedDate ? thaiDateOnly(asset.receivedDate) : '—'}
-                    </span>
-                  </div>
-                  <div className="text-[9px] font-bold text-blue-600 pt-0.5">สแกนเพื่อตรวจสอบสถานะ</div>
-                </div>
-              </div>
+            <div className="sticker-stage">
+              <StickerPreview asset={asset} size={stickerSize} maxWidth={260} maxHeight={170} />
             </div>
 
-            <Button
-              onClick={handlePrintQr}
-              className="w-full h-9 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-lg cursor-pointer"
-            >
-              <Printer size={13} className="mr-1.5" /> พิมพ์ป้าย QR ของรายการนี้
-            </Button>
+            {printable && asset.quantity > 1 && (
+              <p className="text-xs text-amber-700 leading-relaxed">
+                รายการนี้มี {asset.quantity.toLocaleString('th-TH')} ชิ้นใช้ QR เดียวกัน
+                {onSplitEach ? ' · ถ้าต้องการ QR คนละดวง กดปุ่ม "แยกเป็นรายชิ้น" ด้านบน' : ''}
+              </p>
+            )}
+
+            {printable ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-600">จำนวน</span>
+                <span className="sticker-copies">
+                  <button
+                    type="button"
+                    aria-label="ลดจำนวนดวง"
+                    onClick={() => setStickerCount(stickerCopies(stickerCopies(stickerCount) - 1))}
+                  >
+                    <Minus size={13} />
+                  </button>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={MAX_STICKERS}
+                    aria-label="จำนวนดวงที่จะพิมพ์"
+                    value={stickerCount}
+                    onChange={e => setStickerCount(e.target.value)}
+                    onBlur={() => setStickerCount(stickerCopies(stickerCount))}
+                  />
+                  <button
+                    type="button"
+                    aria-label="เพิ่มจำนวนดวง"
+                    onClick={() => setStickerCount(stickerCopies(stickerCopies(stickerCount) + 1))}
+                  >
+                    <Plus size={13} />
+                  </button>
+                </span>
+                <span className="text-xs text-slate-600">ดวง</span>
+                <Button
+                  onClick={handlePrintSticker}
+                  className="ml-auto h-9 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-lg cursor-pointer"
+                >
+                  <Printer size={13} className="mr-1.5" /> พิมพ์สติกเกอร์
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-600">รายการนี้ไม่อยู่ในทะเบียนที่ใช้อยู่ จึงไม่มีปุ่มพิมพ์สติกเกอร์</p>
+            )}
           </div>
         </div>
       </div>

@@ -77,7 +77,7 @@ export function RowActions({
         {can && (
           <DropdownMenuItem onSelect={() => open('qr', { assets: [asset] })}>
             <QrCode size={14} />
-            พิมพ์ป้าย QR
+            พิมพ์สติกเกอร์ QR
           </DropdownMenuItem>
         )}
         {voidable && <DropdownMenuSeparator />}

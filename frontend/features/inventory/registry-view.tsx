@@ -30,7 +30,7 @@ import { RowActions } from './row-actions';
 import { codeRange, commonValue, conditionCounts } from './piece-groups';
 import type { Registry } from './use-registry';
 
-// หน้าทะเบียนครุภัณฑ์: ปุ่ม (สแกน QR / ส่งออก / พิมพ์ QR) → ช่องค้นหาและตัวกรอง → แถบรายการที่เลือก
+// หน้าทะเบียนครุภัณฑ์: ปุ่ม (สแกน QR / ส่งออก / พิมพ์สติกเกอร์ QR) → ช่องค้นหาและตัวกรอง → แถบรายการที่เลือก
 // → ตาราง (จอใหญ่) หรือการ์ด (มือถือ) ทีละ 40 แถว → ตัวเปลี่ยนหน้า
 // ชิ้นที่แยกรายชิ้น (QR คนละดวง) รวมเป็นแถวเดียว กดเพื่อกางดูทีละชิ้น (piece-groups.ts)
 // สถานะตัวกรองทั้งหมดอยู่ใน useRegistry() (use-registry.ts) หน้านี้แค่แสดงผลและส่งต่อการกด
@@ -410,11 +410,11 @@ export function RegistryView({
               variant="ghost"
               size="sm"
               className="cursor-pointer"
-              disabled={!filtered.some(a => a.lifecycle === 'active')}
-              onClick={() => open('qr', { assets: filtered.filter(a => a.lifecycle === 'active') })}
+              disabled={!activeCount}
+              onClick={() => open('qr', { assets: [] })}
             >
               <QrCode size={16} />
-              พิมพ์ป้าย QR
+              พิมพ์สติกเกอร์ QR
             </Button>
           )}
         </div>
@@ -506,7 +506,7 @@ export function RegistryView({
                 onClick={() => open('qr', { assets: selectedActiveAssets })}
               >
                 <QrCode size={14} className="mr-1.5" />
-                พิมพ์ป้าย QR ({selectedActiveAssets.length})
+                พิมพ์สติกเกอร์ QR ({selectedActiveAssets.length})
               </Button>
             )}
             {editable && (

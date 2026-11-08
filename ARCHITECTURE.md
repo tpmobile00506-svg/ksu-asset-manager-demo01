@@ -48,7 +48,7 @@ asset-manager/
 │   │   ├── domain/                   money, dates, depreciation, branches, asset-types,
 │   │   │                             requests, assets, import-classify, constants, types
 │   │   ├── models.ts                 รูปร่างข้อมูลที่ API ส่งกลับ (WorkspaceData)
-│   │   └── html.ts, *-document.ts    escapeHtml และหน้าพิมพ์ (เอกสารอนุมัติ ฉลาก QR)
+│   │   └── html.ts, *-document.ts    escapeHtml และหน้าพิมพ์ (เอกสารอนุมัติ สติกเกอร์ QR)
 │   ├── routes/                       รับคำขอ HTTP: data.ts (หลัก), asset-image.ts, source.ts
 │   ├── auth/sessions.ts              ล็อกอิน เซสชัน 8 ชม. ตรวจ Origin จำกัดการเดารหัส
 │   ├── services/

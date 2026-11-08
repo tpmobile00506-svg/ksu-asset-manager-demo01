@@ -1376,59 +1376,6 @@ a:focus-visible {
   margin: 80px auto;
 }
 
-/* QR Code Grid */
-.qr-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
-}
-
-.qr-label {
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 12px 14px;
-  text-align: center;
-  break-inside: avoid;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.qr-inst-title {
-  font-size: 10px;
-  font-weight: 700;
-  color: #1e3a8a;
-  margin-bottom: 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px dashed #cbd5e1;
-  width: 100%;
-  letter-spacing: -0.2px;
-}
-
-.qr-label img {
-  margin: 0 auto 8px;
-  width: 130px;
-  height: 130px;
-  image-rendering: pixelated;
-}
-
-.qr-label b {
-  font-size: 12.5px;
-  display: block;
-  overflow-wrap: anywhere;
-  color: #0f172a;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-weight: 700;
-}
-
-.qr-label p {
-  font-size: 11.5px;
-  margin-top: 2px;
-  color: #475569;
-}
-
 .print-only {
   display: none;
 }
@@ -1562,9 +1509,6 @@ a:focus-visible {
   .form-section {
     padding: 12px;
   }
-  .qr-grid {
-    grid-template-columns: 1fr 1fr;
-  }
   .table-footer {
     flex-wrap: wrap;
   }
@@ -1636,7 +1580,7 @@ a:focus-visible {
     overflow: hidden !important;
   }
 
-  /* 3. แสดงเฉพาะเนื้อหาสติกเกอร์สำหรับพิมพ์ .print-only เท่านั้น */
+  /* 3. แสดงเฉพาะเนื้อหาสำหรับพิมพ์ .print-only เท่านั้น (รายงานที่พิมพ์จากหน้าเว็บ · สติกเกอร์ QR พิมพ์จากแท็บแยก) */
   .print-only,
   body > .print-only {
     display: block !important;
@@ -1658,48 +1602,6 @@ a:focus-visible {
     padding-bottom: 6px !important;
     border-bottom: 1.5px solid #0f172a !important;
     color: #0f172a !important;
-  }
-
-  .qr-grid {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 6mm !important;
-    width: 100% !important;
-  }
-
-  .qr-label {
-    border: 1.5px solid #0f172a !important;
-    border-radius: 6px !important;
-    padding: 8px !important;
-    margin-bottom: 0 !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-    background: #ffffff !important;
-    box-sizing: border-box !important;
-    box-shadow: none !important;
-  }
-
-  .qr-inst-title {
-    color: #0f172a !important;
-    border-bottom: 1px solid #94a3b8 !important;
-    font-size: 9.5px !important;
-  }
-
-  .qr-label img {
-    width: 105px !important;
-    height: 105px !important;
-    margin: 4px auto !important;
-  }
-
-  .qr-label b {
-    font-size: 11px !important;
-    color: #000 !important;
-  }
-
-  .qr-label p {
-    font-size: 9.5px !important;
-    color: #1e293b !important;
-    margin-top: 1px !important;
   }
 
   .print-table {
