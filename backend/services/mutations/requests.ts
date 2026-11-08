@@ -13,11 +13,18 @@ import {
 } from '../../contracts/domain';
 import { ApiError, clean, allow, now, id, asset, audit } from '../asset-service';
 import { trace } from '../../debug/trace';
-import { validate, assetRequestSchema, approvalMutationSchema, cancelRequestSchema } from '../../validation';
+import {
+  validate,
+  assetRequestSchema,
+  approvalMutationSchema,
+  cancelRequestSchema,
+  requestManySchema,
+  approveManySchema,
+} from '../../validation';
 import { type Input, type MutationContext } from './types';
 import { setMembers, splitLotForRequest, loadEditableAsset } from './helpers';
 
-// คำสั่งของคำขอ: ยื่นคำขอ อนุมัติ/ไม่อนุมัติ และผู้ยื่นยกเลิกคำขอของตัวเอง
+// คำสั่งของคำขอ: ยื่นคำขอ อนุมัติ/ไม่อนุมัติ ผู้ยื่นยกเลิกคำขอของตัวเอง และทำหลายรายการในครั้งเดียว
 
 // ยื่นคำขอโอนย้าย / ซ่อม / จำหน่าย: ยังไม่เปลี่ยนทะเบียน จนกว่าจะอนุมัติครบทุกขั้น
 export async function createRequest(ctx: MutationContext) {
@@ -236,4 +243,63 @@ export async function cancelRequest({ tx, m, b }: MutationContext) {
   trace.ok(`ผู้ยื่นยกเลิกคำขอเองที่ขั้น ${r.stage + 1}`);
   await audit(tx, m, 'ยกเลิกคำขอ', r.assetId, r, { status: 'cancelled', stage: r.stage }, note);
   return { ok: true };
+}
+
+// ทำหลายรายการในครั้งเดียว: ข้อผิดพลาดของรายการไหน ให้ขึ้นหมายเลขครุภัณฑ์นำหน้า ผู้ใช้จะได้รู้ว่าติดที่ชิ้นไหน
+async function forItem<T>(code: string | undefined, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof ApiError) throw new ApiError(`${code ?? 'รายการที่เลือก'}: ${error.message}`, error.status);
+    throw error;
+  }
+}
+
+// ยื่นคำขอหลายรายการพร้อมกัน (ผู้ใช้เลือกแบบ ก. 8 พ.ย. 2569): กรอกฟอร์มครั้งเดียว ระบบออกคำขอให้รายการละใบ
+// - ทุกใบผ่านกฎเดียวกับยื่นทีละรายการ (createRequest) · ยื่นทั้งรายการ ไม่แบ่งจำนวนในล็อต
+// - ส่งซ่อม: ค่าซ่อมประมาณการที่กรอกเป็นของแต่ละรายการ (ไม่แบ่งยอดรวม)
+// - ทุกใบสำเร็จพร้อมกัน หรือไม่มีใบไหนถูกสร้างเลย (transaction เดียวกัน) · เลขที่คำขอเรียงตามลำดับที่ส่งมา
+export async function createRequests(ctx: MutationContext) {
+  const { tx, m, b } = ctx;
+  allow(m, ['staff', 'admin']);
+  const { items, kind, reason, payload } = validate(requestManySchema, b);
+  // ตรวจประเภท เหตุผล ปลายทาง ครั้งเดียวก่อน ข้อความผิดพลาดจะได้ไม่ติดหมายเลขของรายการแรก
+  validate(assetRequestSchema, { action: 'request', ...items[0], kind, reason, payload });
+  const rows = await tx.asset.findMany({
+    where: { id: { in: items.map(x => x.id) } },
+    select: { id: true, code: true },
+  });
+  const codes = new Map(rows.map(x => [x.id, x.code]));
+  const ids: string[] = [];
+  for (const item of items) {
+    const res = await forItem(codes.get(item.id), () =>
+      createRequest({ ...ctx, b: { action: 'request', id: item.id, version: item.version, kind, reason, payload } }),
+    );
+    ids.push(res.id);
+  }
+  trace.ok(`ยื่นคำขอ ${ids.length} รายการในครั้งเดียว`);
+  return { ok: true, count: ids.length, ids };
+}
+
+// อนุมัติที่เลือก (ผู้ใช้ขอ 8 พ.ย. 2569): ลงนามขั้นของตัวเองทีละใบด้วยกฎเดิม (decideRequest)
+// ประวัติยังเก็บลายเซ็นแยกใบละรายการ · ทุกใบผ่านพร้อมกัน หรือไม่มีใบไหนเปลี่ยนเลย · ไม่อนุมัติยังต้องทำทีละใบพร้อมเหตุผล
+export async function approveRequests(ctx: MutationContext) {
+  const { tx, m, b } = ctx;
+  if (!(ADMIN_APPROVES_ALL && m.role === 'admin')) allow(m, ['head', 'deputy', 'dean']);
+  const { items, reason } = validate(approveManySchema, b);
+  const rows = await tx.assetRequest.findMany({
+    where: { id: { in: items.map(x => x.id) } },
+    select: { id: true, asset: { select: { code: true } } },
+  });
+  const codes = new Map(rows.map(x => [x.id, x.asset.code]));
+  for (const item of items)
+    await forItem(codes.get(item.id), () =>
+      decideRequest({
+        ...ctx,
+        action: 'approve',
+        b: { action: 'approve', id: item.id, version: item.version, reason },
+      }),
+    );
+  trace.ok(`อนุมัติคำขอ ${items.length} รายการในครั้งเดียว`);
+  return { ok: true, count: items.length };
 }

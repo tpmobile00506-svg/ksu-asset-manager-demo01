@@ -16,6 +16,7 @@ import Operations from '@/frontend/features/operations/operations';
 import AssetDetailView from './asset-detail-view';
 import QrScannerModal from '@/frontend/components/qr-scanner-modal';
 import BulkEditModal from './bulk-edit-modal';
+import RequestManyModal from './request-many-modal';
 import { WorkspaceData } from '@/frontend/types/models';
 import { LoginScreen } from '@/frontend/features/auth/login-screen';
 import { AppSidebar } from '@/frontend/features/shell/app-sidebar';
@@ -491,6 +492,18 @@ export default function Workspace() {
         error={formError}
         setError={setFormError}
       />
+      {modal?.kind === 'requestMany' && (
+        <RequestManyModal
+          assets={modal.assets}
+          requests={data.requests || []}
+          busy={busy}
+          error={formError}
+          onClose={() => setModal(null)}
+          onSubmit={async body => {
+            if (await write(body)) registry.clearSelection();
+          }}
+        />
+      )}
       {modal?.kind === 'bulkEdit' && (
         <BulkEditModal
           assets={modal.assets}

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_BATCH_ITEMS as MAX_BATCH } from '../contracts/domain';
 
 export const transferPayloadSchema = z.object({
   location: z
@@ -100,6 +101,45 @@ export const approvalMutationSchema = z
   );
 
 export type ApprovalMutationInput = z.infer<typeof approvalMutationSchema>;
+
+// ทำหลายรายการในครั้งเดียว (ผู้ใช้เลือกแบบ ก. 8 พ.ย. 2569): ยื่นคำขอ / อนุมัติที่เลือก ครั้งละไม่เกิน MAX_BATCH_ITEMS รายการ
+const batchItems = (what: string) =>
+  z
+    .array(
+      z.object({
+        id: z
+          .string({ invalid_type_error: `รหัส${what}ไม่ถูกต้อง` })
+          .trim()
+          .min(1, `รหัส${what}ไม่ถูกต้อง`),
+        version: z
+          .number({
+            required_error: 'ข้อมูลเปลี่ยนแล้ว กรุณาโหลดใหม่',
+            invalid_type_error: 'ข้อมูลเปลี่ยนแล้ว กรุณาโหลดใหม่',
+          })
+          .int('ข้อมูลเปลี่ยนแล้ว กรุณาโหลดใหม่'),
+      }),
+      { required_error: `เลือก${what}อย่างน้อย 1 รายการ`, invalid_type_error: `เลือก${what}อย่างน้อย 1 รายการ` },
+    )
+    .min(1, `เลือก${what}อย่างน้อย 1 รายการ`)
+    .max(MAX_BATCH, `เลือก${what}ได้ครั้งละไม่เกิน ${MAX_BATCH} รายการ`)
+    .refine(list => new Set(list.map(x => x.id)).size === list.length, `เลือก${what}ซ้ำกัน กรุณาโหลดใหม่`);
+
+// ประเภท เหตุผล และปลายทาง ใช้ร่วมกันทุกรายการ ตรวจละเอียดด้วย assetRequestSchema ตัวเดียวกับยื่นทีละรายการ
+export const requestManySchema = z.object({
+  action: z.literal('requestMany'),
+  token: z.string().max(100).optional(),
+  items: batchItems('ครุภัณฑ์'),
+  kind: z.unknown(),
+  reason: z.unknown(),
+  payload: z.unknown(),
+});
+
+export const approveManySchema = z.object({
+  action: z.literal('approveMany'),
+  token: z.string().max(100).optional(),
+  items: batchItems('คำขอ'),
+  reason: z.string().max(500, 'ความเห็นยาวเกินกำหนด').optional().nullable(),
+});
 
 // ผู้ยื่นยกเลิกคำขอของตัวเองได้ระหว่างรออนุมัติทุกขั้น (ผู้ใช้เลือก 7 พ.ย. 2569) เหตุผลไม่บังคับ
 export const cancelRequestSchema = z.object({

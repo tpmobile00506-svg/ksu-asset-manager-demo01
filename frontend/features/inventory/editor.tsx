@@ -23,6 +23,7 @@ import {
 import { Any, Pick, statusLabel, baht } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
 import QrStickerModal from './qr-sticker-modal';
+import { ApproveManySummary } from '../requests/approve-many';
 import PiecesEditor from './pieces-editor';
 import { type PiecesState, initialPieces, resolvePieces, piecesProblem } from './pieces';
 import AssetFormModal, {
@@ -48,6 +49,7 @@ const titleMap: Record<string, string> = {
   splitEach: 'แยกเป็นรายชิ้น',
   request: 'ยื่นคำขอ',
   approve: 'อนุมัติคำขอ',
+  approveMany: 'อนุมัติคำขอที่เลือก',
   reject: 'ไม่อนุมัติคำขอ',
   cancelRequest: 'ยกเลิกคำขอ',
   password: 'เปลี่ยนรหัสผ่าน',
@@ -69,6 +71,7 @@ const submitLabels: Record<string, string> = {
   splitEach: 'แยกเป็นรายชิ้น',
   request: 'ยื่นคำขอ',
   approve: 'อนุมัติ',
+  approveMany: 'อนุมัติทั้งหมดที่เลือก',
   reject: 'ไม่อนุมัติ',
   cancelRequest: 'ยกเลิกคำขอนี้',
   round: 'เปิดรอบตรวจนับ',
@@ -192,6 +195,12 @@ export default function Editor({
           version: modal.request.version,
           reason: f.reason,
         });
+      } else if (modal.kind === 'approveMany') {
+        await write({
+          action: 'approveMany',
+          items: modal.requests.map((r: { id: string; version: number }) => ({ id: r.id, version: r.version })),
+          reason: f.reason,
+        });
       } else if (modal.kind === 'password') {
         if (f.password !== f.confirm) {
           setError('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน');
@@ -272,7 +281,9 @@ export default function Editor({
 
       {/* 4. หน้าต่างอื่น ๆ (แยกรายการ, คำขอ, ตรวจนับ, ผู้ใช้, ซ่อมเสร็จ, ข้อมูลต้นฉบับ) */}
       <Dialog
-        open={!!currentModal && !['create', 'edit', 'import', 'qr', 'bulkEdit'].includes(currentModal.kind)}
+        open={
+          !!currentModal && !['create', 'edit', 'import', 'qr', 'bulkEdit', 'requestMany'].includes(currentModal.kind)
+        }
         onOpenChange={v => {
           if (!v && !busy) {
             setModal(null);
@@ -711,6 +722,16 @@ export default function Editor({
                         }
                         rows={3}
                       />
+                    </label>
+                  </div>
+                )}
+
+                {modal?.kind === 'approveMany' && (
+                  <div className="form-grid form-grid-single">
+                    <ApproveManySummary list={modal.requests} role={data.me.role} />
+                    <label>
+                      <span>ความเห็น (ถ้ามี · ใช้กับทุกใบ)</span>
+                      <Textarea name="reason" placeholder="เช่น เห็นควรอนุมัติ" rows={2} maxLength={500} />
                     </label>
                   </div>
                 )}

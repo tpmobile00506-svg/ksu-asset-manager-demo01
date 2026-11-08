@@ -100,7 +100,7 @@ asset-manager/
 | `assets.ts` | `create`, `import`, `bulkEdit`, `edit`, `split`, `splitEach`, `repairComplete`, `void`, `restore` |
 | `imports.ts`, `import-files.ts` | `batchImport`, `rowOverride`, `sourceDelete`, `sourceArchive` |
 | `funds.ts` | `fundSave`, `fundDelete`, `fundAssign`, `fundUnassign` |
-| `requests.ts` | `request`, `approve`, `reject` (ไม่อนุมัติ = คำขอสิ้นสุด), `cancelRequest` (ผู้ยื่นยกเลิกเองระหว่างรออนุมัติทุกขั้น) |
+| `requests.ts` | `request`, `approve`, `reject` (ไม่อนุมัติ = คำขอสิ้นสุด), `cancelRequest` (ผู้ยื่นยกเลิกเองระหว่างรออนุมัติทุกขั้น), `requestMany` (ยื่นหลายรายการ ได้คำขอรายการละใบ), `approveMany` (อนุมัติที่เลือก ลงนามทีละใบ) — 2 ตัวหลังทุกใบสำเร็จพร้อมกันหรือไม่มีใบไหนเปลี่ยน ครั้งละไม่เกิน 100 ใบ |
 | `stocktakes.ts` | `round`, `check`, `closeRound` |
 | `helpers.ts` | ตัวช่วยร่วม เช่น `assertCodesFree` (รหัสห้ามซ้ำ), `loadEditableAsset` (ขั้นตรวจก่อนแก้ครุภัณฑ์) |
 

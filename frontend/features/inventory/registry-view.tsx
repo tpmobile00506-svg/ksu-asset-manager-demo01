@@ -9,6 +9,7 @@ import {
   QrCode,
   ScanLine,
   Search,
+  Send,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -497,7 +498,7 @@ export function RegistryView({
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {editable && (
               <Button
                 size="sm"
@@ -507,6 +508,18 @@ export function RegistryView({
               >
                 <QrCode size={14} className="mr-1.5" />
                 พิมพ์สติกเกอร์ QR ({selectedActiveAssets.length})
+              </Button>
+            )}
+            {editable && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!selectedActiveAssets.length}
+                className="bg-white text-blue-700 border-blue-300 hover:bg-blue-50 text-xs font-semibold cursor-pointer h-8 px-3"
+                onClick={() => open('requestMany', { assets: selectedActiveAssets })}
+              >
+                <Send size={14} className="mr-1.5" />
+                ยื่นคำขอ ({selectedActiveAssets.length})
               </Button>
             )}
             {editable && (

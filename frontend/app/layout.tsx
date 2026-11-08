@@ -3,6 +3,7 @@ import '@/frontend/styles/globals.css';
 import '@/frontend/styles/source-sheet-grid.css';
 import '@/frontend/styles/registry-table.css';
 import '@/frontend/styles/qr-sticker.css';
+import '@/frontend/styles/request-batch.css';
 
 export const metadata: Metadata = {
   title: 'ทะเบียนครุภัณฑ์ · คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม',

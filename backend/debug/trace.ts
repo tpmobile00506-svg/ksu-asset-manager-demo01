@@ -49,6 +49,8 @@ const ACTIONS: Record<string, string> = {
   request: 'ยื่นคำขอ (โอนย้าย / ซ่อม / จำหน่าย)',
   approve: 'อนุมัติคำขอ',
   reject: 'ไม่อนุมัติคำขอ',
+  requestMany: 'ยื่นคำขอหลายรายการพร้อมกัน',
+  approveMany: 'อนุมัติคำขอที่เลือก (หลายรายการ)',
   repairComplete: 'บันทึกซ่อมเสร็จ',
   void: 'ยกเลิกรายการที่บันทึกผิด',
   round: 'เปิดรอบตรวจนับ',

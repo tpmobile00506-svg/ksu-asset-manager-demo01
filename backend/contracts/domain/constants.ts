@@ -14,6 +14,8 @@ export const ADMIN_APPROVES_ALL = false;
 export const conditions = { normal: 'ปกติ', damaged: 'ชำรุด', repair: 'กำลังซ่อม', missing: 'ไม่พบ' } as const;
 // ใช้คำเดียวทั้งระบบ: โอนย้าย / ส่งซ่อม / จำหน่าย (เดิมมี ซ่อมบำรุง และ ตัดบัญชี ปนกัน)
 export const requestTypes = { transfer: 'โอนย้าย', repair: 'ส่งซ่อม', disposal: 'จำหน่าย' } as const;
+// ยื่นคำขอ / อนุมัติที่เลือก ได้ครั้งละไม่เกินกี่รายการ (ผู้ใช้เลือกแบบ ก. 8 พ.ย. 2569)
+export const MAX_BATCH_ITEMS = 100;
 export const headers11 = [
   'ลำดับ',
   'หมายเลขครุภัณฑ์',

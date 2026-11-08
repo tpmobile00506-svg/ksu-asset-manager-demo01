@@ -19,7 +19,7 @@ import {
 } from './assets';
 import { batchImport, rowOverride } from './imports';
 import { fundAction } from './funds';
-import { createRequest, decideRequest, cancelRequest } from './requests';
+import { createRequest, decideRequest, cancelRequest, createRequests, approveRequests } from './requests';
 import { openRound, recordCheck, closeRound } from './stocktakes';
 
 // ชนกับคำขอของคนอื่นพร้อมกัน: ลองใหม่ได้สูงสุดกี่รอบ (รวมรอบแรก) ก่อนแจ้งผู้ใช้ให้ลองใหม่เอง
@@ -57,6 +57,8 @@ const handlers: Record<string, Handler> = {
   approve: decideRequest,
   reject: decideRequest,
   cancelRequest,
+  requestMany: createRequests,
+  approveMany: approveRequests,
   // ตรวจนับประจำปี (stocktakes.ts)
   round: openRound,
   check: recordCheck,

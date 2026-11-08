@@ -21,7 +21,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Role, roles, requestTypes, awaitsApprovalBy, pendingForUser, thaiDateTime } from '@/shared/domain';
+import {
+  Role,
+  roles,
+  requestTypes,
+  awaitsApprovalBy,
+  pendingForUser,
+  thaiDateTime,
+  MAX_BATCH_ITEMS,
+} from '@/shared/domain';
 import { buildApprovalDocumentHtml } from '@/shared/approval-document';
 import { toast } from 'sonner';
 import { Empty, Badge, Pick, Pager, baht } from '@/frontend/components/common';
@@ -31,6 +39,7 @@ import type { WorkspaceData, RequestRecord } from '@/shared/models';
 // - ตัวกรองแยก 2 แบบ: สถานะ (ปุ่มด้านบน) และประเภท (ช่องเลือก) · ผู้อนุมัติเริ่มที่แท็บ "รอฉันอนุมัติ"
 // - จอกว้างเป็นตาราง จอมือถือ (ต่ำกว่า 768) เป็นการ์ดที่มีปุ่มอนุมัติอยู่ท้ายการ์ด ไม่ต้องเลื่อนตารางไปทางขวา
 // - ผู้ยื่นยกเลิกคำขอของตัวเองได้ระหว่างรออนุมัติทุกขั้น (คำสั่ง cancelRequest)
+// - ผู้อนุมัติติ๊กหลายใบแล้วกด "อนุมัติที่เลือก" ได้ (คำสั่ง approveMany, ผู้ใช้ขอ 8 พ.ย. 2569) · ไม่อนุมัติยังทำทีละใบ
 
 type StatusTab = 'mine' | 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled';
 type KindFilter = 'all' | 'transfer' | 'repair' | 'disposal';
@@ -159,6 +168,18 @@ export default function RequestsView({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerBranch, setPickerBranch] = useState<string>('all');
+  // อนุมัติที่เลือก: ติ๊กได้เฉพาะใบที่รอขั้นของฉัน · ใบที่อนุมัติไปแล้วหลุดออกเองเมื่อโหลดข้อมูลใหม่
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  const pickedList = useMemo(() => waitingMe.filter(r => picked.has(r.id)), [waitingMe, picked]);
+  const waitingIds = useMemo(() => new Set(waitingMe.map(r => r.id)), [waitingMe]);
+  const showPick = waitingMe.length > 0;
+  const togglePick = (id: string) =>
+    setPicked(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   // พิมพ์เอกสารอนุมัติของคำขอที่อนุมัติครบทุกขั้นแล้ว (เปิดหน้าต่างใหม่แล้วสั่งพิมพ์/บันทึกเป็น PDF)
   function printApprovalDocument(r: RequestRecord) {
@@ -243,6 +264,28 @@ export default function RequestsView({
   const [page, setPage] = useState(0);
   useEffect(() => setPage(0), [tab, kind, search]);
   const shown = filtered.slice(page * PAGE, (page + 1) * PAGE);
+  // ช่องติ๊กหัวตาราง: เลือก/เอาออก ทุกใบในหน้านี้ที่รอฉันอนุมัติ
+  const shownWaiting = shown.filter(r => waitingIds.has(r.id));
+  const pageAllPicked = shownWaiting.length > 0 && shownWaiting.every(r => picked.has(r.id));
+  const togglePage = () =>
+    setPicked(prev => {
+      const next = new Set(prev);
+      for (const r of shownWaiting) {
+        if (pageAllPicked) next.delete(r.id);
+        else next.add(r.id);
+      }
+      return next;
+    });
+  const pickBox = (r: RequestRecord) =>
+    waitingIds.has(r.id) ? (
+      <input
+        type="checkbox"
+        className="request-pick"
+        checked={picked.has(r.id)}
+        onChange={() => togglePick(r.id)}
+        aria-label={`เลือก ${r.requestNo} ${r.code}`}
+      />
+    ) : null;
 
   // สาขาที่มีครุภัณฑ์พร้อมยื่นคำขอ
   const activeAssets = useMemo(() => assets.filter(a => a.lifecycle === 'active'), [assets]);
@@ -356,6 +399,45 @@ export default function RequestsView({
         </div>
       </div>
 
+      {pickedList.length > 0 && (
+        <div className="approve-bar" role="region" aria-label="อนุมัติที่เลือก">
+          <div className="text-sm text-slate-800">
+            เลือก <b className="text-blue-700">{pickedList.length.toLocaleString('th-TH')}</b> คำขอ
+            {pickedList.length < waitingMe.length && (
+              <button
+                type="button"
+                className="ml-2 text-xs text-blue-700 underline"
+                onClick={() => setPicked(new Set(waitingMe.map(r => r.id)))}
+              >
+                (เลือกทั้งหมดที่รอฉันอนุมัติ {waitingMe.length.toLocaleString('th-TH')})
+              </button>
+            )}
+            {pickedList.length > MAX_BATCH_ITEMS && (
+              <span className="block text-xs text-rose-700">อนุมัติได้ครั้งละไม่เกิน {MAX_BATCH_ITEMS} ใบ</span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              className="h-9 px-3.5 font-semibold bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={pickedList.length > MAX_BATCH_ITEMS}
+              onClick={() => open('approveMany', { requests: pickedList })}
+            >
+              <Check size={14} className="mr-1" />
+              อนุมัติที่เลือก ({pickedList.length.toLocaleString('th-TH')})
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-3 bg-white text-slate-700 border-slate-300"
+              onClick={() => setPicked(new Set())}
+            >
+              <X size={13} className="mr-1" />
+              ล้าง
+            </Button>
+          </div>
+        </div>
+      )}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 py-12">
           <Empty title={requests.length ? 'ไม่มีคำขอตามตัวกรองนี้' : 'ยังไม่มีคำขอ'}>
@@ -376,7 +458,10 @@ export default function RequestsView({
               return (
                 <article key={r.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <KindBadge kind={r.kind} />
+                    <span className="flex items-center gap-2.5">
+                      {pickBox(r)}
+                      <KindBadge kind={r.kind} />
+                    </span>
                     <Badge value={r.status} />
                   </div>
                   <h3 className="mt-2 font-semibold text-slate-900 text-[15px] leading-snug">
@@ -417,6 +502,18 @@ export default function RequestsView({
               <Table>
                 <TableHeader className="bg-slate-50 border-b border-slate-200">
                   <TableRow>
+                    {showPick && (
+                      <TableHead className="w-[44px]">
+                        <input
+                          type="checkbox"
+                          className="request-pick"
+                          checked={pageAllPicked}
+                          disabled={!shownWaiting.length}
+                          onChange={togglePage}
+                          aria-label="เลือกทุกใบในหน้านี้ที่รอฉันอนุมัติ"
+                        />
+                      </TableHead>
+                    )}
                     <TableHead className="w-[150px] text-xs font-semibold text-slate-700">เลขที่ / วันที่</TableHead>
                     <TableHead className="w-[96px] text-xs font-semibold text-slate-700">ประเภท</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-700 min-w-[220px]">ครุภัณฑ์</TableHead>
@@ -430,7 +527,11 @@ export default function RequestsView({
                     const payload = readPayload(r);
                     const can = actionsFor(r);
                     return (
-                      <TableRow key={r.id} className="hover:bg-slate-50/70">
+                      <TableRow
+                        key={r.id}
+                        className={`hover:bg-slate-50/70 ${picked.has(r.id) ? 'bg-blue-50/60' : ''}`}
+                      >
+                        {showPick && <TableCell className="align-top py-3.5">{pickBox(r)}</TableCell>}
                         <TableCell className="align-top py-3.5">
                           <div className="font-mono text-xs font-bold text-blue-700" title={r.id}>
                             {r.requestNo}

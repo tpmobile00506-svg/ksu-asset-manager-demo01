@@ -4,7 +4,7 @@
 //   assets.ts       create, import, bulkEdit, edit, split, repairComplete, void, restore
 //   imports.ts      batchImport, rowOverride · import-files.ts: sourceDelete, sourceArchive
 //   funds.ts        fundSave, fundDelete, fundAssign, fundUnassign
-//   requests.ts     request, approve, reject
+//   requests.ts     request, approve, reject, cancelRequest, requestMany, approveMany
 //   stocktakes.ts   round, check, closeRound
 //   helpers.ts      ตัวช่วยที่ใช้ร่วมกัน · types.ts: MutationContext
 export { mutate } from './mutations';
