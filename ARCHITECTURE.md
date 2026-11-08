@@ -50,7 +50,7 @@ asset-manager/
 │   │   ├── models.ts                 รูปร่างข้อมูลที่ API ส่งกลับ (WorkspaceData)
 │   │   └── html.ts, *-document.ts    escapeHtml และหน้าพิมพ์ (เอกสารอนุมัติ สติกเกอร์ QR)
 │   ├── routes/                       รับคำขอ HTTP: data.ts (หลัก), asset-image.ts, source.ts
-│   ├── auth/sessions.ts              ล็อกอิน เซสชัน 8 ชม. ตรวจ Origin จำกัดการเดารหัส
+│   ├── auth/sessions.ts              ล็อกอิน เซสชัน 2 ชม. ต่อเองระหว่างใช้งาน ตรวจ Origin จำกัดการเดารหัส
 │   ├── services/
 │   │   ├── asset-service.ts          getData (อ่าน) + ตัวช่วยตรวจข้อมูล/บันทึกประวัติ
 │   │   ├── mutations/                ★ คำสั่งบันทึกทั้งหมด แยกไฟล์ตามเรื่อง (ดูข้อ 4)

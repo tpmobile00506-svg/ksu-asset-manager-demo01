@@ -1,4 +1,4 @@
-import { member, checkOrigin } from '../auth/sessions';
+import { memberRenewed, checkOrigin } from '../auth/sessions';
 import { getData, upload, ApiError } from '../services/asset-service';
 import { mutate } from '../services/asset-mutations';
 import { boundedFormData, boundedJson } from '../services/request-body';
@@ -22,23 +22,29 @@ export function fail(error: unknown) {
   console.error('Asset API failed:', error);
   return Response.json({ error: 'ระบบไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง' }, { status: 500 });
 }
-function response(value: unknown) {
+// cookie = เซสชันที่เพิ่งต่ออายุ (ใช้งานอยู่ไม่หลุด) ส่งกลับพร้อมผลลัพธ์
+function response(value: unknown, cookie: string | null = null) {
   return new Response(json(value), {
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      ...(cookie ? { 'Set-Cookie': cookie } : {}),
+    },
   });
 }
 export async function GET(request: Request) {
   const url = new URL(request.url);
   return traced('GET', url.pathname + url.search, async () => {
     try {
-      const value = await getData(await member(request), url);
+      const { user, cookie } = await memberRenewed(request);
+      const value = await getData(user, url);
       const data = value as { assets?: unknown[]; requests?: unknown[]; items?: unknown[] };
       if (data.assets)
         trace.ok(
           `เตรียมข้อมูลส่งกลับ: ครุภัณฑ์ ${data.assets.length} รายการ · คำขอ ${data.requests?.length ?? 0} รายการ`,
         );
       else if (data.items) trace.ok(`เตรียมรายการตรวจนับส่งกลับ ${data.items.length} รายการ`);
-      return response(value);
+      return response(value, cookie);
     } catch (error) {
       return fail(error);
     }
@@ -49,16 +55,18 @@ export async function POST(request: Request) {
     try {
       checkOrigin(request);
       trace.ok('ตรวจต้นทาง (Origin) — คำสั่งมาจากเว็บของเราเอง ไม่ใช่เว็บอื่นแอบส่งมา');
-      const user = await member(request);
+      const { user, cookie } = await memberRenewed(request);
       const limit = 4.25 * 1024 * 1024,
         tooLarge = 'ไฟล์ต้องไม่เกิน 4 MB';
       if (request.headers.get('content-type')?.includes('multipart/form-data')) {
         trace.step('รับไฟล์ที่อัปโหลด (Excel) ขนาดไม่เกิน 4 MB');
-        return response(await upload(user, await boundedFormData(request, limit, tooLarge)));
+        return response(await upload(user, await boundedFormData(request, limit, tooLarge)), cookie);
       }
       const body = (await boundedJson(request, limit, tooLarge)) as Parameters<typeof mutate>[1];
       trace.step(`คำสั่งที่ได้รับ: ${describeAction(body?.action)} (action = "${String(body?.action)}")`);
-      return response(await mutate(user, body));
+      const result = await mutate(user, body);
+      // เปลี่ยนรหัสผ่านเอง = ออกจากระบบทุกเครื่อง ไม่ส่ง cookie ที่ต่ออายุกลับไป
+      return response(result, (result as { signedOut?: boolean })?.signedOut ? null : cookie);
     } catch (error) {
       return fail(error);
     }

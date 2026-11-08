@@ -9,7 +9,15 @@ import { loginSchema } from '../validation/auth';
 
 const scrypt = promisify(derive),
   COOKIE = 'ksu_session';
-const duration = 8 * 60 * 60;
+// เซสชันต่ออายุเองระหว่างใช้งาน (ผู้ใช้เลือก 8 พ.ย. 2569): ไม่ได้ใช้ 2 ชั่วโมงจึงต้องเข้าสู่ระบบใหม่
+// เดิมอายุตายตัว 8 ชั่วโมงนับจากตอนเข้าสู่ระบบ ใช้งานอยู่ก็หลุด และฟอร์มที่กรอกค้างหายหมด
+export const SESSION_IDLE_SECONDS = 2 * 60 * 60;
+const duration = SESSION_IDLE_SECONDS;
+// ต่ออายุอย่างมากทุก 5 นาที ไม่ต้องเขียนฐานข้อมูลทุกครั้งที่หน้าเว็บโหลดข้อมูล
+const RENEW_EVERY_SECONDS = 5 * 60;
+export function renewalDue(expiresAt: Date, now = new Date()): boolean {
+  return expiresAt.getTime() - now.getTime() < (duration - RENEW_EVERY_SECONDS) * 1000;
+}
 export const publicUserFields = {
   id: true,
   email: true,
@@ -70,7 +78,7 @@ export function cookieValue(request: Request): string | null {
 export function sessionCookie(token: string, maxAge = duration) {
   return `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${settings.secureCookies || settings.frontendOrigin.startsWith('https:') ? '; Secure' : ''}`;
 }
-export async function member(request: Request): Promise<Member> {
+async function authenticate(request: Request) {
   const token = cookieValue(request);
   if (!token) throw new ApiError('กรุณาเข้าสู่ระบบ', 401);
   await checkDatabase();
@@ -83,7 +91,29 @@ export async function member(request: Request): Promise<Member> {
   trace.ok(
     `ตรวจบัตรผ่าน (cookie เซสชัน) — ผู้ใช้: ${session.user.name} · บทบาท: ${roles[session.user.role as Role] ?? session.user.role}`,
   );
-  return session.user as Member;
+  return { token, expiresAt: session.expiresAt, user: session.user as Member };
+}
+export async function member(request: Request): Promise<Member> {
+  return (await authenticate(request)).user;
+}
+// ตรวจผู้ใช้แล้วต่ออายุเซสชันอีก 2 ชั่วโมง (ใช้กับ /api/data ซึ่งหน้าเว็บเรียกทุกครั้งที่โหลดข้อมูลหรือบันทึก)
+// cookie = ค่า Set-Cookie ใหม่ที่ต้องส่งกลับ (อายุเท่าเซสชันในฐานข้อมูล) · null = ยังไม่ถึงรอบต่ออายุ
+export async function memberRenewed(request: Request): Promise<{ user: Member; cookie: string | null }> {
+  const { token, expiresAt, user } = await authenticate(request);
+  if (!renewalDue(expiresAt)) return { user, cookie: null };
+  try {
+    const { count } = await prisma.session.updateMany({
+      where: { tokenHash: digest(token), expiresAt: { gt: new Date() } },
+      data: { expiresAt: new Date(Date.now() + duration * 1000) },
+    });
+    if (!count) return { user, cookie: null };
+    trace.ok('ต่ออายุเซสชันอีก 2 ชั่วโมง (ยังใช้งานอยู่)');
+    return { user, cookie: sessionCookie(token) };
+  } catch (error) {
+    // ต่ออายุไม่สำเร็จไม่ทำให้คำสั่งนี้ล้ม เซสชันเดิมยังใช้ได้จนถึงเวลาหมดอายุเดิม
+    console.error('Session renewal failed', { code: (error as { code?: string }).code });
+    return { user, cookie: null };
+  }
 }
 export async function freshMember(tx: Transaction, member: Member): Promise<Member> {
   const user = await tx.user.findUnique({ where: { id: member.id }, select: publicUserFields });
@@ -182,7 +212,7 @@ export async function login(request: Request) {
   const valid = await verifyPassword(password, user?.passwordHash || (await dummyHash));
   if (!user?.active || !valid) throw new ApiError('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 401);
   trace.ok(`รหัสผ่านถูกต้อง — ${user.name} · บทบาท: ${roles[user.role as Role] ?? user.role}`);
-  trace.step('สร้างเซสชันใหม่ อายุ 8 ชั่วโมง แล้วส่ง cookie แบบ HttpOnly กลับไปให้เบราว์เซอร์');
+  trace.step('สร้างเซสชันใหม่ อายุ 2 ชั่วโมง (ต่อเองระหว่างใช้งาน) แล้วส่ง cookie แบบ HttpOnly กลับไปให้เบราว์เซอร์');
   const token = randomBytes(32).toString('hex');
   await prisma.$transaction(
     async tx => {
