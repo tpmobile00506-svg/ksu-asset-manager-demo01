@@ -143,6 +143,8 @@ async function login(role, password = identities[role].password) {
     assert.match(cookie || '', /^ksu_session=[a-f0-9]{64};/);
     assert.match(cookie, /HttpOnly/i);
     assert.match(cookie, /SameSite=Lax/i);
+    // เซสชันต่ออายุเองระหว่างใช้งาน: อายุ 2 ชั่วโมงนับจากใช้งานล่าสุด (ผู้ใช้เลือก 8 พ.ย. 2569)
+    assert.match(cookie, /Max-Age=7200(;|$)/);
     cookies[role] = cookie.split(';', 1)[0];
   }
   return result;
@@ -168,6 +170,8 @@ assert.equal(
 );
 good(await login('admin'));
 assert.equal(good(await call('admin')).me.role, 'admin');
+// เพิ่งเข้าสู่ระบบ: ยังไม่ถึงรอบต่ออายุ (ต่ออย่างมากทุก 5 นาที) จึงไม่ส่ง cookie ใหม่
+assert.equal((await call('admin')).response.headers.get('set-cookie'), null);
 for (const role of ['staff', 'head', 'deputy', 'dean']) {
   // หัวหน้าสาขาอนุมัติได้เฉพาะสาขาตนเอง จึงต้องกำหนดสาขามาตรฐานให้ผู้ใช้ head
   good(
@@ -615,6 +619,57 @@ assert.equal(batchAsset.totalSatang, 20000);
 console.log(
   'PASS integrity: competing requests recover, repair estimates persist, batch conflicts roll back, issue rows require review, replay preserves totals',
 );
+
+// ยื่นหลายรายการ + อนุมัติที่เลือก (ผู้ใช้เลือกแบบ ก. 8 พ.ย. 2569) ผ่านเว็บจริงทั้งวงจร
+// โต๊ะ 3 รายการ รายการละ 1 ตัว ตัวละ 2,000.00 บาท = 200,000 สตางค์ · ย้ายไป "ห้องรวม" ทั้ง 3 ใบ
+const manyIds = [];
+for (const n of [1, 2, 3])
+  manyIds.push(
+    good(
+      await call('staff', {
+        action: 'create',
+        asset: { ...proto, code: `MANY-${suffix}-${n}`, quantity: 1, unitSatang: 200000, totalSatang: 200000 },
+      }),
+    ).id,
+  );
+const manyItems = async () =>
+  good(await call('staff'))
+    .assets.filter(x => manyIds.includes(x.id))
+    .map(x => ({ id: x.id, version: x.version }));
+const manyBody = async () => ({
+  action: 'requestMany',
+  kind: 'transfer',
+  reason: 'ย้ายรวมห้อง',
+  items: await manyItems(),
+  payload: { location: 'ห้องรวม', branch: testBranch },
+});
+assert.equal((await call('head', await manyBody())).status, 403, 'Approvers cannot submit requests');
+const submitted = good(await call('staff', await manyBody()));
+assert.equal(submitted.count, 3);
+// ยื่นชุดเดิมซ้ำ: ทุกรายการมีคำขอค้างแล้ว → ล้มทั้งชุด ไม่มีใบใหม่
+assert.equal((await call('staff', await manyBody())).status, 400);
+assert.equal(good(await call('staff')).requests.filter(x => manyIds.includes(x.assetId)).length, 3);
+const manyRequests = async role => good(await call(role)).requests.filter(x => submitted.ids.includes(x.id));
+const approveManyBody = async role => ({
+  action: 'approveMany',
+  items: (await manyRequests(role)).map(x => ({ id: x.id, version: x.version })),
+  reason: 'เห็นชอบทั้งชุด',
+});
+assert.equal((await call('staff', await approveManyBody('staff'))).status, 403, 'Staff cannot approve');
+assert.equal((await call('dean', await approveManyBody('dean'))).status, 403, 'Dean cannot skip earlier stages');
+for (const role of ['head', 'deputy']) good(await call(role, await approveManyBody(role)));
+// คณบดีกดซ้ำพร้อมกัน 2 ครั้ง (คนละ token): สำเร็จครั้งเดียว อีกครั้งได้ 409 ที่บอกเหตุผลชัด
+const finalBody = await approveManyBody('dean');
+const raced = await Promise.all([call('dean', finalBody), call('dean', finalBody)]);
+assert.deepEqual(raced.map(x => x.status).sort(), [200, 409]);
+assert.match(raced.find(x => x.status === 409).data.error, /อนุมัติ/);
+state = good(await call('staff'));
+assert.deepEqual(
+  state.assets.filter(x => manyIds.includes(x.id)).map(x => x.location),
+  ['ห้องรวม', 'ห้องรวม', 'ห้องรวม'],
+);
+assert.ok(state.requests.filter(x => submitted.ids.includes(x.id)).every(x => x.status === 'approved'));
+console.log('PASS batch requests: one form → one request per item, approve selected per stage, no double approval');
 
 const rangePrefix = 'CONFLICT-' + suffix;
 good(
