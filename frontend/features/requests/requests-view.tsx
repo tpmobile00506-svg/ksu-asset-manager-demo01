@@ -168,6 +168,8 @@ export default function RequestsView({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerBranch, setPickerBranch] = useState<string>('all');
+  // หน้าต่างยื่นคำขอใหม่: ติ๊กหลายรายการ = ยื่นพร้อมกัน (requestMany) · กด "เลือก" = ยื่นรายการเดียวแบบเดิม
+  const [pickerPicked, setPickerPicked] = useState<Set<string>>(() => new Set());
   // อนุมัติที่เลือก: ติ๊กได้เฉพาะใบที่รอขั้นของฉัน · ใบที่อนุมัติไปแล้วหลุดออกเองเมื่อโหลดข้อมูลใหม่
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const pickedList = useMemo(() => waitingMe.filter(r => picked.has(r.id)), [waitingMe, picked]);
@@ -302,6 +304,28 @@ export default function RequestsView({
       return true;
     });
   }, [activeAssets, pickerSearch, pickerBranch]);
+  const pendingAssetIds = useMemo(
+    () => new Set((data.requests || []).filter(r => r.status === 'pending').map(r => r.assetId)),
+    [data.requests],
+  );
+  const pickerPickedAssets = activeAssets.filter(a => pickerPicked.has(a.id));
+  const allFoundPicked = pickableAssets.length > 0 && pickableAssets.every(a => pickerPicked.has(a.id));
+  const togglePickerAsset = (id: string) =>
+    setPickerPicked(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const togglePickerFound = () =>
+    setPickerPicked(prev => {
+      const next = new Set(prev);
+      for (const a of pickableAssets) {
+        if (allFoundPicked) next.delete(a.id);
+        else next.add(a.id);
+      }
+      return next;
+    });
 
   // ปุ่มของแต่ละคำขอ: ผู้อนุมัติขั้นนี้ = อนุมัติ/ไม่อนุมัติ · ผู้ยื่นที่ยังรอ = ยกเลิกคำขอ
   const actionsFor = (r: RequestRecord) => ({
@@ -366,7 +390,10 @@ export default function RequestsView({
         {canCreate && (
           <Button
             type="button"
-            onClick={() => setPickerOpen(true)}
+            onClick={() => {
+              setPickerPicked(new Set());
+              setPickerOpen(true);
+            }}
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 rounded-lg gap-2"
           >
             <Plus size={16} />
@@ -655,52 +682,86 @@ export default function RequestsView({
                 ))}
               </div>
             )}
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+              <span>ติ๊กหลายรายการเพื่อยื่นพร้อมกัน หรือกด “เลือก” เพื่อยื่นรายการเดียว</span>
+              {pickableAssets.length > 0 && (
+                <label className="inline-flex items-center gap-2 font-medium text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="request-pick"
+                    checked={allFoundPicked}
+                    onChange={togglePickerFound}
+                  />
+                  เลือกทั้งหมดที่ค้นเจอ ({pickableAssets.length.toLocaleString('th-TH')})
+                </label>
+              )}
+            </div>
           </div>
 
           <div className="overflow-y-auto flex-1 min-h-0 p-4 space-y-2 bg-slate-50/40">
             {pickableAssets.map(a => (
-              <button
-                type="button"
+              <div
                 key={a.id}
-                onClick={() => {
-                  setPickerOpen(false);
-                  open('request', { asset: a });
-                }}
-                className="group w-full text-left p-3 bg-white hover:bg-blue-50/40 rounded-xl border border-slate-200 hover:border-blue-400 transition-colors flex items-center justify-between gap-3"
+                className={`flex items-center gap-3 pl-3 rounded-xl border transition-colors ${
+                  pickerPicked.has(a.id)
+                    ? 'bg-blue-50/60 border-blue-400'
+                    : 'bg-white border-slate-200 hover:border-blue-400'
+                }`}
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden text-slate-500">
-                    {a.imageUrl ? (
-                      <img src={a.imageUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <Package size={20} />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm text-slate-900 line-clamp-1">{a.name}</span>
-                      <Badge value={a.condition} />
-                    </div>
-                    <div className="flex items-center gap-x-2.5 gap-y-0.5 text-xs text-slate-600 flex-wrap mt-0.5">
-                      <span className="font-mono font-semibold text-slate-700 break-all">{a.code}</span>
-                      <span className="inline-flex items-center gap-1">
-                        <Building size={12} className="shrink-0" />
-                        {a.branch}
-                      </span>
-                      {a.location && (
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin size={12} className="shrink-0" />
-                          {a.location}
-                        </span>
+                <input
+                  type="checkbox"
+                  className="request-pick shrink-0"
+                  checked={pickerPicked.has(a.id)}
+                  onChange={() => togglePickerAsset(a.id)}
+                  aria-label={`เลือก ${a.code} ${a.name}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPickerOpen(false);
+                    open('request', { asset: a });
+                  }}
+                  className="group flex-1 min-w-0 text-left py-3 pr-3 rounded-r-xl hover:bg-blue-50/40 flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden text-slate-500">
+                      {a.imageUrl ? (
+                        <img src={a.imageUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <Package size={20} />
                       )}
                     </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm text-slate-900 line-clamp-1">{a.name}</span>
+                        <Badge value={a.condition} />
+                        {pendingAssetIds.has(a.id) && (
+                          <span className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                            มีคำขอรออนุมัติ
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-x-2.5 gap-y-0.5 text-xs text-slate-600 flex-wrap mt-0.5">
+                        <span className="font-mono font-semibold text-slate-700 break-all">{a.code}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <Building size={12} className="shrink-0" />
+                          {a.branch}
+                        </span>
+                        {a.location && (
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin size={12} className="shrink-0" />
+                            {a.location}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <span className="shrink-0 inline-flex items-center gap-1 text-sm font-semibold text-blue-700">
-                  เลือก
-                  <ArrowRight size={14} />
-                </span>
-              </button>
+                  <span className="shrink-0 inline-flex items-center gap-1 text-sm font-semibold text-blue-700">
+                    เลือก
+                    <ArrowRight size={14} />
+                  </span>
+                </button>
+              </div>
             ))}
             {pickableAssets.length === 0 && (
               <div className="py-10 px-4 text-center bg-white rounded-xl border border-dashed border-slate-200">
@@ -723,10 +784,37 @@ export default function RequestsView({
             )}
           </div>
 
-          <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end">
-            <Button variant="outline" onClick={() => setPickerOpen(false)}>
-              ปิด
-            </Button>
+          <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm text-slate-700">
+              {pickerPickedAssets.length > 0 && (
+                <>
+                  เลือก <b className="text-blue-700">{pickerPickedAssets.length.toLocaleString('th-TH')}</b> รายการ
+                  <button
+                    type="button"
+                    className="ml-2 text-xs text-blue-700 underline"
+                    onClick={() => setPickerPicked(new Set())}
+                  >
+                    ล้าง
+                  </button>
+                </>
+              )}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setPickerOpen(false)}>
+                ปิด
+              </Button>
+              <Button
+                disabled={!pickerPickedAssets.length}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => {
+                  setPickerOpen(false);
+                  open('requestMany', { assets: pickerPickedAssets });
+                }}
+              >
+                ยื่นคำขอ{' '}
+                {pickerPickedAssets.length ? `${pickerPickedAssets.length.toLocaleString('th-TH')} รายการ` : 'ที่ติ๊ก'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
