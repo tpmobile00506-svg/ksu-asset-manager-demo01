@@ -61,6 +61,12 @@ export function RowActions({
             แยกรายการ ({asset.quantity.toLocaleString('th-TH')} ชิ้น)
           </DropdownMenuItem>
         )}
+        {can && many && asset.condition !== 'repair' && (
+          <DropdownMenuItem onSelect={() => open('splitEach', { asset })}>
+            <QrCode size={14} />
+            แยกเป็นรายชิ้น (QR คนละดวง)
+          </DropdownMenuItem>
+        )}
         {can && <DropdownMenuSeparator />}
         {can && (
           <DropdownMenuItem onSelect={() => open('request', { asset })}>

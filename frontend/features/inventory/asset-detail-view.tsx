@@ -47,6 +47,8 @@ interface AssetDetailViewProps {
   onEdit: () => void;
   onRequest: () => void;
   onSplit?: () => void;
+  // แยกรายการกลุ่มเป็นรายชิ้น (QR คนละดวง)
+  onSplitEach?: () => void;
   onRepairComplete?: () => void;
   // ยกเลิกรายการที่บันทึกผิด (หมวด "ข้อมูลผิดพลาด")
   onVoid?: () => void;
@@ -67,6 +69,7 @@ export default function AssetDetailView({
   onEdit,
   onRequest,
   onSplit,
+  onSplitEach,
   onRepairComplete,
   onVoid,
   onRestore,
@@ -196,6 +199,16 @@ export default function AssetDetailView({
                     className="h-9 px-3 text-xs font-semibold text-slate-700 border-slate-300 hover:bg-slate-50 cursor-pointer"
                   >
                     <Scissors size={13} className="mr-1.5" /> แยกรายการ ({asset.quantity})
+                  </Button>
+                )}
+                {asset.quantity > 1 && !asset.setId && asset.condition !== 'repair' && onSplitEach && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onSplitEach}
+                    className="h-9 px-3 text-xs font-semibold text-slate-700 border-slate-300 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <QrCode size={13} className="mr-1.5" /> แยกเป็นรายชิ้น
                   </Button>
                 )}
                 {asset.condition === 'repair' && onRepairComplete && (

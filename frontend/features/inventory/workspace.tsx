@@ -370,6 +370,7 @@ export default function Workspace() {
               onEdit={() => open('edit', { asset: selected })}
               onRequest={() => open('request', { asset: selected })}
               onSplit={() => open('split', { asset: selected })}
+              onSplitEach={() => open('splitEach', { asset: selected })}
               onRepairComplete={() => open('repairComplete', { asset: selected })}
               onVoid={() => open('void', { asset: selected })}
               onRestore={() => open('restore', { asset: selected })}

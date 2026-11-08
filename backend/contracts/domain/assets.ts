@@ -14,6 +14,30 @@ export function expandRange(code: string, quantity: number): string[] | null {
   return [m[1] + m[2] + '(' + m[3] + ')', m[1] + m[4] + '(' + m[3] + ')'];
 }
 
+// ติด QR แยกรายชิ้น (ผู้ใช้ขอ 8 พ.ย. 2569): ของหลายชิ้นเลือกได้ว่าจะเป็นรายการเดียว (QR เดียว) หรือแยกรายการละชิ้น
+// หมายเลขของแต่ละชิ้น = หมายเลขหลัก + เลขลำดับ 3 รูปแบบที่พบในไฟล์ของคณะ (งานพัสดุยังไม่ได้กำหนดแบบเดียว จึงให้เลือก)
+// ระบบไล่เลขให้เป็นค่าเริ่มต้นเท่านั้น เจ้าหน้าที่แก้รายชิ้นได้ก่อนบันทึก
+export const MAX_PIECES = 1000;
+export const pieceFormats = {
+  padded: '-001(020), -002(020) …',
+  plain: '-1(20), -2(20) …',
+  slash: '/1, /2 …',
+} as const;
+export type PieceFormat = keyof typeof pieceFormats;
+export function pieceCodes(base: string, start: number, count: number, format: PieceFormat): string[] {
+  if (!Number.isSafeInteger(start) || start < 1 || !Number.isSafeInteger(count) || count < 1) return [];
+  const last = start + count - 1,
+    width = Math.max(3, String(last).length),
+    pad = (n: number) => String(n).padStart(width, '0'),
+    b = base.trim();
+  return Array.from({ length: count }, (_, i) => {
+    const n = start + i;
+    if (format === 'padded') return `${b}-${pad(n)}(${pad(last)})`;
+    if (format === 'plain') return `${b}-${n}(${last})`;
+    return `${b}/${n}`;
+  });
+}
+
 // ผลต่างการตรวจนับ: เทียบจำนวนที่พบจริงกับจำนวนในทะเบียน ณ วันเปิดรอบ (ขาด / เกิน / ตรง / ยังไม่ได้ตรวจ)
 export type StocktakeDifference = { kind: 'unchecked' | 'match' | 'short' | 'over'; amount: number };
 export function stocktakeDifference(expected: number, found: number | null | undefined): StocktakeDifference {

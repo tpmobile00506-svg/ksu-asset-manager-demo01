@@ -7,7 +7,16 @@ import { trace } from '../../debug/trace';
 import { type Input, type MutationContext, type Handler } from './types';
 import { importFileAction } from './import-files';
 import { saveUser, saveWorkflow, changeOwnPassword } from './users';
-import { createAsset, bulkEdit, editAsset, splitAsset, repairComplete, voidAsset, restoreAsset } from './assets';
+import {
+  createAsset,
+  bulkEdit,
+  editAsset,
+  splitAsset,
+  splitEachAsset,
+  repairComplete,
+  voidAsset,
+  restoreAsset,
+} from './assets';
 import { batchImport, rowOverride } from './imports';
 import { fundAction } from './funds';
 import { createRequest, decideRequest, cancelRequest } from './requests';
@@ -29,6 +38,7 @@ const handlers: Record<string, Handler> = {
   bulkEdit,
   edit: editAsset,
   split: splitAsset,
+  splitEach: splitEachAsset,
   repairComplete,
   void: voidAsset,
   restore: restoreAsset,

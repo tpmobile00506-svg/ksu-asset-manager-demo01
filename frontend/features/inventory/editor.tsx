@@ -23,6 +23,8 @@ import {
 import { Any, Pick, statusLabel, baht } from '@/frontend/components/common';
 import type { WorkspaceData } from '@/shared/models';
 import QrLabelModal from './qr-label-modal';
+import PiecesEditor from './pieces-editor';
+import { type PiecesState, initialPieces, resolvePieces, piecesProblem } from './pieces';
 import AssetFormModal, {
   Field,
   BranchSelect,
@@ -43,6 +45,7 @@ const titleMap: Record<string, string> = {
   edit: 'แก้ไขข้อมูลครุภัณฑ์',
   import: 'ตรวจสอบและยืนยันนำเข้า',
   split: 'แยกรายการ',
+  splitEach: 'แยกเป็นรายชิ้น',
   request: 'ยื่นคำขอ',
   approve: 'อนุมัติคำขอ',
   reject: 'ไม่อนุมัติคำขอ',
@@ -63,6 +66,7 @@ const submitLabels: Record<string, string> = {
   void: 'ยกเลิกรายการนี้',
   restore: 'กู้คืนรายการ',
   split: 'แยกรายการ',
+  splitEach: 'แยกเป็นรายชิ้น',
   request: 'ยื่นคำขอ',
   approve: 'อนุมัติ',
   reject: 'ไม่อนุมัติ',
@@ -105,12 +109,19 @@ export default function Editor({
   const [splitOption, setSplitOption] = useState<'all' | 'partial'>('all');
   const [requestSplitTake, setRequestSplitTake] = useState(1);
   const [requestKind, setRequestKind] = useState<string>('transfer');
+  // แยกเป็นรายชิ้น: หมายเลขหลักเริ่มจากหมายเลขเดิม + ตารางหมายเลข/Serial รายชิ้น
+  const [pieceBase, setPieceBase] = useState('');
+  const [pieces, setPieces] = useState<PiecesState>(initialPieces);
   // เปิดหน้าต่างใหม่ (token ใหม่) → ล้างค่าที่กรอกค้างในฟอร์มแบ่งล็อต/ยื่นคำขอ
   const [formToken, setFormToken] = useState(modal?.token);
   if (modal?.token !== formToken) {
     setFormToken(modal?.token);
     if (modal?.kind === 'split') {
       setTake(1);
+    }
+    if (modal?.kind === 'splitEach') {
+      setPieceBase(modal.asset.code);
+      setPieces(initialPieces());
     }
     if (modal?.kind === 'request') {
       setSplitOption('all');
@@ -135,6 +146,21 @@ export default function Editor({
           quantity: take,
           condition: f.condition,
           reason: f.reason,
+        });
+      } else if (modal.kind === 'splitEach') {
+        const list = resolvePieces(pieces, pieceBase, modal.asset.quantity);
+        // หมายเลขชิ้นห้ามซ้ำกับหมายเลขเดิมของรายการ (รายการเดิมยังอยู่ในประวัติ)
+        const problem = piecesProblem(list, modal.asset.code, 'หมายเลขเดิมของรายการนี้');
+        if (problem) {
+          setError(problem);
+          return;
+        }
+        await write({
+          action: 'splitEach',
+          id: modal.asset.id,
+          version: modal.asset.version,
+          reason: f.reason,
+          pieces: list,
         });
       } else if (modal.kind === 'request') {
         const chosenKind = (f.requestKind as string) || requestKind || 'transfer';
@@ -342,6 +368,48 @@ export default function Editor({
                           placeholder="เช่น ชำรุดบางส่วน หรือแยกตามห้องใช้งานจริง"
                           rows={2}
                         />
+                      </label>
+                    </div>
+                  </>
+                )}
+
+                {/* แยกเป็นรายชิ้น: รายการกลุ่ม N ชิ้น → N รายการ QR คนละดวง (ผู้ใช้ขอ 8 พ.ย. 2569) */}
+                {modal?.kind === 'splitEach' && (
+                  <>
+                    <div className="notice">
+                      {modal.asset.code} · {modal.asset.quantity.toLocaleString('th-TH')} ชิ้น · มูลค่า{' '}
+                      {baht(modal.asset.totalSatang)}
+                      <p>
+                        จะได้ {modal.asset.quantity.toLocaleString('th-TH')} รายการ รายการละ 1 ชิ้น QR ไม่ซ้ำกัน
+                        แบ่งมูลค่าเท่ากันทุกชิ้น และรายการเดิมยังอยู่ในประวัติ
+                      </p>
+                    </div>
+                    <div className="form-grid form-grid-single mt-4">
+                      <label>
+                        <span>หมายเลขหลัก</span>
+                        <Input
+                          value={pieceBase}
+                          onChange={e => {
+                            setPieceBase(e.target.value);
+                            if (Object.keys(pieces.edited).length) setPieces(p => ({ ...p, edited: {} }));
+                          }}
+                          className="font-mono"
+                        />
+                        <small className="text-xs text-slate-500 mt-1 block">
+                          ใช้ตั้งต้นหมายเลขของแต่ละชิ้น แก้รายชิ้นได้ในตารางด้านล่าง
+                        </small>
+                      </label>
+                    </div>
+                    <PiecesEditor
+                      base={pieceBase}
+                      quantity={modal.asset.quantity}
+                      value={pieces}
+                      onChange={setPieces}
+                    />
+                    <div className="form-grid form-grid-single mt-4">
+                      <label>
+                        <span>เหตุผลที่แยกเป็นรายชิ้น *</span>
+                        <Textarea name="reason" required placeholder="เช่น ติด QR แยกทุกเครื่อง" rows={2} />
                       </label>
                     </div>
                   </>

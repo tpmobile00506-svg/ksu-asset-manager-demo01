@@ -24,5 +24,15 @@ export function splitAmounts(quantity: number, total: number, take: number) {
   return [first, total - first];
 }
 
+// แบ่งยอดเงินให้ count ชิ้นเท่าๆ กัน (ใช้ตอนแยกเป็นรายชิ้น) รวมกลับได้ตรงทุกสตางค์
+// เศษสตางค์ที่หารไม่ลงตัวให้ชิ้นแรกๆ ชิ้นละ 1 สตางค์ เช่น 1,000 สตางค์ 3 ชิ้น → 334, 333, 333
+export function splitEvenly(total: number, count: number): number[] {
+  if (!Number.isSafeInteger(count) || count < 1 || !Number.isSafeInteger(total) || total < 0)
+    throw Error('จำนวนชิ้นต้องเป็นจำนวนเต็มตั้งแต่ 1 และยอดเงินต้องไม่ติดลบ');
+  const base = Math.floor(total / count),
+    extra = total - base * count;
+  return Array.from({ length: count }, (_, i) => base + (i < extra ? 1 : 0));
+}
+
 export const money = (n: number) =>
   new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n / 100);

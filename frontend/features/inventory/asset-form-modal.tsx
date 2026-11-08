@@ -33,6 +33,8 @@ import {
 } from '@/shared/domain';
 import { Any, api, Pick, sessionFetch, readApiResponse, getSessionSignal } from '@/frontend/components/common';
 import { WorkspaceData } from '@/frontend/types/models';
+import PiecesEditor from './pieces-editor';
+import { type PiecesState, initialPieces, resolvePieces, piecesProblem } from './pieces';
 
 // ช่องเลือกทุกช่องในฟอร์มใช้หน้าตาเดียวกัน ให้ช่องที่อยู่ข้างกันสมส่วน
 const selectClass =
@@ -222,6 +224,10 @@ export default function AssetFormModal({
   const [categoryInput, setCategoryInput] = useState<string>('');
   const [branchInput, setBranchInput] = useState<string>('');
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  // ติด QR แบบไหน (ของหลายชิ้นตอนเพิ่ม/นำเข้า): '' = ยังไม่เลือก (ต้องเลือกเองทุกครั้ง กันกรอกผิดแบบ)
+  const [codeInput, setCodeInput] = useState('');
+  const [qrMode, setQrMode] = useState<'' | 'group' | 'each'>('');
+  const [pieces, setPieces] = useState<PiecesState>(initialPieces);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -233,6 +239,9 @@ export default function AssetFormModal({
       const c = assetTypeOf(raw) || assetTypeOf('ครุภัณฑ์' + raw) || raw;
       setBranchInput(b);
       setCategoryInput(c);
+      setCodeInput(modal.asset?.code || '');
+      setQrMode('');
+      setPieces(initialPieces());
 
       if (modal.asset) {
         const q = modal.asset.quantity || 1;
@@ -313,6 +322,10 @@ export default function AssetFormModal({
     setRemovePhoto(false);
   };
 
+  // ตัวเลือก "ติด QR แบบไหน" ขึ้นเมื่อเพิ่ม/นำเข้าของหลายชิ้น ยกเว้นแถวที่อยู่ในชุดห้ามแยก (ต้องเป็นรายการเดียวตามเดิม)
+  const qrChoiceFor = (qty: number) =>
+    !!modal && ['create', 'import'].includes(modal.kind) && qty > 1 && !modal.row?.set;
+
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!modal) return;
@@ -330,6 +343,22 @@ export default function AssetFormModal({
         salvageSatang: satang(f.salvage || 0),
       };
 
+      // ของหลายชิ้น: ต้องเลือกแบบ QR ก่อน · แยกรายชิ้นส่งหมายเลข/Serial ของทุกชิ้นไปด้วย
+      const choosing = qrChoiceFor(a.quantity);
+      if (choosing && !qrMode) {
+        setError('กรุณาเลือกว่าจะติด QR แบบไหน: QR เดียวทั้งกลุ่ม หรือ QR แยกรายชิ้น');
+        return;
+      }
+      const each = choosing && qrMode === 'each';
+      const pieceList = each ? resolvePieces(pieces, String(a.code ?? ''), a.quantity) : undefined;
+      if (pieceList) {
+        const problem = piecesProblem(pieceList, String(a.code ?? ''));
+        if (problem) {
+          setError(problem);
+          return;
+        }
+      }
+
       const res = await write({
         action: modal.kind,
         asset: a,
@@ -339,12 +368,14 @@ export default function AssetFormModal({
         sourceRow: modal.row?.key,
         reviewed: f.reviewed === 'on',
         reason: f.reason || '',
+        pieces: pieceList,
       });
 
       const targetAssetId = modal.kind === 'edit' ? modal.asset?.id : res?.id;
       const currentVersion = modal.asset?.imageVersion || '';
 
-      if (res && targetAssetId) {
+      // แยกรายชิ้น: ไม่แนบรูปตอนเพิ่ม (ช่องรูปซ่อนไว้) เพิ่มรูปทีหลังที่หน้าข้อมูลของแต่ละชิ้น
+      if (res && targetAssetId && !each) {
         if (newPhoto?.file) {
           let imageSaved = false;
           try {
@@ -417,6 +448,9 @@ export default function AssetFormModal({
       ? `/api/asset-image?asset=${encodeURIComponent(modal.asset.id)}&v=${encodeURIComponent(modal.asset.imageVersion)}`
       : null);
 
+  const choosingQr = qrChoiceFor(Number(qtyInput) || 0);
+  const eachMode = choosingQr && qrMode === 'each';
+
   const conditionOptions = prioritized(conditions, modal.asset?.condition || 'normal').filter(([condition]) =>
     modal.kind === 'create'
       ? condition !== 'repair' && condition !== 'missing' // เพิ่มของใหม่: ไม่มี "กำลังซ่อม" (ต้องผ่านคำขอซ่อม) และ "ไม่พบ" (ของที่เพิ่งรับมาต้องมีอยู่)
@@ -477,11 +511,21 @@ export default function AssetFormModal({
                 <div className="form-section-title">ข้อมูลพื้นฐาน</div>
                 <div className="form-grid">
                   <Field
-                    label="หมายเลขครุภัณฑ์"
+                    label={eachMode ? 'หมายเลขหลัก' : 'หมายเลขครุภัณฑ์'}
                     name="code"
-                    defaultValue={modal?.asset?.code || ''}
+                    value={codeInput}
+                    onChange={e => {
+                      setCodeInput(e.target.value);
+                      // หมายเลขหลักเปลี่ยน → ไล่หมายเลขรายชิ้นใหม่ทั้งหมด (ล้างช่องที่แก้เองไว้)
+                      if (Object.keys(pieces.edited).length) setPieces(p => ({ ...p, edited: {} }));
+                    }}
                     placeholder="เช่น วค.01-02-0001"
                     required
+                    hint={
+                      eachMode
+                        ? 'ใช้ตั้งต้นหมายเลขของแต่ละชิ้นด้านล่าง และเก็บเป็นหมายเลขของรายการเดิมในประวัติ'
+                        : undefined
+                    }
                   />
                   <Field
                     label="ชื่อรายการ"
@@ -582,6 +626,62 @@ export default function AssetFormModal({
                     }
                   />
                 </div>
+
+                {/* ของหลายชิ้น: เลือกว่าจะเป็นรายการเดียว (QR เดียว) หรือแยกรายการละชิ้น (QR คนละดวง) ผู้ใช้ขอ 8 พ.ย. 2569 */}
+                {choosingQr && (
+                  <div className="mt-4" role="radiogroup" aria-label="ติด QR แบบไหน">
+                    <span className="block text-sm font-medium text-slate-700 mb-2">ติด QR แบบไหน *</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {(
+                        [
+                          [
+                            'group',
+                            'QR เดียวทั้งกลุ่ม',
+                            `1 รายการ จำนวน ${Number(qtyInput)} ชิ้น เหมาะกับโต๊ะ เก้าอี้ ที่เหมือนกัน`,
+                          ],
+                          [
+                            'each',
+                            'QR แยกรายชิ้น',
+                            `${Number(qtyInput)} รายการ QR ไม่ซ้ำกัน เหมาะกับคอม เครื่องมือ เครื่องใช้ไฟฟ้า`,
+                          ],
+                        ] as const
+                      ).map(([key, title, detail]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          role="radio"
+                          aria-checked={qrMode === key}
+                          onClick={() => setQrMode(key)}
+                          className={`flex items-start gap-2.5 text-left p-3 rounded-lg border cursor-pointer transition-all ${qrMode === key ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500/30' : 'bg-white border-slate-300 hover:bg-slate-50'}`}
+                        >
+                          {/* วงกลมแบบปุ่มตัวเลือก ให้เห็นชัดว่าเลือกอันไหนอยู่ */}
+                          <span
+                            aria-hidden="true"
+                            className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${qrMode === key ? 'border-blue-600' : 'border-slate-400'}`}
+                          >
+                            {qrMode === key && <span className="h-2 w-2 rounded-full bg-blue-600" />}
+                          </span>
+                          <span>
+                            <span
+                              className={`block text-sm font-semibold ${qrMode === key ? 'text-blue-900' : 'text-slate-800'}`}
+                            >
+                              {title}
+                            </span>
+                            <span className="block text-xs text-slate-600 mt-0.5">{detail}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {eachMode && (
+                      <PiecesEditor base={codeInput} quantity={Number(qtyInput)} value={pieces} onChange={setPieces} />
+                    )}
+                  </div>
+                )}
+                {modal.row?.set && Number(qtyInput) > 1 && (
+                  <p className="text-xs text-slate-600 mt-3">
+                    แถวนี้อยู่ในชุดห้ามแยก จึงบันทึกเป็นรายการเดียว (QR เดียว)
+                  </p>
+                )}
               </div>
 
               {/* ส่วนที่ 3: สถานที่และการครอบครอง */}
@@ -637,12 +737,16 @@ export default function AssetFormModal({
                     defaultValue={modal?.asset?.brand || ''}
                     placeholder="เช่น Dell PowerEdge R750"
                   />
-                  <Field
-                    label="Serial Number"
-                    name="serial"
-                    defaultValue={modal?.asset?.serial || ''}
-                    placeholder="เช่น SN-ABC1234567"
-                  />
+                  {eachMode ? (
+                    <p className="text-xs text-slate-600 self-end pb-2">Serial กรอกแยกแต่ละชิ้นในตารางรายชิ้นด้านบน</p>
+                  ) : (
+                    <Field
+                      label="Serial Number"
+                      name="serial"
+                      defaultValue={modal?.asset?.serial || ''}
+                      placeholder="เช่น SN-ABC1234567"
+                    />
+                  )}
                   <Field
                     label="วันที่ได้มา"
                     name="receivedDate"
@@ -692,7 +796,11 @@ export default function AssetFormModal({
                 />
 
                 <div className="flex flex-col gap-2">
-                  {newPhoto ? (
+                  {eachMode ? (
+                    <p className="text-sm text-slate-600 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                      แยกรายชิ้นแล้วแต่ละชิ้นเป็นรายการของตัวเอง เพิ่มรูปได้ภายหลังที่หน้าข้อมูลของแต่ละชิ้น
+                    </p>
+                  ) : newPhoto ? (
                     <div className="flex items-center gap-4 p-3 bg-blue-50/70 border border-blue-200 rounded-lg">
                       <img
                         src={newPhoto.url}

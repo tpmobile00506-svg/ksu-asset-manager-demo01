@@ -5,6 +5,7 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import * as domain from '../contracts/domain';
 import { readApiResponse } from '../../frontend/components/common';
+import * as pieces from '../../frontend/features/inventory/pieces';
 
 // Run the actual component handlers with isolated hooks and UI boundaries. This
 // catches form wiring regressions without a browser, server, or database write.
@@ -73,6 +74,8 @@ function mount(kind: 'create' | 'edit' | 'import', asset: Record<string, unknown
     if (id === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'Fragment' };
     if (id === '@/shared/domain') return domain;
     if (id === '@/frontend/components/common') return common;
+    // ส่วนคำนวณหมายเลขรายชิ้นใช้ของจริง (ตารางรายชิ้นเองเป็นส่วนแสดงผล ใช้ชื่อแทน)
+    if (id === './pieces') return pieces;
     if (id === 'sonner')
       return {
         toast: {
@@ -142,6 +145,12 @@ function mount(kind: 'create' | 'edit' | 'import', asset: Record<string, unknown
         .props.onChange({
           target: { files: [new File(['synthetic-photo'], 'test.png', { type: 'image/png' })], value: 'test.png' },
         });
+      render();
+    },
+    // ตัวเลือก "ติด QR แบบไหน" (ปุ่มแรก = QR เดียวทั้งกลุ่ม, ปุ่มที่สอง = แยกรายชิ้น)
+    qrChoices: () => elements.filter(element => element.props?.role === 'radio'),
+    chooseQr(mode: 'group' | 'each') {
+      elements.filter(element => element.props?.role === 'radio')[mode === 'group' ? 0 : 1].props.onClick();
       render();
     },
     async submit(overrides: Record<string, string> = {}) {
@@ -223,6 +232,8 @@ test('manual import attaches the chosen image to the returned asset id without r
   for (const fails of [false, true]) {
     const form = mount('import', { code: 'SOURCE-CODE', quantity: 2, unitSatang: 1000, totalSatang: 2000 }, fails);
     form.choosePhoto();
+    // ของ 2 ชิ้นต้องเลือกแบบ QR ก่อนบันทึก (8 พ.ย. 2569) เทสต์นี้ดูเรื่องรูป จึงเลือก QR เดียวทั้งกลุ่ม
+    form.chooseQr('group');
     await form.submit();
     assert.equal(form.writes.length, 1);
     assert.equal(form.writes[0].action, 'import');
@@ -235,4 +246,38 @@ test('manual import attaches the chosen image to the returned asset id without r
     assert.equal(form.warnings.length, fails ? 1 : 0);
     assert.deepEqual(form.errors, []);
   }
+});
+
+// ติด QR แยกรายชิ้น (ผู้ใช้ขอ 8 พ.ย. 2569): ของหลายชิ้นต้องเลือกแบบ QR ทุกครั้ง ไม่มีค่าเริ่มต้น
+test('ของหลายชิ้นต้องเลือกแบบ QR ก่อนบันทึก · QR เดียวทั้งกลุ่มไม่ส่งรายชิ้น · ของชิ้นเดียวไม่มีตัวเลือก', async () => {
+  const form = mount('create', { quantity: 2, unitSatang: 1000, totalSatang: 2000 });
+  assert.equal(form.qrChoices().length, 2);
+  await form.submit();
+  assert.equal(form.writes.length, 0);
+  assert.match(form.errors[0], /เลือกว่าจะติด QR แบบไหน/);
+  form.chooseQr('group');
+  await form.submit();
+  assert.equal(form.writes.length, 1);
+  assert.equal(form.writes[0].pieces, undefined);
+
+  const single = mount('create', { quantity: 1, unitSatang: 1000, totalSatang: 1000 });
+  assert.equal(single.qrChoices().length, 0);
+  await single.submit({ quantity: '1', totalPrice: '10' });
+  assert.equal(single.writes.length, 1);
+  assert.equal(single.writes[0].pieces, undefined);
+});
+
+test('แยกรายชิ้น: ส่งหมายเลขที่ไล่จากหมายเลขหลักครบทุกชิ้น และไม่แนบรูปตอนเพิ่ม', async () => {
+  const form = mount('create', { code: 'PC', quantity: 3, unitSatang: 1000, totalSatang: 3000 });
+  form.chooseQr('each');
+  form.choosePhoto();
+  await form.submit({ code: 'PC', quantity: '3', unitPrice: '10', totalPrice: '30' });
+  assert.deepEqual(form.errors, []);
+  // รูปแบบเริ่มต้น -001(003): 3 ชิ้น เลขชิ้นสุดท้ายคือ 3 เติมศูนย์ให้ครบ 3 หลัก
+  assert.deepEqual(form.writes[0].pieces, [
+    { code: 'PC-001(003)', serial: '' },
+    { code: 'PC-002(003)', serial: '' },
+    { code: 'PC-003(003)', serial: '' },
+  ]);
+  assert.equal(form.uploads.length, 0);
 });

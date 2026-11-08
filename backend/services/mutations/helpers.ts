@@ -1,15 +1,18 @@
 import { createHash } from 'node:crypto';
 import { type Transaction } from '../../db/client';
 import { type Member } from '../../auth/sessions';
+import { type Prisma } from '../../db/client';
 import {
   type Asset,
   type CandidateSet,
   type CandidateFund,
   splitAmounts,
+  splitEvenly,
   codeKey,
   branchAbbr,
+  MAX_PIECES,
 } from '../../contracts/domain';
-import { ApiError, clean, allow, now, id, asset, audit, insertAsset } from '../asset-service';
+import { ApiError, clean, allow, now, id, asset, audit, insertAsset, financialData } from '../asset-service';
 import { assetImageKey } from '../../storage/asset-image-metadata';
 import { trace } from '../../debug/trace';
 import { type MutationContext } from './types';
@@ -136,6 +139,51 @@ export async function splitLotForRequest(
   await audit(tx, m, 'แยกรายการเมื่ออนุมัติคำขอ', a.id, a, [target, remainder], reason);
   return target;
 }
+
+// รายชิ้นที่หน้าเว็บส่งมาตอนติด QR แยกรายชิ้น: ต้องครบเท่าจำนวน หมายเลขห้ามว่าง ส่วน Serial ไม่บังคับ
+// (หมายเลขซ้ำกันเองหรือซ้ำกับทะเบียน ตรวจต่อด้วย assertCodesFree)
+export type Piece = { code: string; serial: string };
+export function piecesFrom(input: unknown, quantity: number): Piece[] {
+  if (!Array.isArray(input)) throw new ApiError('ข้อมูลรายชิ้นไม่ถูกต้อง');
+  if (!Number.isSafeInteger(quantity) || quantity < 2) throw new ApiError('แยกรายชิ้นได้เมื่อมีตั้งแต่ 2 ชิ้นขึ้นไป');
+  if (quantity > MAX_PIECES)
+    throw new ApiError(`แยกรายชิ้นได้ครั้งละไม่เกิน ${MAX_PIECES.toLocaleString('th-TH')} ชิ้น`);
+  if (input.length !== quantity) throw new ApiError(`กรุณาระบุหมายเลขให้ครบ ${quantity.toLocaleString('th-TH')} ชิ้น`);
+  return input.map((p: { code?: unknown; serial?: unknown } | null, i) => {
+    const code = clean(p?.code ?? '', 200),
+      serial = clean(p?.serial ?? '', 200);
+    if (!code) throw new ApiError(`กรุณาระบุหมายเลขของชิ้นที่ ${i + 1}`);
+    return { code, serial };
+  });
+}
+// สร้างรายการลูกชิ้นละ 1 รายการจากรายการแม่ (แม่เก็บเป็นประวัติ lifecycle = split แบบเดียวกับแยกรายการ)
+// ยอดเงินและมูลค่าซากแบ่งด้วย splitEvenly รวมกลับเท่าแม่ทุกสตางค์ · ใช้ createMany คำสั่งเดียว ไม่ยิงทีละชิ้น
+export async function insertPieces(tx: Transaction, parent: Asset, pieces: Piece[], at: string): Promise<Asset[]> {
+  const totals = splitEvenly(parent.totalSatang, pieces.length),
+    salvages = splitEvenly(parent.salvageSatang, pieces.length);
+  const children: Asset[] = pieces.map((p, i) => ({
+    ...parent,
+    id: id(),
+    parentId: parent.id,
+    code: p.code,
+    serial: p.serial,
+    quantity: 1,
+    unitSatang: totals[i],
+    totalSatang: totals[i],
+    salvageSatang: salvages[i],
+    lifecycle: 'active',
+    version: 1,
+    createdAt: at,
+  }));
+  await tx.asset.createMany({ data: children.map(c => financialData(c) as Prisma.AssetCreateManyInput) });
+  return children;
+}
+// สรุปรายชิ้นสำหรับบันทึกประวัติ (ไม่เก็บทุกหมายเลขลง audit ให้ยาวเกิน)
+export const piecesSummary = (children: Asset[]) => ({
+  count: children.length,
+  first: children[0]?.code,
+  last: children[children.length - 1]?.code,
+});
 
 // แบ่งล็อตแล้วรายการลูกใช้รูปเดียวกับแม่ (คัดลอกไฟล์รูปใน stored_files)
 // skipDuplicates = ถ้ามีรูปของลูกอยู่แล้วให้ข้ามในระดับ SQL (ON CONFLICT DO NOTHING)

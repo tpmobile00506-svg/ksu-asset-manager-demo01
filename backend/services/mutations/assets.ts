@@ -29,7 +29,17 @@ import {
 } from '../asset-service';
 import { trace } from '../../debug/trace';
 import { type MutationContext } from './types';
-import { linkToSet, hintFund, assertCodesFree, split, loadEditableAsset, copyPhoto } from './helpers';
+import {
+  linkToSet,
+  hintFund,
+  assertCodesFree,
+  split,
+  loadEditableAsset,
+  copyPhoto,
+  piecesFrom,
+  insertPieces,
+  piecesSummary,
+} from './helpers';
 
 // คำสั่งของทะเบียนครุภัณฑ์: เพิ่ม แก้ไข แก้หลายรายการ แบ่งล็อต ซ่อมเสร็จ ยกเลิก และกู้คืน
 
@@ -60,10 +70,15 @@ export async function createAsset({ tx, m, action, b, sourceRows }: MutationCont
   }
   if (BigInt(a.unitSatang!) * BigInt(a.quantity!) !== BigInt(a.totalSatang!) && !reason)
     throw new ApiError('ยอดเงินไม่ตรงสูตร กรุณาระบุเหตุผลที่ใช้ยอดนี้');
-  const range = expandRange(a.code!, a.quantity!);
-  if (a.code!.includes('ถึง') && !range)
+  // ติด QR แยกรายชิ้น: หน้าเว็บส่งหมายเลขของทุกชิ้นมา (pieces) → รายการแม่เก็บเป็นประวัติ ลูกชิ้นละ 1 รายการ
+  // ไม่ส่งมา = QR เดียวทั้งกลุ่ม (เหมือนเดิม) · หมายเลขหลักของแม่จึงเป็นช่วงแบบในไฟล์ต้นฉบับได้
+  const pieces = b.pieces === undefined || b.pieces === null ? null : piecesFrom(b.pieces, a.quantity!);
+  // ชุดห้ามแยก (แถวที่อยู่ในชุดของไฟล์ต้นฉบับ) ต้องเป็นรายการเดียวตามเดิม
+  if (pieces && sourceSet) throw new ApiError('ครุภัณฑ์ในชุดห้ามแยก จึงแยกรายชิ้นไม่ได้');
+  const range = pieces ? null : expandRange(a.code!, a.quantity!);
+  if (!pieces && a.code!.includes('ถึง') && !range)
     throw new ApiError('กรุณายืนยันหมายเลขครุภัณฑ์ที่ชัดเจนก่อนนำเข้า เก็บรหัสช่วงเดิมในหมายเหตุ');
-  await assertCodesFree(tx, [a.code!, ...(range ?? [])]);
+  await assertCodesFree(tx, [a.code!, ...(range ?? []), ...(pieces ?? []).map(p => p.code)]);
   trace.ok(`ตรวจข้อมูลครบ และหมายเลข ${a.code} ไม่ซ้ำกับทะเบียน`);
   trace.step(`ราคารวม ${money(a.totalSatang!)} บาท เก็บเป็น ${a.totalSatang} สตางค์ (จำนวนเต็ม กันทศนิยมคลาดเคลื่อน)`);
   const setLink = await linkToSet(tx, sourceId, sourceSet);
@@ -71,7 +86,7 @@ export async function createAsset({ tx, m, action, b, sourceRows }: MutationCont
   const base = {
     ...a,
     id: id(),
-    lifecycle: range ? 'split' : 'active',
+    lifecycle: range || pieces ? 'split' : 'active',
     version: 1,
     parentId: null,
     sourceId,
@@ -109,6 +124,20 @@ export async function createAsset({ tx, m, action, b, sourceRows }: MutationCont
         lifecycle: 'active',
         parentId: base.id,
       });
+  }
+  if (pieces) {
+    const children = await insertPieces(tx, base, pieces, base.createdAt);
+    trace.ok(`แยกรายชิ้น ${children.length} รายการ ${children[0].code} … ${children[children.length - 1].code}`);
+    await audit(
+      tx,
+      m,
+      sourceId ? 'นำเข้าครุภัณฑ์ (แยกรายชิ้น)' : 'เพิ่มครุภัณฑ์ (แยกรายชิ้น)',
+      base.id,
+      null,
+      { ...base, pieces: piecesSummary(children) },
+      reason,
+    );
+    return { ok: true, id: base.id, pieceIds: children.map(c => c.id) };
   }
   await audit(tx, m, sourceId ? 'นำเข้าครุภัณฑ์' : 'เพิ่มครุภัณฑ์', base.id, null, base, reason);
   return { ok: true, id: base.id };
@@ -239,6 +268,28 @@ export async function splitAsset(ctx: MutationContext) {
   );
   await audit(tx, m, 'แยกรายการ', a.id, a, children, reason);
   return { ok: true };
+}
+
+// แยกเป็นรายชิ้น (ผู้ใช้ขอ 8 พ.ย. 2569): รายการกลุ่ม N ชิ้นที่บันทึกไว้แล้ว → N รายการ QR คนละดวง
+// กฎเดียวกับแยกรายการ: ห้ามแยกของในชุด ห้ามแยกระหว่างซ่อม ต้องมีเหตุผล รายการเดิมเก็บเป็นประวัติ ลูกได้รูปเดียวกับแม่
+export async function splitEachAsset(ctx: MutationContext) {
+  const { tx, m, b } = ctx;
+  const { a, reason } = await loadEditableAsset(ctx);
+  if (a.setId) throw new ApiError('ครุภัณฑ์ในชุดห้ามแยก จึงแยกรายชิ้นไม่ได้');
+  if (a.condition === 'repair') throw new ApiError('กรุณาบันทึกผลการซ่อมก่อนแยกรายชิ้น');
+  if (!reason) throw new ApiError('กรุณาระบุเหตุผลที่แยกรายชิ้น');
+  const pieces = piecesFrom(b.pieces, a.quantity);
+  // รวมหมายเลขเดิมของแม่ไว้ด้วย: ชิ้นใดใช้หมายเลขเดียวกับแม่ = ซ้ำกันเอง (แม่ยังอยู่ในประวัติ)
+  await assertCodesFree(tx, [a.code, ...pieces.map(p => p.code)], a.id);
+  await tx.asset.update({ where: { id: a.id }, data: { lifecycle: 'split', version: { increment: 1 } } });
+  const children = await insertPieces(tx, a, pieces, now());
+  await copyPhoto(
+    tx,
+    a.id,
+    children.map(c => c.id),
+  );
+  await audit(tx, m, 'แยกเป็นรายชิ้น', a.id, a, piecesSummary(children), reason);
+  return { ok: true, pieceIds: children.map(c => c.id) };
 }
 
 // บันทึกซ่อมเสร็จ: สภาพกลับเป็นปกติ และเก็บผลซ่อม/ค่าซ่อมจริงใน repair_records

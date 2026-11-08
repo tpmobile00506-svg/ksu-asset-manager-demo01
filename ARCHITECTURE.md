@@ -97,7 +97,7 @@ asset-manager/
 | ไฟล์ | action |
 | --- | --- |
 | `users.ts` | `user`, `workflow`, `password` (ทุกบทบาทเปลี่ยนรหัสผ่านของตัวเอง ต้องใส่รหัสเดิม แล้วออกจากระบบทุกเครื่อง) |
-| `assets.ts` | `create`, `import`, `bulkEdit`, `edit`, `split`, `repairComplete`, `void`, `restore` |
+| `assets.ts` | `create`, `import`, `bulkEdit`, `edit`, `split`, `splitEach`, `repairComplete`, `void`, `restore` |
 | `imports.ts`, `import-files.ts` | `batchImport`, `rowOverride`, `sourceDelete`, `sourceArchive` |
 | `funds.ts` | `fundSave`, `fundDelete`, `fundAssign`, `fundUnassign` |
 | `requests.ts` | `request`, `approve`, `reject` (ไม่อนุมัติ = คำขอสิ้นสุด), `cancelRequest` (ผู้ยื่นยกเลิกเองระหว่างรออนุมัติทุกขั้น) |
@@ -106,7 +106,7 @@ asset-manager/
 
 ## 5. หลักการสำคัญที่ต้องรักษา
 
-- **เงินเป็นสตางค์จำนวนเต็มเสมอ** (`BigInt` ในฐานข้อมูล, `number` ใน JSON) ใช้ `satang()` แปลงค่าที่กรอก, `money()` แสดงผล, `splitAmounts()` แบ่งยอด ห้ามคิดเงินด้วยทศนิยม
+- **เงินเป็นสตางค์จำนวนเต็มเสมอ** (`BigInt` ในฐานข้อมูล, `number` ใน JSON) ใช้ `satang()` แปลงค่าที่กรอก, `money()` แสดงผล, `splitAmounts()` แบ่งยอด 2 ส่วน, `splitEvenly()` แบ่งยอดรายชิ้น ห้ามคิดเงินด้วยทศนิยม
 - **version กันแก้ทับ**: ครุภัณฑ์และคำขอมีคอลัมน์ `version` หน้าเว็บส่ง version ที่เห็นมา ถ้าไม่ตรงตอบ 409 "ข้อมูลเปลี่ยนแล้ว"
 - **ทุกการเปลี่ยนแปลงมีประวัติ**: เรียก `audit(tx, ...)` เก็บว่าใครทำ เมื่อไร ก่อน/หลัง และเหตุผล
 - **ยอดเงินแก้ตรง ๆ ไม่ได้**: เปลี่ยนจำนวน/มูลค่าต้องผ่าน "แบ่งล็อต" ที่มีเหตุผลกำกับ
