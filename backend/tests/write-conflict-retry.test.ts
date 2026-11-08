@@ -139,6 +139,20 @@ test('mutate: ชนติดกันครบ 5 รอบ → หยุดล�
   }
 });
 
+test('mutate: แถวซ้ำระหว่างทำพร้อมกัน (P2002 เช่น ลงนามขั้นเดียวกันพร้อมกัน) → ลองใหม่เหมือนการชนกัน', async () => {
+  const duplicate = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+  const env = installClient([duplicate]);
+  try {
+    const result = await mutate(admin, { action: 'workflow', chain: ['head', 'deputy', 'dean'] });
+    assert.deepEqual(result, { ok: true });
+    // รอบแรกชน (ย้อนกลับ) · รอบที่ 2 สำเร็จ บันทึก 1 ครั้ง
+    assert.equal(env.calls(), 2);
+    assert.equal(env.saved.length, 1);
+  } finally {
+    env.restore();
+  }
+});
+
 test('mutate: error อื่นที่ไม่ใช่การชน → ไม่ลองใหม่', async () => {
   const env = installClient([new Error('อื่น ๆ')]);
   try {

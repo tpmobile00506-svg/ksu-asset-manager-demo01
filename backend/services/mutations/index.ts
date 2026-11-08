@@ -134,9 +134,11 @@ export async function mutate(member: Member, input: Input) {
         { isolationLevel, maxWait: 15000, timeout: 45000 },
       );
     } catch (error) {
-      const conflict = isWriteConflict(error);
+      // ข้อมูลซ้ำ (P2002) ระหว่างทำพร้อมกัน เช่น ผู้อนุมัติ 2 คนลงนามขั้นเดียวกันพร้อมกัน: Postgres แจ้งเป็นแถวซ้ำแทนการชนกัน
+      // จึงลองใหม่เหมือนการชนกัน รอบใหม่เห็นข้อมูลล่าสุดแล้วตอบเหตุผลที่ชัด เช่น "มีผู้อนุมัติคำขอนี้ไปแล้ว"
+      const conflict = isWriteConflict(error) || (error as { code?: string }).code === 'P2002';
       // A concurrent identical request may have committed while this transaction rolled back.
-      if (conflict || (error as { code?: string }).code === 'P2002') {
+      if (conflict) {
         const existing = await prisma.operation.findUnique({ where: { id: token } });
         if (existing) return replay(existing);
       }

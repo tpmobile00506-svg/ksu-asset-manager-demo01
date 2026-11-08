@@ -351,6 +351,30 @@ test('อนุมัติที่เลือก: มีใบของสา
   );
 });
 
+test('กดอนุมัติใบที่มีคนดำเนินการไปก่อนแล้ว → 409 บอกเหตุผลที่ชัด (ผู้อนุมัติ 2 คนกดพร้อมกัน)', async () => {
+  const a = chair('CH-001', { version: 2 });
+  const cases: [Row, string][] = [
+    // ยังรออนุมัติแต่เลขรุ่นขยับจาก 1 เป็น 2 = มีคนลงนามขั้นนี้ไปแล้ว
+    [{ version: 2, stage: 1 }, 'มีผู้อนุมัติคำขอนี้ไปแล้ว กรุณาโหลดใหม่'],
+    [{ version: 4, stage: 3, status: 'approved' }, 'คำขอนี้อนุมัติครบแล้ว กรุณาโหลดใหม่'],
+    [{ version: 2, status: 'rejected' }, 'คำขอนี้ไม่ได้รับอนุมัติไปแล้ว กรุณาโหลดใหม่'],
+    [{ version: 2, status: 'cancelled' }, 'ผู้ยื่นยกเลิกคำขอนี้แล้ว กรุณาโหลดใหม่'],
+  ];
+  for (const [changed, message] of cases) {
+    const db = database([a], [{ ...pending('r1', a, 0, 'repair', {}, 1), ...changed }]);
+    await assert.rejects(
+      run(db, () => mutate(dean, { action: 'approve', id: 'r1', version: 1 })),
+      (e: unknown) => e instanceof ApiError && e.status === 409 && e.message === message,
+    );
+    // อนุมัติที่เลือก: ข้อความเดียวกัน มีหมายเลขครุภัณฑ์นำหน้า
+    await assert.rejects(
+      run(db, () => mutate(dean, { action: 'approveMany', items: [{ id: 'r1', version: 1 }] })),
+      (e: unknown) => e instanceof ApiError && e.message === 'CH-001: ' + message,
+    );
+    assert.equal(db.state.approvals.length, 0);
+  }
+});
+
 // ---------- หน้าต่างยื่นหลายรายการ: คัดรายการที่ยื่นได้ล่วงหน้า ----------
 const asAsset = (row: Row) => row as unknown as Asset;
 

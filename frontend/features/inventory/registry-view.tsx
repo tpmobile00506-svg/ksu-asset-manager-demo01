@@ -167,7 +167,7 @@ export function RegistryView({
         <TableCell className="text-center" onClick={e => e.stopPropagation()}>
           <input
             type="checkbox"
-            aria-label={`เลือก ${a.name}`}
+            aria-label={`เลือก ${a.code} ${a.name}`}
             checked={isSelected}
             onChange={e => toggleSelectAsset(a.id, e)}
             className="select-check"
@@ -276,7 +276,7 @@ export function RegistryView({
               <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                 <input
                   type="checkbox"
-                  aria-label={`เลือก ${a.name}`}
+                  aria-label={`เลือก ${a.code} ${a.name}`}
                   checked={isSelected}
                   onChange={e => toggleSelectAsset(a.id, e)}
                   className="select-check select-check-lg"

@@ -114,13 +114,25 @@ export async function createRequest(ctx: MutationContext) {
   return { ok: true, id: req.id, assetId: a.id };
 }
 
+// คำขอที่มีคนดำเนินการไปก่อนแล้ว (เช่น ผู้อนุมัติ 2 คนกดพร้อมกัน): บอกให้ชัดว่าเกิดอะไรขึ้น
+// ยังรออนุมัติแต่เลขรุ่นไม่ตรง = มีคนลงนามขั้นนี้ไปแล้ว (ระหว่างรออนุมัติ เลขรุ่นของคำขอเปลี่ยนเฉพาะตอนลงนาม)
+const handledBefore: Record<string, string> = {
+  pending: 'มีผู้อนุมัติคำขอนี้ไปแล้ว กรุณาโหลดใหม่',
+  approved: 'คำขอนี้อนุมัติครบแล้ว กรุณาโหลดใหม่',
+  rejected: 'คำขอนี้ไม่ได้รับอนุมัติไปแล้ว กรุณาโหลดใหม่',
+  cancelled: 'ผู้ยื่นยกเลิกคำขอนี้แล้ว กรุณาโหลดใหม่',
+};
+
 // อนุมัติ / ไม่อนุมัติคำขอ ทีละขั้นตามสายอนุมัติ (ไม่อนุมัติ = คำขอสิ้นสุด ไม่ได้ส่งกลับไปแก้) · ขั้นสุดท้ายอนุมัติ = ระบบแก้ทะเบียนให้อัตโนมัติ
 export async function decideRequest({ tx, m, action, b }: MutationContext) {
   const validatedApproval = validate(approvalMutationSchema, b);
   const { id: reqId, version: reqVersion, reason } = validatedApproval;
   const r = await tx.assetRequest.findUnique({ where: { id: reqId } });
   if (!r || r.status !== 'pending' || r.version !== reqVersion)
-    throw new ApiError('คำขอเปลี่ยนแล้ว กรุณาโหลดใหม่', 409);
+    throw new ApiError(
+      (r && Object.hasOwn(handledBefore, r.status) && handledBefore[r.status]) || 'คำขอเปลี่ยนแล้ว กรุณาโหลดใหม่',
+      409,
+    );
   // สวิตช์สาธิต ADMIN_APPROVES_ALL (ปกติปิด): Admin ลงนามทุกขั้นที่เหลือได้
   const chain = JSON.parse(r.chain),
     adminAll = ADMIN_APPROVES_ALL && m.role === 'admin';
